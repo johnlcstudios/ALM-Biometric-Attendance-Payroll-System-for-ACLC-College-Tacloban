@@ -42,7 +42,61 @@ git config --global --list
 
 ---
 
-## 🔄 **Step-by-Step: Pushing & Pulling (Workflow)**
+
+## **📌 Summary of Steps: Push & Pull Workflow**
+
+### **1️⃣ Clone (First Time Only)**
+```bash
+git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
+cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
+```
+
+### **2️⃣ Switch to Your Team Branch**
+```bash
+git checkout Frontend   # or Backend
+```
+
+### **3️⃣ Pull Latest Changes (Before You Start)**
+```bash
+git pull origin Frontend   # or Backend
+```
+
+### **4️⃣ Add/Modify Files**
+Place files in correct folders, then stage:
+```bash
+git add .   # or specific files like git add src/
+```
+
+### **5️⃣ Commit Changes**
+```bash
+git commit -m "feat: descriptive message"
+```
+
+### **6️⃣ Push to Remote**
+```bash
+git push origin Frontend   # or Backend
+```
+
+### **7️⃣ Pull Again (If Needed)**
+If others pushed while you were working, pull before you push:
+```bash
+git pull origin Frontend
+```
+Resolve any conflicts, then push again.
+
+### **8️⃣ Create Pull Request (When Ready to Merge to `main`)**
+1. Go to GitHub → **Pull requests** → **New pull request**
+2. Base: `main`, compare: your branch
+3. Add description → **Create pull request**
+4. After review and approval → **Merge**
+
+---
+
+**✅ Keep your branch updated and commit often!**
+
+---
+
+## 🔄 **Step-by-Step: Pushing & Pulling (Workflow) [Detailed]**
 
 ### **1. Clone the Repository (First Time Only)**
 ```bash
