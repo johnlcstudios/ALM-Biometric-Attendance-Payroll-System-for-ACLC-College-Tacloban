@@ -37,6 +37,10 @@ cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
 # Switch to Frontend branch
 git checkout Frontend
 
+#Config Git 
+git config --global user.email "email address"
+git config --global user.name "your name"
+
 # Add your frontend files
 # (Place files in appropriate folders)
 
@@ -68,6 +72,10 @@ git push origin Frontend
 # Clone the repo
 git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
 cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
+
+#Config Git 
+git config --global user.email "email address"
+git config --global user.name "your name"
 
 # Switch to Backend branch
 git checkout Backend
