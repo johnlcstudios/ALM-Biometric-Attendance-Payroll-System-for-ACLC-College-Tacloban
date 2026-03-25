@@ -44,24 +44,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Improved resource management by ensuring camera streams are stopped when navigating away from enrollment pages in the payroll system.
 
+--- 
+
 # To Fix
-### Kiosk
+### Bioemtrics Team Kiosk
 - Face Model and API Integration
 - Faceial Recognition Preview
+- Console Errors
 
 ### Frontend 
 - Implement all pages
 - Prepare for Backend Integration
+- Console Errors
 
 ### Backend
 - Full System Integration
 - Face API Integration
 - Face Model Preparation
 - Backend Prep and Integration
+- Console Errors
 
 ### Testing
 - Face Model Testing
 - Face Model Training
 - ML Training
+- Console Errors
 
 
