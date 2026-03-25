@@ -306,3 +306,49 @@ select.filter-select:focus { border-color: var(--accent); }
 .overload-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .overload-badge.ok { background: #e8f5e9; color: #2e7d32; }
 .overload-badge.over { background: #fff8e1; color: #e65100; }
+
+
+/* FACE ENROLLMENT */
+.face-enrollment-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.video-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 4/3;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 4px solid var(--accent);
+  margin: 20px 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+.video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.video-wrap canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.enroll-status {
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.enroll-status.success { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+.enroll-status.error { background: #fce4ec; color: #c62828; border-color: #ef9a9a; }
+.enroll-status.loading { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
