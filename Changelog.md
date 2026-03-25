@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --- 
 
 # To Fix
+on Saturday 3/28/26
+
 ### Bioemtrics Team Kiosk
 - Face Model and API Integration
 - Faceial Recognition Preview
