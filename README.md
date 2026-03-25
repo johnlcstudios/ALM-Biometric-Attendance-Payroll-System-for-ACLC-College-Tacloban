@@ -32,7 +32,7 @@ git config --global user.email "your.email@example.com"
 Example:
 ```bash
 git config --global user.name "JohnLC Studios"
-git config --global user.email "jlcabajaan@gmail.com"
+git config --global user.email "example@gmail.com"
 ```
 
 Verify the settings:
