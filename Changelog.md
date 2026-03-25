@@ -72,4 +72,5 @@ on Saturday 3/28/26
 - ML Training
 - Console Errors
 
-
+### Administrative Team
+- Updated Gantt Chart (as of 3/28/26)
