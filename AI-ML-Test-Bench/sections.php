@@ -1,0 +1,357 @@
+<!-- Dashboard Page -->
+<section id="dashboard" class="page active">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <h3>Total Employees</h3>
+                <p class="stat-value" id="stat-total-emp">0</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+            <div class="stat-info">
+                <h3>Present Today</h3>
+                <p class="stat-value" id="stat-present">0</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="fas fa-user-times"></i></div>
+            <div class="stat-info">
+                <h3>Absent</h3>
+                <p class="stat-value" id="stat-absent">0</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
+            <div class="stat-info">
+                <h3>Pending Leave</h3>
+                <p class="stat-value" id="stat-leave">0</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <div class="chart-card">
+            <h3>Payroll Expenditure (Last 6 Months)</h3>
+            <canvas id="payrollChart"></canvas>
+        </div>
+        <div class="chart-card doughnut">
+            <h3>Attendance Breakdown</h3>
+            <canvas id="attendanceChart"></canvas>
+        </div>
+    </div>
+</section>
+
+<?php if ($_SESSION['role'] === 'HR'): ?>
+<!-- Employee Management Page -->
+<section id="employees" class="page">
+    <div class="page-header">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterTable(this, 'employeeTable')">
+        </div>
+        <button class="btn btn-primary" onclick="openModal('employeeModal')">
+            <i class="fas fa-plus"></i> Add Employee
+        </button>
+    </div>
+    <div class="table-container">
+        <table id="employeeTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Department</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="employeeTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Face Enrollment Page -->
+<section id="biometrics" class="page">
+    <div class="biometrics-container">
+        <div class="enrollment-controls">
+            <h3>Face Registration</h3>
+            <p>Select an employee to link biometric data.</p>
+            <div class="form-group">
+                <label>Employee Name</label>
+                <select id="enrollEmployeeSelect" class="form-control">
+                    <option value="">Select Employee...</option>
+                </select>
+            </div>
+            <button id="startEnrollBtn" class="btn btn-primary" onclick="initFaceEnrollment()">
+                <i class="fas fa-camera"></i> Start Camera
+            </button>
+            <button id="captureBtn" class="btn btn-success" style="display:none;" onclick="saveFaceEnrollment()">
+                <i class="fas fa-user-plus"></i> Capture & Save
+            </button>
+        </div>
+        <div class="camera-preview">
+            <video id="video" width="640" height="480" autoplay muted></video>
+            <canvas id="overlay"></canvas>
+            <div id="camera-placeholder">
+                <i class="fas fa-camera-retro"></i>
+                <p>Camera Preview Not Started</p>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- Attendance Logs Page -->
+<section id="attendance" class="page">
+    <div class="page-header">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="attendanceSearch" placeholder="Filter attendance..." oninput="filterTable(this, 'attendanceTable')">
+        </div>
+        <div class="date-filter">
+            <input type="date" id="attendanceDateFilter">
+        </div>
+    </div>
+    <div class="table-container">
+        <table id="attendanceTable">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Check-In</th>
+                    <th>Check-Out</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Payroll Page -->
+<section id="payroll" class="page">
+    <div class="page-header">
+        <div class="payroll-controls">
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="payrollStartDate" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="payrollEndDate" class="form-control">
+            </div>
+            <button class="btn btn-primary" onclick="runPayroll()">
+                <i class="fas fa-play"></i> Run Payroll
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table id="payrollTable">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Period</th>
+                    <th>Basic Pay</th>
+                    <th>Deductions</th>
+                    <th>Net Pay</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="payrollTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Leave Management Page -->
+<section id="leave" class="page">
+    <div class="table-container">
+        <table id="leaveTable">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Duration</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="leaveTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Loan Management Page -->
+<section id="loans" class="page">
+    <div class="table-container">
+        <table id="loanTable">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Amount</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="loanTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Resignation Management Page -->
+<section id="resignations" class="page">
+    <div class="table-container">
+        <table id="resignationTable">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Effective Date</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="resignationTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<?php if ($_SESSION['role'] === 'HR'): ?>
+<!-- Deductions Page -->
+<section id="deductions" class="page">
+    <div class="page-header">
+        <h3>Deductions & Allowances Configuration</h3>
+        <button class="btn btn-primary" onclick="addDeduction()">+ Add New Rule</button>
+    </div>
+    <div class="deductions-grid">
+        <div class="card">
+            <h3>Government Mandated</h3>
+            <div id="gov-deductions-list">
+                <!-- Dynamic List -->
+            </div>
+        </div>
+        <div class="card">
+            <h3>Company Specific</h3>
+            <div id="company-deductions-list">
+                <!-- Dynamic List -->
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Reports Page -->
+<section id="reports" class="page">
+    <div class="reports-grid">
+        <div class="report-card" onclick="generateReport('attendance')">
+            <i class="fas fa-file-invoice"></i>
+            <h4>Attendance Summary</h4>
+            <p>Generate a monthly report of attendance for all staff.</p>
+        </div>
+        <div class="report-card" onclick="generateReport('payroll')">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <h4>Payroll History</h4>
+            <p>Detailed breakdown of past payroll cycles and expenses.</p>
+        </div>
+        <div class="report-card" onclick="generateReport('employee')">
+            <i class="fas fa-users"></i>
+            <h4>Employee Records</h4>
+            <p>Full database export of employee records and contact info.</p>
+        </div>
+        <div class="report-card" onclick="generateReport('leave')">
+            <i class="fas fa-calendar-alt"></i>
+            <h4>Leave Analysis</h4>
+            <p>Trends and totals for employee leave and absences.</p>
+        </div>
+    </div>
+</section>
+
+<?php
+// Fetch company settings
+$stmt_company = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
+$stmt_company->execute([$_SESSION['company_id']]);
+$company = $stmt_company->fetch();
+?>
+<!-- Settings Page -->
+<section id="settings" class="page">
+    <div class="settings-container">
+        <div class="settings-card">
+            <h3>General System Settings</h3>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" name="companyName" value="<?php echo $company['name']; ?>">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Shift Start</label>
+                        <input type="time" name="workStart" value="<?php echo $company['work_start']; ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Shift End</label>
+                        <input type="time" name="workEnd" value="<?php echo $company['work_end']; ?>">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lunch Out Range (From)</label>
+                        <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '11:30'; ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Lunch Out Range (To)</label>
+                        <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '12:30'; ?>">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lunch In Range (From)</label>
+                        <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '12:30'; ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Lunch In Range (To)</label>
+                        <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '13:30'; ?>">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Late Grace Period (Minutes)</label>
+                    <input type="number" name="gracePeriod" value="<?php echo $company['grace_period'] ?? '15'; ?>" min="0">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            </form>
+        </div>
+        <div class="settings-card">
+                            <h3>Backup & Security</h3>
+                            <div class="setting-item">
+                                <p>Attendance Station</p>
+                                <a href="kiosk.php?company_id=<?php echo $_SESSION['company_id']; ?>" target="_blank" class="btn btn-primary btn-sm">
+                                    Launch Kiosk <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            </div>
+                            <div class="setting-item">
+                                <p>Database Backup</p>
+                                <button class="btn btn-secondary btn-sm">Download Backup</button>
+                            </div>
+            <div class="setting-item">
+                <p>Admin Password</p>
+                <button class="btn btn-secondary btn-sm" onclick="openModal('passwordModal')">Change Password</button>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
