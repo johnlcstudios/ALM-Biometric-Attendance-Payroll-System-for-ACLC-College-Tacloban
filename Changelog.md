@@ -53,6 +53,10 @@ on Saturday 3/28/26
 - Face Model and API Integration
 - Faceial Recognition Preview
 - Console Errors
+- Face Scanning should be accurate
+- Should scan one face at a time
+- Should be responsive and fast
+- Face Scanning should have a cool down
 
 ### Frontend 
 - Implement all pages
