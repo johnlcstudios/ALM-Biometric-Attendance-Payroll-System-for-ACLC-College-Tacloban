@@ -71,6 +71,9 @@ on Saturday 3/28/26
 - Face Model Training
 - ML Training
 - Console Errors
+- List Bugs
+- List Missing Features
+- List Missing Functions
 
 ### Administrative Team
 - Updated Gantt Chart (as of 3/28/26)
