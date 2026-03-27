@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Portal - ACLC College</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="Payroll-style.css">
+    <script defer src="kiosk/js/jspdf.umd.min.js"></script>
+    <script defer src="kiosk/js/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        .ess-main { margin-left: 0; width: 100%; }
+        .ess-sidebar { background: var(--navy); color: white; width: 260px; height: 100vh; position: fixed; left: 0; top: 0; padding: 30px 20px; }
+        .ess-content { margin-left: 260px; padding: 40px; background: #f8f9ff; min-height: 100vh; }
+        .ess-nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 12px; color: rgba(255,255,255,0.7); cursor: pointer; transition: 0.2s; margin-bottom: 5px; }
+        .ess-nav-item:hover { background: rgba(255,255,255,0.1); color: white; }
+        .ess-nav-item.active { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(59, 79, 201, 0.3); }
+        .ess-user-card { background: white; border-radius: 20px; padding: 30px; display: flex; align-items: center; gap: 25px; margin-bottom: 30px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .ess-avatar { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 32px; color: white; font-weight: bold; }
+        .ess-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .ess-card { background: white; border-radius: 18px; padding: 25px; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <aside class="ess-sidebar">
+        <div style="font-size: 20px; font-weight: bold; margin-bottom: 40px; text-align: center;">EMPLOYEE PORTAL</div>
+        <nav>
+            <div class="ess-nav-item active" onclick="showESSPage('ess-dashboard', this)">
+                <span>🏠</span> Dashboard
+            </div>
+            <div class="ess-nav-item" onclick="showESSPage('ess-attendance', this)">
+                <span>📅</span> My Attendance
+            </div>
+            <div class="ess-nav-item" onclick="showESSPage('ess-payslips', this)">
+                <span>💵</span> My Payslips
+            </div>
+            <div class="ess-nav-item" onclick="showESSPage('ess-leave', this)">
+                <span>🏖️</span> Request Leave
+            </div>
+            <div class="ess-nav-item" onclick="showESSPage('ess-profile', this)">
+                <span>👤</span> My Profile
+            </div>
+        </nav>
+        <div style="position: absolute; bottom: 30px; left: 20px; right: 20px;">
+            <button class="btn btn-outline" style="width: 100%; border-color: rgba(255,255,255,0.3); color: white;" onclick="window.location.href='payroll-system.html'">Logout</button>
+        </div>
+    </aside>
+
+    <main class="ess-content">
+
+        <!-- DASHBOARD -->
+        <div id="ess-dashboard" class="ess-page">
+            <div class="ess-user-card">
+                <div class="ess-avatar">MS</div>
+                <div>
+                    <h1 style="font-size: 28px; margin-bottom: 5px;">Welcome, Maria Santos!</h1>
+                    <p style="color: var(--muted); font-size: 14px;">Professor | College of Education | ID: EMP001</p>
+                </div>
+            </div>
+
+            <div class="ess-stat-grid">
+                <div class="ess-card">
+                    <div class="stat-label">Days Present</div>
+                    <div class="stat-value">12</div>
+                    <div class="stat-sub">This month</div>
+                </div>
+                <div class="ess-card">
+                    <div class="stat-label">Days Absent</div>
+                    <div class="stat-value">2</div>
+                    <div class="stat-sub">This month</div>
+                </div>
+                <div class="ess-card">
+                    <div class="stat-label">OT Hours</div>
+                    <div class="stat-value">8.5</div>
+                    <div class="stat-sub">This month</div>
+                </div>
+                <div class="ess-card">
+                    <div class="stat-label">Last Net Pay</div>
+                    <div class="stat-value" style="font-size: 24px;">P40,758.00</div>
+                    <div class="stat-sub">Feb 2026</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="card-title">Recent Activity</span></div>
+                <div class="card-body">
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr><th>Date</th><th>Action</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Mar 21, 2026</td><td>Time In - 7:55 AM</td><td><span class="badge badge-success">On Time</span></td></tr>
+                            <tr><td>Mar 20, 2026</td><td>Time In - 8:05 AM</td><td><span class="badge badge-warning">Late</span></td></tr>
+                            <tr><td>Mar 19, 2026</td><td>Time In - 7:50 AM</td><td><span class="badge badge-success">On Time</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ATTENDANCE -->
+        <div id="ess-attendance" class="ess-page" style="display: none;">
+            <div class="page-header">
+                <h2>My Attendance History</h2>
+                <p>Track your daily login/logout logs.</p>
+            </div>
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Hours Worked</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Mar 21, 2026</td><td>07:55 AM</td><td>05:05 PM</td><td>8.5 hrs</td><td><span class="badge badge-success">On Time</span></td></tr>
+                        <tr><td>Mar 20, 2026</td><td>08:05 AM</td><td>05:15 PM</td><td>8 hrs</td><td><span class="badge badge-warning">Late</span></td></tr>
+                        <tr><td>Mar 19, 2026</td><td>07:50 AM</td><td>05:00 PM</td><td>8.5 hrs</td><td><span class="badge badge-success">On Time</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PAYSLIPS -->
+        <div id="ess-payslips" class="ess-page" style="display: none;">
+            <div class="page-header">
+                <h2>My Payslips</h2>
+                <p>View and download your monthly earnings.</p>
+            </div>
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr><th>Month</th><th>Gross Pay</th><th>Total Deductions</th><th>Net Pay</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>February 2026</td><td>P44,333.00</td><td>P3,575.00</td><td>P40,758.00</td><td><button class="btn btn-outline btn-sm" onclick="exportPayslipPDF()">Download PDF</button></td></tr>
+                        <tr><td>January 2026</td><td>P44,333.00</td><td>P3,575.00</td><td>P40,758.00</td><td><button class="btn btn-outline btn-sm">Download PDF</button></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- LEAVE REQUEST -->
+        <div id="ess-leave" class="ess-page" style="display: none;">
+            <div class="page-header">
+                <h2>Request Leave</h2>
+                <p>Submit a new leave request for approval.</p>
+            </div>
+            <div class="card" style="max-width: 500px; margin-bottom: 30px;">
+                <div class="card-body">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Leave Type</label>
+                        <select id="leaveType"><option>Sick</option><option>Vacation</option><option>Emergency</option></select>
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Start Date</label>
+                            <input type="date" id="leaveStart">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>End Date</label>
+                            <input type="date" id="leaveEnd">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label>Reason</label>
+                        <textarea id="leaveReason" style="width: 100%; height: 100px; padding: 10px; border-radius: 8px; border: 1px solid var(--border);"></textarea>
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="alert('Leave request submitted!')">Submit Request</button>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="card-header"><span class="card-title">My Leave History</span></div>
+                <table>
+                    <thead>
+                        <tr><th>Type</th><th>Period</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Sick</td><td>Mar 26 - Mar 27</td><td><span class="badge badge-warning">Pending</span></td></tr>
+                        <tr><td>Emergency</td><td>Jan 10 - Jan 11</td><td><span class="badge badge-success">Approved</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="Payroll-script.js"></script>
+    <script>
+        function showESSPage(id, el) {
+            document.querySelectorAll('.ess-page').forEach(p => p.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+            document.querySelectorAll('.ess-nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        }
+    </script>
+</body>
+</html>
