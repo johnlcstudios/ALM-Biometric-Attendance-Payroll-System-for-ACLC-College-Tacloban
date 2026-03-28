@@ -20,13 +20,6 @@ The project partners with ACLC College Tacloban, specifically its Payroll Office
 
 ---
 
-## 🛠 **Prerequisites**
-- Git installed on your computer ([Download Git](https://git-scm.com/downloads))
-- A GitHub account with access to this repository
-- (Optional) A code editor like VS Code
-
----
-
 # How to start/run the System
 - Open XAMPP Controll Panel and start Apache and MySQL
 - Open Browser and navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban` to view the system.
@@ -35,7 +28,7 @@ The project partners with ACLC College Tacloban, specifically its Payroll Office
 
 --- 
 
-## 🔑 **Pre Reqisites**
+## 🔑 **Prereqisites**
 Make sure Git is installed
 
 to check if git is installed open terminal and run the following commands:
