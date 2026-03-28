@@ -8,10 +8,7 @@ The project partners with ACLC College Tacloban, specifically its Payroll Office
 ---
 # DO NOT TOUCH ROOT FOLDER FILES ESPECIALLY R and RB FILES
 ## ALWAYS EDIT FILES ON 'AI-ML-Test-Bench' FOLDER
-
---- 
-
-# See the [Changelog](Changelog.md) for a full list of recent updates.
+## See the [Changelog](Changelog.md) for a full list of recent updates.
 
 ---
 
