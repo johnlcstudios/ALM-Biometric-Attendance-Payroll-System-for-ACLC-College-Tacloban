@@ -34,14 +34,14 @@ async function fetchData() {
             }
         };
 
-        employees = await fetchJSON('api.php?action=get_employees') || [];
-        attendanceLogs = await fetchJSON('api.php?action=get_attendance') || [];
-        payrollHistory = await fetchJSON('api.php?action=get_payroll') || [];
-        leaveRequests = await fetchJSON('api.php?action=get_leave_requests') || [];
-        loanRequests = await fetchJSON('api.php?action=get_loan_requests') || [];
-        resignationRequests = await fetchJSON('api.php?action=get_resignation_requests') || [];
-        deductionsConfig = await fetchJSON('api.php?action=get_deductions') || [];
-        const dashboardStats = await fetchJSON('api.php?action=get_dashboard_stats');
+        employees = await fetchJSON('backend/api.php?action=get_employees') || [];
+        attendanceLogs = await fetchJSON('backend/api.php?action=get_attendance') || [];
+        payrollHistory = await fetchJSON('backend/api.php?action=get_payroll') || [];
+        leaveRequests = await fetchJSON('backend/api.php?action=get_leave_requests') || [];
+        loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
+        resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
+        deductionsConfig = await fetchJSON('backend/api.php?action=get_deductions') || [];
+        const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
         if (dashboardStats) {
             document.getElementById('stat-total-emp').innerText = dashboardStats.total_employees;
             document.getElementById('stat-present').innerText = dashboardStats.present_today;
@@ -137,7 +137,7 @@ function renderEmployeeTable() {
 async function resetPassword(userId) {
     if (!userId) return alert('This employee does not have a user account.');
     if (confirm("Are you sure you want to reset this employee's password to 'welcome123'?")) {
-        const response = await fetch(`api.php?action=reset_password&user_id=${userId}`);
+        const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
             alert(result.message);
@@ -174,7 +174,7 @@ function editEmployee(id) {
 
 async function deleteEmployee(id) {
     if (confirm(`Are you sure you want to delete this employee?`)) {
-        const response = await fetch(`api.php?action=delete_employee&id=${id}`);
+        const response = await fetch(`backend/api.php?action=delete_employee&id=${id}`);
         const result = await response.json();
         if (result.success) {
             fetchData();
@@ -219,7 +219,7 @@ async function saveEmployee() {
     }
 
     try {
-        const response = await fetch('api.php?action=save_employee', {
+        const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -310,7 +310,7 @@ async function runPayroll() {
         return alert('Please select both a start and end date.');
     }
 
-    const response = await fetch('api.php?action=run_payroll', {
+    const response = await fetch('backend/api.php?action=run_payroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start_date, end_date })
@@ -363,7 +363,7 @@ function renderLeaveTable() {
 }
 
 async function updateLeaveStatus(id, status) {
-    const response = await fetch('api.php?action=update_leave_status', {
+    const response = await fetch('backend/api.php?action=update_leave_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
@@ -394,7 +394,7 @@ function renderLoanTable() {
 }
 
 async function updateLoanStatus(id, status) {
-    const response = await fetch('api.php?action=update_loan_status', {
+    const response = await fetch('backend/api.php?action=update_loan_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
@@ -424,7 +424,7 @@ function renderResignationTable() {
 }
 
 async function updateResignationStatus(id, status) {
-    const response = await fetch('api.php?action=update_resignation_status', {
+    const response = await fetch('backend/api.php?action=update_resignation_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
@@ -476,7 +476,7 @@ function addDeduction() {
 }
 
 async function saveDeduction(deduction) {
-    const response = await fetch('api.php?action=save_deduction', {
+    const response = await fetch('backend/api.php?action=save_deduction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deduction)
@@ -489,7 +489,7 @@ async function saveDeduction(deduction) {
 
 async function deleteDeduction(id) {
     if (confirm("Are you sure you want to delete this deduction?")) {
-        const response = await fetch(`api.php?action=delete_deduction&id=${id}`);
+        const response = await fetch(`backend/api.php?action=delete_deduction&id=${id}`);
         const result = await response.json();
         if (result.success) {
             fetchData();
@@ -519,7 +519,7 @@ async function saveSettings() {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
     
-    const response = await fetch('api.php?action=save_settings', {
+    const response = await fetch('backend/api.php?action=save_settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -542,7 +542,7 @@ async function changePassword() {
         return;
     }
     
-    const response = await fetch('api.php?action=change_password', {
+    const response = await fetch('backend/api.php?action=change_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldPass, newPass })
@@ -581,6 +581,16 @@ function generateReport(type) {
 }
 
 // --- Biometrics Enrollment ---
+let isEnrolling = false;
+let hasBlinked = false;
+let blinkCounter = 0;
+
+// Optimized EAR calculation
+function getEAR(eye) {
+    const dist = (a, b) => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+    return (dist(eye[1], eye[5]) + dist(eye[2], eye[4])) / (2 * dist(eye[0], eye[3]));
+}
+
 async function initFaceEnrollment() {
     const select = document.getElementById('enrollEmployeeSelect');
     const employeeId = select.value;
@@ -606,53 +616,122 @@ async function initFaceEnrollment() {
         console.log("Models loaded successfully");
 
         captureBtn.style.display = 'inline-block';
+        captureBtn.disabled = true; // Disable until blink detected
         startBtn.style.display = 'none';
         
         const canvas = document.getElementById('overlay');
-        const displaySize = { width: video.width, height: video.height };
+        
+        // Wait for video metadata to get actual resolution
+        await new Promise((resolve) => {
+            if (video.readyState >= 2) resolve();
+            else video.onloadedmetadata = () => resolve();
+        });
+
+        const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
         faceapi.matchDimensions(canvas, displaySize);
 
-        let isEnrolling = false;
+        isEnrolling = false;
+        blinkCounter = 0;
+        hasBlinked = false;
 
-        // Preview loop
-        const interval = setInterval(async () => {
+        // Preview loop using requestAnimationFrame for smoother performance
+        async function onPlay() {
             if (!video.srcObject || isEnrolling) return;
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            
+            // SPEED OPTIMIZATION: Only detect landmarks during the liveness phase.
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+                .withFaceLandmarks();
+            
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            faceapi.draw.drawDetections(canvas, resizedDetections);
 
-            // AUTO-ENROLL LOGIC: If a face is detected with high confidence
-            if (detections.length > 0 && !isEnrolling) {
-                const detection = detections[0];
-                // For TinyFaceDetector, confidence is in detection.score
-                const confidence = Math.round(detection.detection.score * 100);
+            if (detection) {
+                const resizedDetection = faceapi.resizeResults(detection, displaySize);
                 
-                // Show confidence on UI
-                ctx.fillStyle = "#27ae60";
-                ctx.font = "16px Inter";
-                ctx.fillText(`Face Confidence: ${confidence}%`, 10, 30);
+                // Liveness Detection: Blink Check
+                const landmarks = resizedDetection.landmarks;
+                const earLeft = getEAR(landmarks.getLeftEye());
+                const earRight = getEAR(landmarks.getRightEye());
+                const avgEAR = (earLeft + earRight) / 2;
 
-                if (confidence >= 90) {
-                    isEnrolling = true;
-                    clearInterval(interval);
-                    
-                    // Visual feedback
-                    ctx.strokeStyle = "#27ae60";
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillText("Auto-Capturing...", canvas.width/2 - 50, canvas.height/2);
-
-                    console.log(`High confidence face detected (${confidence}%). Auto-enrolling...`);
-                    
-                    // Small delay for visual feedback before saving
-                    setTimeout(() => {
-                        saveFaceEnrollment(detection.descriptor);
-                    }, 1000);
+                // EAR threshold adjusted to 0.25 for more immediate/responsive detection
+                if (avgEAR < 0.25) {
+                    if (!hasBlinked) {
+                        blinkCounter++;
+                        hasBlinked = true;
+                        if (captureBtn) captureBtn.disabled = false; // Enable manual capture
+                    }
+                } else {
+                    hasBlinked = false;
                 }
-            }
-        }, 100);
+
+                // Draw feedback
+                faceapi.draw.drawDetections(canvas, resizedDetection);
+                faceapi.draw.drawFaceLandmarks(canvas, resizedDetection);
+                
+                const box = resizedDetection.detection.box;
+                
+                // Mirror text drawing so it's readable on mirrored canvas
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-canvas.width, 0);
+                
+                const textX = canvas.width - (box.x + box.width / 2);
+                const textY = box.y + box.height + 30;
+
+                ctx.font = "bold 18px Inter";
+                ctx.textAlign = "center";
+                
+                if (blinkCounter < 1) {
+                    ctx.fillStyle = "#f20e0eff";
+                    ctx.fillText("PLEASE BLINK TO VERIFY LIVENESS", textX, textY);
+                } else {
+                    ctx.fillStyle = "#27ae60";
+                    ctx.fillText(`Liveness Verified!`, textX, textY);
+
+                    if (!isEnrolling) {
+                        isEnrolling = true;
+                        
+                        // Now that liveness is verified, get the full descriptor
+                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+                            .withFaceLandmarks()
+                            .withFaceDescriptor();
+
+                        if (fullDetection) {
+                            const confidence = Math.round(fullDetection.detection.score * 100);
+                            
+                            if (confidence >= 90) {
+                                // Visual feedback
+                                ctx.strokeStyle = "#27ae60";
+                                ctx.lineWidth = 6;
+                                ctx.strokeRect(box.x, box.y, box.width, box.height); 
+                                ctx.fillText("Auto-Capturing...", textX, textY + 25);
+
+                                console.log(`Face detected and verified (${confidence}%). Auto-enrolling...`);
+                                
+                                setTimeout(() => {
+                                    saveFaceEnrollment(fullDetection.descriptor);
+                                }, 1000);
+                                ctx.restore();
+                                return; // Stop the loop
+                            } else {
+                                isEnrolling = false; // Not enough confidence, keep looking
+                            }
+                        } else {
+                            isEnrolling = false;
+                        }
+                    }
+                }
+                ctx.restore();
+             } else {
+                 blinkCounter = 0;
+                 if (captureBtn) captureBtn.disabled = true;
+             }
+             
+             requestAnimationFrame(onPlay);
+        }
+        
+        onPlay();
 
     } catch (err) {
         console.error("Biometrics initialization error:", err);
@@ -662,6 +741,10 @@ async function initFaceEnrollment() {
 }
 
 async function saveFaceEnrollment(manualDescriptor = null) {
+    if (blinkCounter < 1) {
+        alert("Liveness verification failed. Please blink before capturing.");
+        return;
+    }
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     
@@ -669,14 +752,15 @@ async function saveFaceEnrollment(manualDescriptor = null) {
 
     if (!descriptor) {
         // Use the same detector options as the live preview
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+        const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
         if (detection) {
             descriptor = detection.descriptor;
         }
     }
     
     if (descriptor) {
-        const response = await fetch('api.php?action=save_face_descriptor', {
+        const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: employeeId, descriptor: Array.from(descriptor) })
@@ -749,7 +833,7 @@ function initCharts() {
 // --- Auth ---
 async function logout() {
     if (confirm("Are you sure you want to logout?")) {
-        await fetch('api.php?action=logout');
+        await fetch('backend/api.php?action=logout');
         window.location.href = 'login.php';
     }
 }

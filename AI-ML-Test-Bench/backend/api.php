@@ -164,11 +164,9 @@ try {
         $stmt_faces->execute([$company_id]);
         $enrolled_faces = $stmt_faces->fetchAll();
 
-        $matched_employee = null;
-        $strict_threshold = 0.4; // 90% match threshold (0.4 distance = 90% match)
+        $best_match = null;
         $best_distance = 9.9;
         $faces_checked = 0;
-        $final_matched_employee = null;
 
         foreach ($enrolled_faces as $face) {
             $enrolled_descriptor = json_decode($face['face_descriptor'], true);
@@ -183,9 +181,7 @@ try {
 
                 if ($distance < $best_distance) {
                     $best_distance = $distance;
-                    if ($distance <= $strict_threshold) {
-                         $final_matched_employee = $face;
-                    }
+                    $best_match = $face;
                 }
             }
         }
@@ -194,8 +190,8 @@ try {
         // Formula: 100 - (distance * 25) -> if distance is 0.4, 100 - 10 = 90
         $match_percentage = max(0, round(100 - ($best_distance * 25), 2));
 
-        if ($final_matched_employee && $match_percentage >= 90) {
-            $matched_employee = $final_matched_employee;
+        if ($best_match && $match_percentage >= 90) {
+            $matched_employee = $best_match;
             $employee_id = $matched_employee['id'];
             $date = date('Y-m-d');
             $time = date('H:i:s');
@@ -214,6 +210,9 @@ try {
             $stmt_log = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date = ?");
             $stmt_log->execute([$employee_id, $date]);
             $log = $stmt_log->fetch();
+
+            // Determine morning absence
+            $missed_morning = (!$log || empty($log['check_in'])) && $time > date('H:i:s', strtotime($config['work_start'] . ' + 4 hours'));
 
             // Determine action and status
             $status = 'On-Time';
@@ -238,6 +237,37 @@ try {
                 $column = 'check_out';
             }
 
+            // ENFORCE ENTRY POINT REQUIREMENT
+            // Lunch Out requires Check-in
+            if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'MUST CHECK-IN FIRST',
+                    'action' => 'lunch_out',
+                    'name' => $matched_employee['full_name'],
+                    'employee_id' => $emp_data['employee_id'],
+                    'position' => $emp_data['position'],
+                    'match_percentage' => $match_percentage,
+                    'debug' => "User {$matched_employee['full_name']} tried to lunch out without a check-in."
+                ]);
+                break;
+            }
+
+            // Check Out requires Check-in OR Lunch-in
+            if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'MUST LOG-IN FIRST',
+                    'action' => 'check_out',
+                    'name' => $matched_employee['full_name'],
+                    'employee_id' => $emp_data['employee_id'],
+                    'position' => $emp_data['position'],
+                    'match_percentage' => $match_percentage,
+                    'debug' => "User {$matched_employee['full_name']} tried to check out without a check-in or lunch-in."
+                ]);
+                break;
+            }
+
             // ENFORCE ONCE PER DAY LOGGING
             if ($log && !empty($log[$column])) {
                 // Fetch basic stats for the matched employee
@@ -255,18 +285,33 @@ try {
                     'name' => $matched_employee['full_name'],
                     'employee_id' => $emp_data['employee_id'],
                     'position' => $emp_data['position'],
-                    'attendance_count' => $stats['total_attendance'],
-                    'absent_count' => $stats['total_absent'],
-                    'debug' => "User {$matched_employee['full_name']} already has a value in $column for today."
-                ]);
-                break;
-            }
+                'attendance_count' => $stats['total_attendance'],
+                'absent_count' => $stats['total_absent'],
+                'match_percentage' => $match_percentage,
+                'missed_morning' => $missed_morning,
+                'debug' => "User {$matched_employee['full_name']} already has a value in $column for today."
+            ]);
+            break;
+        }
 
             if (!$log) {
                 $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$company_id, $employee_id, $date, $time, $status]);
             } else {
-                $update_status = ($column === 'check_in' && $status === 'Late') ? ", status = 'Late'" : "";
+                // Determine final status if checking out
+                if ($column === 'check_out') {
+                    // Rule: Lunch In + Check Out without Check In = Half-Day
+                    // Rule: Check In + Lunch Out without Lunch In = Half-Day
+                    if (empty($log['check_in']) && !empty($log['lunch_in'])) {
+                        $status = 'Half-Day';
+                    } else if (!empty($log['check_in']) && empty($log['lunch_in'])) {
+                        $status = 'Half-Day';
+                    } else if (empty($log['check_in'])) {
+                        $status = 'Absent';
+                    }
+                }
+
+                $update_status = ", status = '$status'";
                 $stmt = $pdo->prepare("UPDATE attendance SET $column = ? $update_status WHERE id = ?");
                 $stmt->execute([$time, $log['id']]);
             }
@@ -290,6 +335,7 @@ try {
                 'attendance_count' => $stats['total_attendance'],
                 'absent_count' => $stats['total_absent'],
                 'match_percentage' => $match_percentage,
+                'missed_morning' => $missed_morning,
                 'debug' => "Matched: {$matched_employee['full_name']} (Dist: " . round($best_distance, 4) . "). Match: $match_percentage%. Checked $faces_checked faces for company ID $company_id."
             ]);
         } else {
