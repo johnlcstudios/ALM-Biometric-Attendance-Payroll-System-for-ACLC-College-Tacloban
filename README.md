@@ -39,7 +39,29 @@ See the [Changelog](Changelog.md) for a full list of recent updates.
 
 ---
 
-## 🔑 **Git Configuration (One-Time Setup)**
+# How to start/run the System
+- Open XAMPP Controll Panel and start Apache and MySQL
+- Open Browser and navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban` to view the system.
+- Create Account by filling in the required fields in the Login Page.
+- Login to the system using the created account.
+
+--- 
+
+## 🔑 **Pre Reqisites**
+Make sure Git is installed
+
+to check if git is installed open terminal and run the following commands:
+```bash
+git --version
+```
+
+if git is not installed run the following commands ONE BY ONE:
+```bash
+winget install --id Git.Git -e --source winget 
+$env:Path += ";C:\Program Files\Git\cmd"
+git --version
+```
+
 Before you start, configure your Git identity so your commits are properly attributed:
 
 ```bash
@@ -63,14 +85,7 @@ git config --global --list
 
 ## **📌 Summary of Steps: Push & Pull Workflow**
 
-## Pre Requisites 
-```bash
-winget install --id Git.Git -e --source winget 
-$env:Path += ";C:\Program Files\Git\cmd"
-git --version
-```
-
-### **1️⃣ Clone (First Time Only)**
+### **1️⃣ Clone (FIRST TIME ONLY)**
 ```bash
 git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
 cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
@@ -78,7 +93,7 @@ cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
 
 ### **2️⃣ Switch to Your Team Branch**
 ```bash
-git checkout Frontend   # or Backend
+git checkout Frontend   # or Backend or Biometric
 ```
 
 ### **3️⃣ Pull Latest Changes (Before You Start)**
@@ -212,7 +227,7 @@ Once your feature is complete and tested on your branch, create a pull request (
 
 ---
 
-## 📁 **Recommended Folder Structure**
+# 📁 **Recommended Folder Structure**
 
 ### **Frontend Branch:**
 ```

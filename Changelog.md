@@ -5,7 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-03-28
+
+### Added
+- **Backend Migration (PHP & MySQL)**:
+    - Transitioned from static HTML prototypes to a dynamic PHP-based backend using XAMPP/MySQL.
+    - Implemented core backend logic in `api.php` for centralized data handling.
+    - Added `db.php` for secure database connectivity using PDO.
+- **Authentication & Role-Based Access Control (RBAC)**:
+    - Created `login.php` and `signup.php` with session-based authentication.
+    - Implemented roles: **HR**, **Payroll**, and **Employee** with role-specific navigation and permissions.
+    - Added support for multi-tenancy with a `companies` table, allowing multiple organizations on one platform.
+- **Dynamic Admin Hub**:
+    - Refactored the dashboard to use live data from the database.
+    - Integrated real-time statistics for Total Employees, Present Today, Absent Today, and Pending Leave requests.
+    - Added dynamic sections for Employees, Biometrics, Attendance, Payroll, Leave, Loans, Resignations, and Deductions.
+- **Database Management**:
+    - Created `schema.sql` with a comprehensive relational structure (Companies, Users, Employees, Attendance, Payroll, Leave, Deductions).
+    - Added `update_db.php` for automated database schema synchronization and updates.
+- **Enhanced Employee Management**:
+    - Implemented full CRUD (Create, Read, Update, Delete) operations for employees via the new API.
+    - Integrated Face Biometrics enrollment directly into the employee management flow.
+- **Employee Self-Service (ESS) Integration**:
+    - Connected `ess.php` to the backend for real-time access to personal attendance, payslips, and profile information.
+
+### Changed
+- **System Architecture**: Moved from static JSON/Local Storage simulation to a persistent MySQL database.
+- **API Flow**: All frontend actions now interact with `api.php` via fetch requests for data persistence.
+- **UI Responsiveness**: Updated `style.css` and `script.js` to handle dynamic content loading and state management.
+
+### Fixed
+- Resolved issues with data persistence between sessions by implementing server-side sessions.
+- Improved security by using hashed passwords and prepared statements for all database queries.
+
+## [1.0.0] - 2026-03-21
 
 ### Added
 - **Leave Management System**:
@@ -47,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --- 
 
 # To Fix
-on Saturday 3/28/26
+on Saturday 3/28/26 (will be updated on 04/02/26)
 
 ### Bioemtrics Team Kiosk
 - Face Model and API Integration

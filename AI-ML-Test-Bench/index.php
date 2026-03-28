@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once 'backend/db.php';
 session_start();
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -24,7 +24,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
     <div class="app-container">
@@ -110,14 +110,14 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
             <div id="content-pages">
                 <!-- Sections for Dashboard, Employees, etc. (re-used from index.html) -->
                 <!-- The existing sections will be injected or kept based on PHP logic -->
-                <?php include 'sections.php'; ?>
+                <?php include 'backend/sections.php'; ?>
             </div>
         </main>
     </div>
 
     <!-- Same Modals as before -->
-    <?php include 'modals.php'; ?>
+    <?php include 'backend/modals.php'; ?>
 
-    <script src="script.js"></script>
+    <script src="js/script.js"></script>
 </body>
 </html>

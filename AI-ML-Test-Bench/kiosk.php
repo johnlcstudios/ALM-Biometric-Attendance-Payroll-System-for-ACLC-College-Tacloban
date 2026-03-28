@@ -57,6 +57,30 @@
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
+        /* Scanning Effect */
+        .scanning-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, transparent, #27ae60, transparent);
+            box-shadow: 0 0 15px #27ae60;
+            z-index: 10;
+            display: none;
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        .camera-circle.scanning .scanning-line {
+            display: block;
+        }
+
         .camera-circle.border-success {
             border-color: #27ae60;
             box-shadow: 0 20px 50px rgba(39, 174, 96, 0.4);
@@ -349,9 +373,10 @@
         <!-- Left Panel -->
         <div class="left-panel">
             <div class="camera-circle">
+                <div class="scanning-line"></div>
                 <div class="camera-placeholder" id="placeholder">
                     <i class="fas fa-user-circle"></i>
-                    <p>Initializing Camera...</p>
+                    <p id="loading-status">Initializing Camera...</p>
                 </div>
                 <video id="video" autoplay muted></video>
                 <canvas id="overlay"></canvas>
@@ -429,7 +454,7 @@
             overlay.style.display = 'flex';
             
             try {
-                const response = await fetch('api.php?action=get_companies');
+                const response = await fetch('backend/api.php?action=get_companies');
                 const companies = await response.json();
                 
                 list.innerHTML = companies.map(c => `
@@ -450,10 +475,10 @@
             window.history.pushState({path:newUrl},'',newUrl);
 
             // Fetch Company Name
-            fetch(`api.php?action=get_company_info&company_id=${id}`)
+            fetch(`backend/api.php?action=get_company_info&company_id=${id}`)
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('company-name').innerText = data.name || 'ALM KIOSK';
+                    document.getElementById('company-name').innerText = data.name.toUpperCase();
                 });
 
             // If video is not started, start it
@@ -473,7 +498,8 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
                 video.srcObject = stream;
                 
-                document.getElementById('placeholder').style.display = 'none';
+                const statusLabel = document.getElementById('loading-status');
+                statusLabel.innerText = "Loading AI Models...";
 
                 console.log("Loading models...");
                 await Promise.all([
@@ -482,6 +508,11 @@
                     faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
                 ]);
                 console.log("Models loaded.");
+                statusLabel.innerText = "Ready!";
+                
+                setTimeout(() => {
+                    document.getElementById('placeholder').style.display = 'none';
+                }, 1000);
 
                 detectFace();
             } catch (err) {
@@ -490,25 +521,132 @@
             }
         }
 
+        let isEnrolling = false;
+        let lastBlinkTime = 0;
+        let hasBlinked = false;
+        let blinkCounter = 0;
+
         async function detectFace() {
-            setInterval(async () => {
-                if (isProcessing || !currentCompanyId) return;
-                
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-                if (detections.length > 0) {
-                    isProcessing = true; // Immediately block new scans
-                    await processLog(detections[0].descriptor);
+            const overlay = document.getElementById('overlay');
+            const ctx = overlay.getContext('2d');
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+
+            async function loop() {
+                if (isProcessing || !currentCompanyId) {
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+                    requestAnimationFrame(loop);
+                    return;
                 }
-            }, 1000);
+
+                // SPEED OPTIMIZATION: Only detect landmarks during the liveness phase.
+                // Descriptor calculation is heavy and only needed once blink is confirmed.
+                const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+                
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                if (detection) {
+                    const dims = faceapi.matchDimensions(overlay, video, true);
+                    const resizedDetection = faceapi.resizeResults(detection, dims);
+                    
+                    // Liveness Detection: Blink Check
+                    const landmarks = resizedDetection.landmarks;
+                    const earLeft = getEAR(landmarks.getLeftEye());
+                    const earRight = getEAR(landmarks.getRightEye());
+                    const avgEAR = (earLeft + earRight) / 2;
+
+                    // EAR threshold adjusted to 0.25 for more immediate/responsive detection
+                    if (avgEAR < 0.25) {
+                        if (!hasBlinked) {
+                            blinkCounter++;
+                            hasBlinked = true;
+                        }
+                    } else {
+                        hasBlinked = false;
+                    }
+
+                    faceapi.draw.drawDetections(overlay, resizedDetection);
+                    faceapi.draw.drawFaceLandmarks(overlay, resizedDetection);
+
+                    const box = resizedDetection.detection.box;
+                    
+                    // Mirror text drawing so it's readable on mirrored canvas
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.translate(-overlay.width, 0);
+                    
+                    const textX = overlay.width - (box.x + box.width / 2);
+                    const textY = box.y + box.height + 30;
+
+                    ctx.font = "bold 16px Inter";
+                    ctx.textAlign = "center";
+                    
+                    if (blinkCounter < 1) {
+                        ctx.fillStyle = "#f39c12";
+                        ctx.fillText("PLEASE BLINK TO VERIFY LIVENESS", textX, textY);
+                    } else {
+                        ctx.fillStyle = "#27ae60";
+                        ctx.fillText("LIVENESS VERIFIED - SCANNING...", textX, textY);
+                        
+                        if (!isProcessing) {
+                            isProcessing = true;
+                            cameraCircle.classList.add('scanning');
+                            
+                            // Now that liveness is verified, get the descriptor for recognition
+                            const fullDetection = await faceapi.detectSingleFace(video, options)
+                                .withFaceLandmarks()
+                                .withFaceDescriptor();
+                                
+                            if (fullDetection) {
+                                // Reset blink counter for next person after a delay
+                                setTimeout(() => { blinkCounter = 0; }, 5000);
+                                await processLog(fullDetection.descriptor);
+                            } else {
+                                isProcessing = false;
+                                cameraCircle.classList.remove('scanning');
+                            }
+                        }
+                    }
+                    ctx.restore();
+                } else {
+                    blinkCounter = 0;
+                }
+
+                requestAnimationFrame(loop);
+            }
+
+            loop();
+        }
+
+        function getEAR(eye) {
+            // eye is an array of 6 points
+            // EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
+            const p1 = eye[0];
+            const p2 = eye[1];
+            const p3 = eye[2];
+            const p4 = eye[3];
+            const p5 = eye[4];
+            const p6 = eye[5];
+
+            const dist = (a, b) => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+            
+            const v1 = dist(p2, p6);
+            const v2 = dist(p3, p5);
+            const h = dist(p1, p4);
+
+            return (v1 + v2) / (2 * h);
         }
 
         async function processLog(descriptor) {
-            if (!descriptor || descriptor.length !== 128) return;
+            if (!descriptor || descriptor.length !== 128) {
+                isProcessing = false;
+                cameraCircle.classList.remove('scanning');
+                return;
+            }
             isProcessing = true;
             statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying Identity...</p>';
             
             try {
-                const response = await fetch('api.php?action=kiosk_scan', {
+                const response = await fetch('backend/api.php?action=kiosk_scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -518,14 +656,36 @@
                 });
                 const result = await response.json();
                 
+                cameraCircle.classList.remove('scanning');
+                
                 if (result.success) {
-                    cameraCircle.className = 'camera-circle border-success';
                     displayName.innerText = result.name;
                     displayRole.innerText = result.position || "Employee Verified";
-                    statusEl.innerHTML = `
-                        <h3 class="text-success">${result.action.toUpperCase()} SUCCESS!</h3>
-                        <p style="color: #27ae60; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
-                    `;
+                    
+                    let morningWarning = result.missed_morning ? '<br><small style="color: var(--accent-red)">⚠️ MISSED MORNING CHECK-IN</small>' : '';
+
+                    if (result.status === 'Absent') {
+                        cameraCircle.className = 'camera-circle border-danger';
+                        statusEl.innerHTML = `
+                            <h3 class="text-danger">CHECK-OUT (ABSENT)</h3>
+                            <p style="color: var(--accent-red); font-size: 0.8rem;">No Check-in Found! Match: ${result.match_percentage}%</p>
+                            ${morningWarning}
+                        `;
+                    } else if (result.status === 'Half-Day') {
+                        cameraCircle.className = 'camera-circle border-warning';
+                        statusEl.innerHTML = `
+                            <h3 style="color: #f39c12">HALF-DAY SUCCESS!</h3>
+                            <p style="color: #f39c12; font-size: 0.8rem;">Partial Log Recorded. Match: ${result.match_percentage}%</p>
+                            ${morningWarning}
+                        `;
+                    } else {
+                        cameraCircle.className = 'camera-circle border-success';
+                        statusEl.innerHTML = `
+                            <h3 class="text-success">${result.action.toUpperCase()} SUCCESS!</h3>
+                            <p style="color: #27ae60; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
+                            ${morningWarning}
+                        `;
+                    }
                     
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
@@ -540,15 +700,32 @@
                     cameraCircle.className = 'camera-circle border-warning';
                     displayName.innerText = result.name;
                     displayRole.innerText = "Action Duplicate";
+                    
+                    let morningWarning = result.missed_morning ? '<br><small style="color: var(--accent-red)">⚠️ MISSED MORNING CHECK-IN</small>' : '';
+
                     statusEl.innerHTML = `
                         <h3 class="text-danger">ALREADY ${result.action.toUpperCase()}!</h3>
                         <p style="color: #f39c12; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
+                        ${morningWarning}
                     `;
                     
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
                     statEmpId.innerText = result.employee_id;
 
+                    setTimeout(() => {
+                        resetUI();
+                        isProcessing = false;
+                    }, 5000);
+                } else if (result.message === 'MUST CHECK-IN FIRST' || result.message === 'MUST TIME-IN FIRST') {
+                    cameraCircle.className = 'camera-circle border-danger';
+                    displayName.innerText = result.name;
+                    displayRole.innerText = "Entry Point Required";
+                    statusEl.innerHTML = `
+                        <h3 class="text-danger">${result.message}</h3>
+                        <p style="color: var(--accent-red); font-size: 0.8rem;">Entry Scan Required! Match: ${result.match_percentage}%</p>
+                    `;
+                    
                     setTimeout(() => {
                         resetUI();
                         isProcessing = false;

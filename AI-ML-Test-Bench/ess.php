@@ -1,6 +1,7 @@
 <?php
+require_once 'backend/db.php';
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
+if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
@@ -10,11 +11,11 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALM Employee Self-Service</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Employee Portal - ALM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
     <style>
         .ess-dashboard { padding: 3rem; max-width: 1200px; margin: 0 auto; }
         .ess-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; }
@@ -71,7 +72,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
 
         async function loadESS() {
             try {
-                const response = await fetch('api.php?action=get_ess_data');
+                const response = await fetch('backend/api.php?action=get_ess_data');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 essData = await response.json();
 
@@ -179,7 +180,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
                 document.getElementById('loanForm').onsubmit = async (e) => {
                     e.preventDefault();
                     const formData = new FormData(e.target);
-                    await fetch('requests.php?action=apply_loan', {
+                    await fetch('backend/requests.php?action=apply_loan', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(Object.fromEntries(formData))
                     });
@@ -205,7 +206,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
                     e.preventDefault();
                     if (!confirm('Are you sure you want to submit your resignation? This action cannot be undone.')) return;
                     const formData = new FormData(e.target);
-                    await fetch('requests.php?action=apply_resignation', {
+                    await fetch('backend/requests.php?action=apply_resignation', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(Object.fromEntries(formData))
                     });
@@ -246,7 +247,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
             document.getElementById('leaveForm').onsubmit = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
-                const response = await fetch('api.php?action=apply_leave', {
+                const response = await fetch('backend/api.php?action=apply_leave', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(Object.fromEntries(formData))
@@ -259,12 +260,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Employee') {
         }
 
         async function logout() {
-            await fetch('api.php?action=logout');
+            await fetch('backend/api.php?action=logout');
             window.location.href = 'login.php';
         }
 
         async function exportPayslip(id) {
-            const response = await fetch(`api.php?action=get_payslip&id=${id}`);
+            const response = await fetch(`backend/api.php?action=get_payslip&id=${id}`);
             const payslip = await response.json();
 
             if (payslip) {
