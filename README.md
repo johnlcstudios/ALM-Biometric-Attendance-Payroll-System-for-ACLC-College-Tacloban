@@ -6,21 +6,12 @@ The Biometric Attendance Payroll System is a collaborative class project underta
 The project partners with ACLC College Tacloban, specifically its Payroll Office, to develop a system that automates the integration of biometric attendance data with payroll computation. By addressing the actual needs of a functioning institution, the project provides students with invaluable hands-on experience in requirements gathering, system design, development, testing, and deployment.
 
 ---
+# DO NOT TOUCH ROOT FOLDER FILES ESPECIALLY R and RB FILES
+## ALWAYS EDIT FILES ON 'AI-ML-Test-Bench' FOLDER
 
-## � **Latest Features: FaceID Biometric Integration**
-The system now includes an advanced **FaceID Biometric System** powered by `face-api.js` (TensorFlow.js).
+--- 
 
-- **Real-time Recognition**: Face tracking and landmark detection in `kiosk/kiosk.html`.
-- **Admin Enrollment**: Integrated face registration for employees within `payroll-system.html`.
-- **Local Neural Networks**: All models are hosted locally in `kiosk/models/` for faster, offline-ready operation.
-- **Verification Flow**: Secure Time In/Time Out verification based on unique facial descriptors.
-- **Leave Management**: Full lifecycle from employee request to admin approval.
-- **Analytics Dashboard**: Visual charts for payroll trends and attendance using `Chart.js`.
-- **Employee Self-Service (ESS)**: Dedicated portal for employees to view their own attendance and download payslips.
-- **PDF Export**: Professional payslip generation using `jspdf` and `jspdf-autotable`.
-- **Relational Database Schema**: [database.sql](database.sql) provides the full structure for backend integration.
-
-See the [Changelog](Changelog.md) for a full list of recent updates.
+# See the [Changelog](Changelog.md) for a full list of recent updates.
 
 ---
 
