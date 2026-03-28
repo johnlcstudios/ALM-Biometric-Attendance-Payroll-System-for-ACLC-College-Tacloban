@@ -63,6 +63,13 @@ git config --global --list
 
 ## **📌 Summary of Steps: Push & Pull Workflow**
 
+## Pre Requisites 
+```bash
+winget install --id Git.Git -e --source winget 
+$env:Path += ";C:\Program Files\Git\cmd"
+git --version
+```
+
 ### **1️⃣ Clone (First Time Only)**
 ```bash
 git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
