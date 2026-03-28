@@ -522,24 +522,27 @@
         }
 
         let isEnrolling = false;
-        let lastBlinkTime = 0;
-        let hasBlinked = false;
-        let blinkCounter = 0;
+        let lastBox = null;
+        let stabilityCounter = 0;
+        const STABILITY_REQUIRED = 5; // number of stable frames before scanning
+        const MOVEMENT_THRESHOLD = 15; // pixel movement allowed for "stable"
 
         async function detectFace() {
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+            // Optimized inputSize for better detection speed/accuracy balance
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
             async function loop() {
                 if (isProcessing || !currentCompanyId) {
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
+                    stabilityCounter = 0;
+                    lastBox = null;
                     requestAnimationFrame(loop);
                     return;
                 }
 
-                // SPEED OPTIMIZATION: Only detect landmarks during the liveness phase.
-                // Descriptor calculation is heavy and only needed once blink is confirmed.
+                // Initial detection for face presence and stability
                 const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks();
                 
                 ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -547,29 +550,24 @@
                 if (detection) {
                     const dims = faceapi.matchDimensions(overlay, video, true);
                     const resizedDetection = faceapi.resizeResults(detection, dims);
-                    
-                    // Liveness Detection: Blink Check
-                    const landmarks = resizedDetection.landmarks;
-                    const earLeft = getEAR(landmarks.getLeftEye());
-                    const earRight = getEAR(landmarks.getRightEye());
-                    const avgEAR = (earLeft + earRight) / 2;
+                    const box = resizedDetection.detection.box;
 
-                    // EAR threshold adjusted to 0.25 for more immediate/responsive detection
-                    if (avgEAR < 0.25) {
-                        if (!hasBlinked) {
-                            blinkCounter++;
-                            hasBlinked = true;
+                    // Stability Check: Faster than waiting for a blink
+                    if (lastBox) {
+                        const dx = Math.abs(box.x - lastBox.x);
+                        const dy = Math.abs(box.y - lastBox.y);
+                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) {
+                            stabilityCounter++;
+                        } else {
+                            stabilityCounter = 0;
                         }
-                    } else {
-                        hasBlinked = false;
                     }
+                    lastBox = box;
 
                     faceapi.draw.drawDetections(overlay, resizedDetection);
                     faceapi.draw.drawFaceLandmarks(overlay, resizedDetection);
 
-                    const box = resizedDetection.detection.box;
-                    
-                    // Mirror text drawing so it's readable on mirrored canvas
+                    // Mirror text drawing
                     ctx.save();
                     ctx.scale(-1, 1);
                     ctx.translate(-overlay.width, 0);
@@ -580,60 +578,46 @@
                     ctx.font = "bold 16px Inter";
                     ctx.textAlign = "center";
                     
-                    if (blinkCounter < 1) {
+                    if (stabilityCounter < STABILITY_REQUIRED) {
                         ctx.fillStyle = "#f39c12";
-                        ctx.fillText("PLEASE BLINK TO VERIFY LIVENESS", textX, textY);
+                        ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
                     } else {
                         ctx.fillStyle = "#27ae60";
-                        ctx.fillText("LIVENESS VERIFIED - SCANNING...", textX, textY);
+                        ctx.fillText("STABLE - SCANNING...", textX, textY);
                         
                         if (!isProcessing) {
                             isProcessing = true;
                             cameraCircle.classList.add('scanning');
                             
-                            // Now that liveness is verified, get the descriptor for recognition
+                            // Immediately get descriptor once stable
                             const fullDetection = await faceapi.detectSingleFace(video, options)
                                 .withFaceLandmarks()
                                 .withFaceDescriptor();
                                 
                             if (fullDetection) {
-                                // Reset blink counter for next person after a delay
-                                setTimeout(() => { blinkCounter = 0; }, 5000);
+                                // Reset for next person
+                                setTimeout(() => { 
+                                    stabilityCounter = 0; 
+                                    lastBox = null;
+                                }, 5000);
                                 await processLog(fullDetection.descriptor);
                             } else {
                                 isProcessing = false;
                                 cameraCircle.classList.remove('scanning');
+                                stabilityCounter = 0;
                             }
                         }
                     }
                     ctx.restore();
                 } else {
-                    blinkCounter = 0;
+                    stabilityCounter = 0;
+                    lastBox = null;
                 }
 
                 requestAnimationFrame(loop);
             }
 
             loop();
-        }
-
-        function getEAR(eye) {
-            // eye is an array of 6 points
-            // EAR = (|p2-p6| + |p3-p5|) / (2 * |p1-p4|)
-            const p1 = eye[0];
-            const p2 = eye[1];
-            const p3 = eye[2];
-            const p4 = eye[3];
-            const p5 = eye[4];
-            const p6 = eye[5];
-
-            const dist = (a, b) => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-            
-            const v1 = dist(p2, p6);
-            const v2 = dist(p3, p5);
-            const h = dist(p1, p4);
-
-            return (v1 + v2) / (2 * h);
         }
 
         async function processLog(descriptor) {
