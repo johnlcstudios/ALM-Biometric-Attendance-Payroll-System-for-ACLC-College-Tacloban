@@ -143,7 +143,7 @@ body {
     <div class="login-left">
 
         <!-- LOGO -->
-        <img src="logo1.jpeg" alt="Logo" class="logo">
+        <img src="assets/logo.jpg" alt="Logo" class="logo">
 
         <h2>Login</h2>
 
