@@ -581,16 +581,6 @@ function generateReport(type) {
 }
 
 // --- Biometrics Enrollment ---
-let isEnrolling = false;
-let hasBlinked = false;
-let blinkCounter = 0;
-
-// Optimized EAR calculation
-function getEAR(eye) {
-    const dist = (a, b) => Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-    return (dist(eye[1], eye[5]) + dist(eye[2], eye[4])) / (2 * dist(eye[0], eye[3]));
-}
-
 async function initFaceEnrollment() {
     const select = document.getElementById('enrollEmployeeSelect');
     const employeeId = select.value;
@@ -630,16 +620,18 @@ async function initFaceEnrollment() {
         const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
         faceapi.matchDimensions(canvas, displaySize);
 
-        isEnrolling = false;
-        blinkCounter = 0;
-        hasBlinked = false;
+        let isEnrolling = false;
+        let lastBox = null;
+        let stabilityCounter = 0;
+        const STABILITY_REQUIRED = 5; // number of stable frames before scanning
+        const MOVEMENT_THRESHOLD = 15; // pixel movement allowed for "stable"
 
         // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
             if (!video.srcObject || isEnrolling) return;
             
             // SPEED OPTIMIZATION: Only detect landmarks during the liveness phase.
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
                 .withFaceLandmarks();
             
             const ctx = canvas.getContext('2d');
@@ -647,29 +639,26 @@ async function initFaceEnrollment() {
 
             if (detection) {
                 const resizedDetection = faceapi.resizeResults(detection, displaySize);
-                
-                // Liveness Detection: Blink Check
-                const landmarks = resizedDetection.landmarks;
-                const earLeft = getEAR(landmarks.getLeftEye());
-                const earRight = getEAR(landmarks.getRightEye());
-                const avgEAR = (earLeft + earRight) / 2;
+                const box = resizedDetection.detection.box;
 
-                // EAR threshold adjusted to 0.25 for more immediate/responsive detection
-                if (avgEAR < 0.25) {
-                    if (!hasBlinked) {
-                        blinkCounter++;
-                        hasBlinked = true;
-                        if (captureBtn) captureBtn.disabled = false; // Enable manual capture
+                // Stability Check: Faster than waiting for a blink
+                if (lastBox) {
+                    const dx = Math.abs(box.x - lastBox.x);
+                    const dy = Math.abs(box.y - lastBox.y);
+                    if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) {
+                        stabilityCounter++;
+                    } else {
+                        stabilityCounter = 0;
                     }
-                } else {
-                    hasBlinked = false;
                 }
+                lastBox = box;
+
+                // Enable manual capture after a few stable frames
+                if (stabilityCounter >= 3 && captureBtn) captureBtn.disabled = false;
 
                 // Draw feedback
                 faceapi.draw.drawDetections(canvas, resizedDetection);
                 faceapi.draw.drawFaceLandmarks(canvas, resizedDetection);
-                
-                const box = resizedDetection.detection.box;
                 
                 // Mirror text drawing so it's readable on mirrored canvas
                 ctx.save();
@@ -682,9 +671,9 @@ async function initFaceEnrollment() {
                 ctx.font = "bold 18px Inter";
                 ctx.textAlign = "center";
                 
-                if (blinkCounter < 1) {
+                if (stabilityCounter < STABILITY_REQUIRED) {
                     ctx.fillStyle = "#f20e0eff";
-                    ctx.fillText("PLEASE BLINK TO VERIFY LIVENESS", textX, textY);
+                    ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
                 } else {
                     ctx.fillStyle = "#27ae60";
                     ctx.fillText(`Liveness Verified!`, textX, textY);
@@ -693,7 +682,7 @@ async function initFaceEnrollment() {
                         isEnrolling = true;
                         
                         // Now that liveness is verified, get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
                             .withFaceLandmarks()
                             .withFaceDescriptor();
 
@@ -724,7 +713,8 @@ async function initFaceEnrollment() {
                 }
                 ctx.restore();
              } else {
-                 blinkCounter = 0;
+                 stabilityCounter = 0;
+                 lastBox = null;
                  if (captureBtn) captureBtn.disabled = true;
              }
              
@@ -741,10 +731,6 @@ async function initFaceEnrollment() {
 }
 
 async function saveFaceEnrollment(manualDescriptor = null) {
-    if (blinkCounter < 1) {
-        alert("Liveness verification failed. Please blink before capturing.");
-        return;
-    }
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     
@@ -752,7 +738,7 @@ async function saveFaceEnrollment(manualDescriptor = null) {
 
     if (!descriptor) {
         // Use the same detector options as the live preview
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
         const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
         if (detection) {
             descriptor = detection.descriptor;
