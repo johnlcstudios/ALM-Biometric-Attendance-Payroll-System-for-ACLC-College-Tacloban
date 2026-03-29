@@ -60,6 +60,12 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 <button class="nav-btn" onclick="showPage('payroll')">
                     <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
                 </button>
+                <button class="nav-btn" onclick="showPage('faculty_payroll')">
+                    <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
+                </button>
+                <button class="nav-btn" onclick="showPage('utility_payroll')">
+                    <i class="fas fa-tools"></i> <span>Utility Payroll</span>
+                </button>
                 <button class="nav-btn" onclick="showPage('allowances')">
                     <i class="fas fa-coins"></i> <span>Allowances</span>
                 </button>

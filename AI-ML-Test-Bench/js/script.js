@@ -98,6 +98,8 @@ function showPage(pageId) {
         'biometrics': 'Face Biometrics Enrollment',
         'attendance': 'Daily Attendance Logs',
         'payroll': 'Payroll Processing',
+        'faculty_payroll': 'Faculty Payroll System',
+        'utility_payroll': 'Utility Payroll System',
         'allowances': 'Allowances and Earnings',
         'leave': 'Leave Management',
         'deductions': 'Deductions & Allowances',
@@ -112,6 +114,8 @@ function showPage(pageId) {
     if (pageId === 'biometrics') populateEmployeeDropdown();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
+    if (pageId === 'faculty_payroll') renderFacultyPayroll();
+    if (pageId === 'utility_payroll') renderUtilityPayroll();
     if (pageId === 'allowances') renderAllowances();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
@@ -1082,6 +1086,112 @@ function deleteEmployeeDeduction(employee, deduction) {
         employeeDeductions = employeeDeductions.filter(a => !(a.employee === employee && a.deduction === deduction));
         renderDeductions();
     }
+}
+
+// --- Faculty Payroll ---
+function renderFacultyPayroll() {
+    const tbody = document.getElementById('facultyPayrollTableBody');
+    if (!tbody) return;
+
+    // Filter faculty only
+    const faculty = employees.filter(emp => emp.position === 'Faculty' || emp.department === 'Faculty');
+    
+    if (faculty.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="17" class="text-center">No faculty records found.</td></tr>';
+        return;
+    }
+
+    // Update Header Info
+    const today = new Date();
+    document.getElementById('faculty-payroll-period').innerText = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+    document.getElementById('faculty-cutoff-period').innerText = `${today.getMonth() + 1}/01 - ${today.getMonth() + 1}/15`;
+
+    tbody.innerHTML = faculty.map((emp, index) => {
+        const basicPay = parseFloat(emp.basic_salary) || 0;
+        const earned = basicPay / 2; // Semi-monthly
+        const hdmfCont = 100; // Placeholder
+        const totalDeduction = hdmfCont;
+        const honorarium = 0;
+        const netPay = earned - totalDeduction + honorarium;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td style="text-align: left; padding-left: 10px;"><strong>${emp.full_name}</strong></td>
+                <td>₱${basicPay.toLocaleString()}</td>
+                <td>₱${earned.toLocaleString()}</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>₱${hdmfCont.toLocaleString()}</td>
+                <td>0</td>
+                <td>0</td>
+                <td>₱${totalDeduction.toLocaleString()}</td>
+                <td>₱${honorarium.toLocaleString()}</td>
+                <td><strong>₱${netPay.toLocaleString()}</strong></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function showRunFacultyPayroll() {
+    alert("Faculty Payroll processing initialized...");
+}
+
+// --- Utility Payroll ---
+function renderUtilityPayroll() {
+    const tbody = document.getElementById('utilityPayrollTableBody');
+    if (!tbody) return;
+
+    // Filter utility staff only (Maintenance, Security, etc.)
+    const utility = employees.filter(emp => ['Maintenance', 'Security', 'Janitorial'].includes(emp.department) || emp.position === 'Utility');
+    
+    if (utility.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center">No utility records found.</td></tr>';
+        return;
+    }
+
+    // Update Header Info
+    const today = new Date();
+    document.getElementById('utility-payroll-period').innerText = today.toLocaleString('default', { month: 'long', year: 'numeric' });
+    document.getElementById('utility-cutoff-period').innerText = `${today.getMonth() + 1}/01 - ${today.getMonth() + 1}/15`;
+
+    tbody.innerHTML = utility.map((emp, index) => {
+        const basicPay = parseFloat(emp.basic_salary) || 0;
+        const ratePerDay = basicPay / 22; // Assumption: 22 working days
+        const earned = ratePerDay * 11; // Semi-monthly (11 days)
+        const hdmfCont = 100;
+        const totalDeduction = hdmfCont;
+        const netPay = earned - totalDeduction;
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td style="text-align: left; padding-left: 10px;"><strong>${emp.full_name}</strong></td>
+                <td>₱${ratePerDay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>₱${earned.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>₱${hdmfCont.toLocaleString()}</td>
+                <td>0</td>
+                <td>0</td>
+                <td>₱${totalDeduction.toLocaleString()}</td>
+                <td><strong>₱${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                <td>₱${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>0</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function showRunUtilityPayroll() {
+    alert("Utility Payroll processing initialized...");
 }
 
 // --- Charts ---

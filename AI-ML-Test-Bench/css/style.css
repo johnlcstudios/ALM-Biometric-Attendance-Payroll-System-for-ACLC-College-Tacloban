@@ -415,6 +415,47 @@ body {
     background-color: #2a02a8;
 }
 
+/* Faculty Payroll Specific Styling */
+.faculty-payroll-header h2 {
+    font-size: 1.4rem;
+    letter-spacing: 0.5px;
+}
+
+.payroll-info-text {
+    margin-top: 1rem;
+}
+
+.payroll-info-text p {
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+}
+
+.faculty-table-container {
+    width: 100%;
+    overflow-x: auto;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.faculty-table {
+    min-width: 1500px; /* Force wide table as per image */
+}
+
+.faculty-table thead th {
+    padding: 0.8rem 0.5rem;
+    font-size: 0.75rem;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.faculty-table tbody td {
+    padding: 0.8rem 0.5rem;
+    text-align: center;
+    border: 1px solid #eee;
+    font-size: 0.85rem;
+}
+
 /* Dashboard Stats Cards */
 .stats-grid {
     display: grid;
