@@ -355,22 +355,105 @@
 <?php if ($_SESSION['role'] === 'HR'): ?>
 <!-- Deductions Page -->
 <section id="deductions" class="page">
-    <div class="page-header">
-        <h3>Deductions & Allowances Configuration</h3>
-        <button class="btn btn-primary" onclick="addDeduction()">+ Add New Rule</button>
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Deductions Configuration</h2>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+        </div>
     </div>
-    <div class="deductions-grid">
-        <div class="card">
-            <h3>Government Mandated</h3>
-            <div id="gov-deductions-list">
-                <!-- Dynamic List -->
+
+    <div class="allowances-grid">
+        <div class="allowances-column">
+            <div class="card allowances-card">
+                <h3>Deduction Categories</h3>
+                <div class="table-container small-table">
+                    <table id="deductionCategoriesTable" class="payroll-table">
+                        <thead>
+                            <tr>
+                                <th>NAME</th>
+                                <th>STD. RATE</th>
+                                <th>TYPE</th>
+                                <th>RECURRING</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deductionCategoriesBody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="add-new-section">
+                    <h4>Add New Type</h4>
+                    <div class="allowance-form-row">
+                        <input type="text" id="deductionName" placeholder="Name" class="form-control-gray">
+                        <select id="deductionType" class="form-control-gray">
+                            <option value="Fixed">Fixed</option>
+                            <option value="Percentage">Percentage</option>
+                        </select>
+                        <input type="number" id="deductionRate" placeholder="Rate" class="form-control-gray">
+                    </div>
+                    <div class="allowance-form-row">
+                        <input type="text" id="deductionDesc" placeholder="Description" class="form-control-gray">
+                        <button class="btn-dark-purple" onclick="addDeductionCategory()">Add Category</button>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <h3>Company Specific</h3>
-            <div id="company-deductions-list">
-                <!-- Dynamic List -->
+
+        <div class="allowances-column">
+            <div class="card allowances-card">
+                <h3>Assign to Employee</h3>
+                <div class="assign-form">
+                    <div class="form-group-custom">
+                        <label>Select Employee</label>
+                        <select id="assignDeductionEmployeeSelect" class="form-control-large-gray">
+                            <option value="">Select Employee...</option>
+                            <!-- Dynamic Content -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group-custom">
+                        <label>Deduction Types</label>
+                        <div class="selection-box-gray" id="deductionTypesList">
+                            <!-- Dynamic List -->
+                        </div>
+                    </div>
+
+                    <div class="form-row-custom">
+                        <div class="form-group-custom">
+                            <label>Override Amount</label>
+                            <input type="number" id="deductionOverrideAmount" class="form-control-gray">
+                        </div>
+                        <div class="form-group-custom">
+                            <label>Effective Date</label>
+                            <input type="date" id="deductionEffectiveDate" class="form-control-gray">
+                        </div>
+                    </div>
+
+                    <button class="btn-dark-purple btn-full" onclick="assignDeduction()">Assign Deduction</button>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <div class="card breakdown-card">
+        <h3>Employee Deduction Breakdown</h3>
+        <div class="table-container">
+            <table id="deductionBreakdownTable" class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>EMPLOYEE</th>
+                        <th>DEDUCTION</th>
+                        <th>AMOUNT</th>
+                        <th>EFFECTIVE DATE</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="deductionBreakdownBody">
+                    <!-- Dynamic Content -->
+                </tbody>
+            </table>
         </div>
     </div>
 </section>
