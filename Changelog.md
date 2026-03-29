@@ -86,6 +86,7 @@ on Saturday 3/28/26 (full list will be updated on 04/02/26)
 - Face Model and API Integration
 - Console Errors
 - **Biometric Logs**: Enhance `attendance` logs to record liveness verification stability scores.
+- **Lunch Out/In**: Lunch Out and Lunch In are not fully functional.
 
 
 ### Frontend 
