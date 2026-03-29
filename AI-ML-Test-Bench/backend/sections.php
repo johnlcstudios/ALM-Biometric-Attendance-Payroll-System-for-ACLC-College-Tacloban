@@ -137,38 +137,157 @@
 
 <!-- Payroll Page -->
 <section id="payroll" class="page">
-    <div class="page-header">
-        <div class="payroll-controls">
-            <div class="form-group">
-                <label>Start Date</label>
-                <input type="date" id="payrollStartDate" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>End Date</label>
-                <input type="date" id="payrollEndDate" class="form-control">
-            </div>
-            <button class="btn btn-primary" onclick="runPayroll()">
-                <i class="fas fa-play"></i> Run Payroll
-            </button>
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Payroll History</h2>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+        </div>
+        <button class="btn-process-payroll" onclick="showPayrollModal()">
+            + Process New Payroll
+        </button>
+    </div>
+
+    <div class="payroll-stats">
+        <div class="payroll-stat-card">
+            <label>TOTAL BATCHES</label>
+            <div class="value" id="stat-total-batches">0</div>
+        </div>
+        <div class="payroll-stat-card">
+            <label>TOTAL DISBURSED</label>
+            <div class="value" id="stat-total-disbursed">₱0.00</div>
+        </div>
+        <div class="payroll-stat-card">
+            <label>LAST RUN PERIOD</label>
+            <div class="value" id="stat-last-run">---</div>
+        </div>
+        <div class="payroll-stat-card">
+            <label>STAFF COUNT (LAST)</label>
+            <div class="value" id="stat-last-staff-count">0</div>
         </div>
     </div>
-    <div class="table-container">
-        <table id="payrollTable">
+
+    <div class="payroll-table-container">
+        <table id="payrollTable" class="payroll-table">
             <thead>
                 <tr>
-                    <th>Employee</th>
-                    <th>Period</th>
-                    <th>Basic Pay</th>
-                    <th>Deductions</th>
-                    <th>Net Pay</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>PAYROLL</th>
+                    <th>PERIOD</th>
+                    <th>TOTAL DISBURSED</th>
+                    <th>PROCESSING DATE</th>
+                    <th>CREATED BY</th>
+                    <th>STATUS</th>
+                    <th>ACTION</th>
                 </tr>
             </thead>
             <tbody id="payrollTableBody">
                 <!-- Dynamic Content -->
             </tbody>
         </table>
+    </div>
+</section>
+
+<!-- Allowances and Earnings Page -->
+<section id="allowances" class="page">
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Allowances and Earnings</h2>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+        </div>
+    </div>
+
+    <div class="allowances-grid">
+        <div class="allowances-column">
+            <div class="card allowances-card">
+                <h3>Allowance Categories</h3>
+                <div class="table-container small-table">
+                    <table id="allowanceCategoriesTable" class="payroll-table">
+                        <thead>
+                            <tr>
+                                <th>NAME</th>
+                                <th>STD. RATE</th>
+                                <th>TYPE</th>
+                                <th>RECURRING</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allowanceCategoriesBody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="add-new-section">
+                    <h4>Add New Type</h4>
+                    <div class="allowance-form-row">
+                        <input type="text" id="allowanceName" placeholder="Name" class="form-control-gray">
+                        <select id="allowanceType" class="form-control-gray">
+                            <option value="Fixed">Fixed</option>
+                            <option value="Percentage">Percentage</option>
+                        </select>
+                        <input type="number" id="allowanceRate" placeholder="Rate" class="form-control-gray">
+                    </div>
+                    <div class="allowance-form-row">
+                        <input type="text" id="allowanceDesc" placeholder="Description" class="form-control-gray">
+                        <button class="btn-dark-purple" onclick="addAllowanceCategory()">Add Category</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="allowances-column">
+            <div class="card allowances-card">
+                <h3>Assign to Employee</h3>
+                <div class="assign-form">
+                    <div class="form-group-custom">
+                        <label>Select Employee</label>
+                        <select id="assignEmployeeSelect" class="form-control-large-gray">
+                            <option value="">Select Employee...</option>
+                            <!-- Dynamic Content -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group-custom">
+                        <label>Deduction Types</label>
+                        <div class="selection-box-gray" id="allowanceTypesList">
+                            <!-- Dynamic List -->
+                        </div>
+                    </div>
+
+                    <div class="form-row-custom">
+                        <div class="form-group-custom">
+                            <label>Override Amount</label>
+                            <input type="number" id="overrideAmount" class="form-control-gray">
+                        </div>
+                        <div class="form-group-custom">
+                            <label>Effective Date</label>
+                            <input type="date" id="effectiveDate" class="form-control-gray">
+                        </div>
+                    </div>
+
+                    <button class="btn-dark-purple btn-full" onclick="assignAllowance()">Assign Deduction</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card breakdown-card">
+        <h3>Employee Allowance Breakdown</h3>
+        <div class="table-container">
+            <table id="allowanceBreakdownTable" class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>EMPLOYEE</th>
+                        <th>BENEFIT/ALLOWANCE</th>
+                        <th>AMOUNT</th>
+                        <th>EFFECTIVE DATE</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="allowanceBreakdownBody">
+                    <!-- Dynamic Content -->
+                </tbody>
+            </table>
+        </div>
     </div>
 </section>
 

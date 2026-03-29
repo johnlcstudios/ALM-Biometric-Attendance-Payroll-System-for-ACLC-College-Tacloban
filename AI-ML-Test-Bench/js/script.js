@@ -7,6 +7,15 @@ let employees = [];
 let payrollHistory = [];
 let attendanceLogs = [];
 let leaveRequests = [];
+let allowanceCategories = [
+    { name: 'Rice Allowance', rate: 1500, type: 'Fixed', recurring: 'Yes' },
+    { name: 'Laundry Allowance', rate: 300, type: 'Fixed', recurring: 'Yes' },
+    { name: 'Clothing Allowance', rate: 500, type: 'Fixed', recurring: 'Yes' }
+];
+let employeeAllowances = [
+    { employee: 'John Doe', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' },
+    { employee: 'Jane Smith', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' }
+];
 let deductionsConfig = {
     gov: [
         { name: 'SSS', type: 'percentage', value: 4.5, active: true },
@@ -80,6 +89,7 @@ function showPage(pageId) {
         'biometrics': 'Face Biometrics Enrollment',
         'attendance': 'Daily Attendance Logs',
         'payroll': 'Payroll Processing',
+        'allowances': 'Allowances and Earnings',
         'leave': 'Leave Management',
         'deductions': 'Deductions & Allowances',
         'reports': 'System Reports',
@@ -93,6 +103,7 @@ function showPage(pageId) {
     if (pageId === 'biometrics') populateEmployeeDropdown();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
+    if (pageId === 'allowances') renderAllowances();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
@@ -326,19 +337,59 @@ async function runPayroll() {
 function renderPayrollTable() {
     const tbody = document.getElementById('payrollTableBody');
     if (!tbody) return;
-    tbody.innerHTML = payrollHistory.map(p => `
+
+    // Group payroll records by period to show as "batches"
+    const batches = {};
+    payrollHistory.forEach(p => {
+        if (!batches[p.period]) {
+            batches[p.period] = {
+                id: `BATCH-${Object.keys(batches).length + 101}`,
+                period: p.period,
+                total: 0,
+                date: new Date(p.created_at).toLocaleDateString(),
+                created_by: 'Admin', // Placeholder
+                status: 'Completed',
+                count: 0
+            };
+        }
+        batches[p.period].total += parseFloat(p.net_pay);
+        batches[p.period].count++;
+    });
+
+    const batchList = Object.values(batches);
+
+    // Update stats
+    if (batchList.length > 0) {
+        document.getElementById('stat-total-batches').innerText = batchList.length;
+        const totalDisbursed = batchList.reduce((sum, b) => sum + b.total, 0);
+        document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        document.getElementById('stat-last-run').innerText = batchList[0].period;
+        document.getElementById('stat-last-staff-count').innerText = batchList[0].count;
+    }
+
+    tbody.innerHTML = batchList.map(b => `
         <tr>
-            <td>${p.full_name}</td>
-            <td>${p.period}</td>
-            <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
-            <td>₱${parseFloat(p.deductions).toLocaleString()}</td>
-            <td><strong>₱${parseFloat(p.net_pay).toLocaleString()}</strong></td>
-            <td><span class="status-badge status-active">${p.status}</span></td>
+            <td><strong>${b.id}</strong></td>
+            <td>${b.period}</td>
+            <td>₱${b.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td>${b.date}</td>
+            <td>${b.created_by}</td>
+            <td><span class="status-badge status-active">${b.status}</span></td>
             <td>
-                <button class="btn btn-primary btn-sm" onclick="viewPayslip('${p.id}')"><i class="fas fa-eye"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="viewBatch('${b.period}')"><i class="fas fa-eye"></i> View</button>
             </td>
         </tr>
     `).join('');
+}
+
+function showPayrollModal() {
+    // Implement the modal showing logic here
+    alert('Process New Payroll feature coming soon!');
+}
+
+function viewBatch(period) {
+    // Implement viewing individual records in a batch
+    alert(`Viewing details for payroll period: ${period}`);
 }
 
 // --- Leave ---
@@ -768,10 +819,129 @@ async function saveFaceEnrollment(manualDescriptor = null) {
 }
 
 function populateEmployeeDropdown() {
-    const select = document.getElementById('enrollEmployeeSelect');
-    if (!select) return;
-    select.innerHTML = '<option value="">Select Employee...</option>' + 
-        employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+    const enrollSelect = document.getElementById('enrollEmployeeSelect');
+    if (enrollSelect) {
+        enrollSelect.innerHTML = '<option value="">Select Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+    }
+
+    const assignSelect = document.getElementById('assignEmployeeSelect');
+    if (assignSelect) {
+        assignSelect.innerHTML = '<option value="">Select Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+    }
+}
+
+// --- Allowances ---
+function renderAllowances() {
+    renderAllowanceCategories();
+    renderAllowanceBreakdown();
+    populateEmployeeDropdown();
+    
+    // Populate allowance types list for assignment
+    const typesList = document.getElementById('allowanceTypesList');
+    if (typesList) {
+        typesList.innerHTML = allowanceCategories.map(cat => `
+            <div style="margin-bottom: 5px;">
+                <input type="checkbox" name="assignAllowanceType" value="${cat.name}"> ${cat.name}
+            </div>
+        `).join('');
+    }
+}
+
+function renderAllowanceCategories() {
+    const tbody = document.getElementById('allowanceCategoriesBody');
+    if (!tbody) return;
+    tbody.innerHTML = allowanceCategories.map(cat => `
+        <tr>
+            <td>${cat.name}</td>
+            <td>₱${cat.rate.toLocaleString()}</td>
+            <td>${cat.type}</td>
+            <td>${cat.recurring}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteAllowanceCategory('${cat.name}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderAllowanceBreakdown() {
+    const tbody = document.getElementById('allowanceBreakdownBody');
+    if (!tbody) return;
+    tbody.innerHTML = employeeAllowances.map(item => `
+        <tr>
+            <td>${item.employee}</td>
+            <td>${item.benefit}</td>
+            <td>₱${item.amount.toLocaleString()}</td>
+            <td>${item.date}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmployeeAllowance('${item.employee}', '${item.benefit}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function addAllowanceCategory() {
+    const name = document.getElementById('allowanceName').value;
+    const type = document.getElementById('allowanceType').value;
+    const rate = document.getElementById('allowanceRate').value;
+    const desc = document.getElementById('allowanceDesc').value;
+
+    if (!name || !rate) return alert("Please fill in all required fields.");
+
+    allowanceCategories.push({
+        name,
+        rate: parseFloat(rate),
+        type,
+        recurring: 'Yes'
+    });
+
+    renderAllowances();
+    document.getElementById('allowanceName').value = '';
+    document.getElementById('allowanceRate').value = '';
+    document.getElementById('allowanceDesc').value = '';
+}
+
+function assignAllowance() {
+    const employee = document.getElementById('assignEmployeeSelect').value;
+    const overrideAmount = document.getElementById('overrideAmount').value;
+    const date = document.getElementById('effectiveDate').value;
+    
+    const selectedTypes = Array.from(document.querySelectorAll('input[name="assignAllowanceType"]:checked'))
+        .map(cb => cb.value);
+
+    if (!employee || selectedTypes.length === 0 || !date) {
+        return alert("Please select an employee, at least one allowance type, and an effective date.");
+    }
+
+    selectedTypes.forEach(type => {
+        const category = allowanceCategories.find(c => c.name === type);
+        employeeAllowances.push({
+            employee,
+            benefit: type,
+            amount: overrideAmount ? parseFloat(overrideAmount) : category.rate,
+            date
+        });
+    });
+
+    renderAllowances();
+    document.getElementById('overrideAmount').value = '';
+    document.getElementById('effectiveDate').value = '';
+    document.querySelectorAll('input[name="assignAllowanceType"]:checked').forEach(cb => cb.checked = false);
+}
+
+function deleteAllowanceCategory(name) {
+    if (confirm(`Are you sure you want to delete the ${name} category?`)) {
+        allowanceCategories = allowanceCategories.filter(c => c.name !== name);
+        renderAllowances();
+    }
+}
+
+function deleteEmployeeAllowance(employee, benefit) {
+    if (confirm(`Are you sure you want to remove ${benefit} for ${employee}?`)) {
+        employeeAllowances = employeeAllowances.filter(a => !(a.employee === employee && a.benefit === benefit));
+        renderAllowances();
+    }
 }
 
 // --- Charts ---

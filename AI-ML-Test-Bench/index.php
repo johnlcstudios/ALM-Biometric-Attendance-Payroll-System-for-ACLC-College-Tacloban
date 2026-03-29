@@ -14,7 +14,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALM Admin Hub - <?php echo $company_name; ?></title>
+    <title>Payroll System Hub - <?php echo $company_name; ?></title>
     <!-- Same head links as before -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,8 +35,8 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i class="fas fa-fingerprint"></i>
-                    <span>ALM Admin</span>
+                    <img src="assets/logo.jpg" alt="Logo" width="90" height="90" style="width: 90px; height: 90px; border-radius: 100%;">
+                    <span>Payroll System</span>
                 </div>
             </div>
             <nav class="sidebar-nav">
@@ -59,6 +59,9 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 </button>
                 <button class="nav-btn" onclick="showPage('payroll')">
                     <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
+                </button>
+                <button class="nav-btn" onclick="showPage('allowances')">
+                    <i class="fas fa-coins"></i> <span>Allowances</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('leave')">
                     <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
