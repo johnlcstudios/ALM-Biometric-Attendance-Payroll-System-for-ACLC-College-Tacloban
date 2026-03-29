@@ -186,6 +186,98 @@
     </div>
 </section>
 
+<!-- Faculty Payroll Page -->
+<section id="faculty_payroll" class="page">
+    <div class="payroll-header faculty-payroll-header">
+        <div class="header-left">
+            <h2>FACULTY PAYROLL</h2>
+            <div class="payroll-info-text">
+                <p><strong>Payroll Period:</strong> <span id="faculty-payroll-period">---</span></p>
+                <p><strong>Cut-off Period:</strong> <span id="faculty-cutoff-period">---</span></p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn-process-payroll" onclick="showRunFacultyPayroll()">
+                Run Faculty Payroll
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container faculty-table-container">
+        <table id="facultyPayrollTable" class="payroll-table faculty-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Name</th>
+                    <th>Basic Pay</th>
+                    <th>Earned for the Period</th>
+                    <th>Load</th>
+                    <th>Over Time</th>
+                    <th>Differential</th>
+                    <th>Substitution</th>
+                    <th>Adj. (+)</th>
+                    <th>Absences</th>
+                    <th>Latest/UT</th>
+                    <th>HDMF Cont.</th>
+                    <th>HDMF Loans</th>
+                    <th>HDMF MP2</th>
+                    <th>Total Deduction</th>
+                    <th>Honorarium</th>
+                    <th>Net Pay</th>
+                </tr>
+            </thead>
+            <tbody id="facultyPayrollTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Utility Payroll Page -->
+<section id="utility_payroll" class="page">
+    <div class="payroll-header utility-payroll-header">
+        <div class="header-left">
+            <h2>UTILITY</h2>
+            <div class="payroll-info-text">
+                <p><strong>Payroll Period:</strong> <span id="utility-payroll-period">---</span></p>
+                <p><strong>Cut-off Period:</strong> <span id="utility-cutoff-period">---</span></p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn-process-payroll" onclick="showRunUtilityPayroll()">
+                Run Utility Payroll
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container faculty-table-container">
+        <table id="utilityPayrollTable" class="payroll-table faculty-table">
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Name</th>
+                    <th>Rate per Day</th>
+                    <th>Earned for the Period</th>
+                    <th>OT/ Holiday Pay</th>
+                    <th>Adj.(+)</th>
+                    <th>Latest/UT</th>
+                    <th>Adj. (-)</th>
+                    <th>HDMF Cont.</th>
+                    <th>HDMF Loans</th>
+                    <th>Cash Advance</th>
+                    <th>Total Deduction</th>
+                    <th>Net Pay</th>
+                    <th>ATM</th>
+                    <th>Non ATM</th>
+                </tr>
+            </thead>
+            <tbody id="utilityPayrollTableBody">
+                <!-- Dynamic Content -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <!-- Allowances and Earnings Page -->
 <section id="allowances" class="page">
     <div class="payroll-header">
