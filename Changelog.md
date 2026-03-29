@@ -102,6 +102,15 @@ on Saturday 3/28/26 (full list will be updated on 04/02/26)
 
 ### Backend
 - **Role Management API**: Implement `update_role` endpoint to handle Admin/Payroll/Employee transitions.
+- **Settings Persistence API**: Create endpoints to save and retrieve institutional policies (Shift Timings, OT %, Grace Periods).
+- **Subject Load CRUD**: Full API support for assigning and managing faculty teaching loads in the database.
+- **Precision Deduction Engine**: Develop backend logic to calculate late/undertime penalties using the new Per-Second/Minute/Hour rates.
+- **Leave Balance Management**: Finalize and secure the API for administrative updates to employee leave credits.
+- **ATM/Non-ATM Payment Logic**: Implement backend support for designating and tracking payment methods in the Utility payroll.
+- **Attendance Timing Logic**: Backend validation for Lunch In/Out ranges and Shift Start/End enforcement.
+- **Reporting Engine**: Develop backend logic to aggregate, filter, and export attendance and payroll data for institutional reports.
+- **Specialized Payroll Logic**: Implement complex server-side calculations for faculty (differentials, substitutions) and utility (OT/Holiday pay, cash advances) payroll cycles.
+- **Loan/Leave Review Logic**: Create secure backend workflows for the administrative approval/rejection of employee financial and time-off requests.
 - **Faculty Payroll Persistence**: Create API actions to save and retrieve semi-monthly faculty payroll runs.
 - **Utility Payroll Persistence**: Create API actions for utility-specific earnings and deductions.
 - **Allowance/Deduction CRUD**: Implement full database support for allowance/deduction categories and employee assignments.
