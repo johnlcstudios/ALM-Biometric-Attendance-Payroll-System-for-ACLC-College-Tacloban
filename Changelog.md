@@ -80,28 +80,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --- 
 
 # To Fix
-on Saturday 3/28/26 (will be updated on 04/02/26)
+on Saturday 3/28/26 (full list will be updated on 04/02/26)
 
 ### Bioemtrics Team Kiosk
 - Face Model and API Integration
-- Faceial Recognition Preview
 - Console Errors
-- Face Scanning should be accurate
-- Should scan one face at a time
-- Should be responsive and fast
-- Face Scanning should have a cool down
+- **Biometric Logs**: Enhance `attendance` logs to record liveness verification stability scores.
 
 ### Frontend 
-- Implement all pages
-- Prepare for Backend Integration
-- Console Errors
+- [DONE] Redesign Payroll History to support batch-based view.
+- [DONE] Implement high-fidelity Allowances and Earnings page.
+- [DONE] Implement high-fidelity Deductions Configuration page.
+- [DONE] Implement specialized Faculty Payroll reporting page (17 columns).
+- [DONE] Implement specialized Utility Payroll reporting page (15 columns).
+- [Partial] Prepare for full Backend Integration of new specialized payroll pages.
+- Console Errors cleanup.
 
 ### Backend
-- Full System Integration
-- Face API Integration
-- Face Model Preparation
-- Backend Prep and Integration
-- Console Errors
+- **Faculty Payroll Persistence**: Create API actions to save and retrieve semi-monthly faculty payroll runs.
+- **Utility Payroll Persistence**: Create API actions for utility-specific earnings and deductions.
+- **Allowance/Deduction CRUD**: Implement full database support for allowance/deduction categories and employee assignments (currently in JS state).
+- **Batch Metadata**: Update `payroll` table or create a `payroll_batches` table to support the new batch-view aggregation.
+- **Loan/Resignation Workflow**: Finalize backend logic for processing loan and resignation requests.
+- Full System Integration and Console Errors fix.
 
 ### Testing
 - Face Model Testing
