@@ -202,6 +202,219 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Allowances Specific Styling */
+.allowances-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.allowances-card {
+    padding: 2rem;
+    height: 100%;
+}
+
+.allowances-card h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-dark);
+}
+
+.small-table {
+    margin-bottom: 2rem;
+}
+
+.add-new-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.allowance-form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-control-gray {
+    background-color: #d8d8d8;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 8px;
+    flex: 1;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.btn-dark-purple {
+    background-color: #1e0178;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-dark-purple:hover {
+    background-color: #2a02a8;
+}
+
+.btn-full {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.form-group-custom {
+    margin-bottom: 1.5rem;
+}
+
+.form-group-custom label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+}
+
+.form-control-large-gray {
+    width: 100%;
+    background-color: #d8d8d8;
+    border: none;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #333;
+}
+
+.selection-box-gray {
+    background-color: #d8d8d8;
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 150px;
+    color: #333;
+}
+
+.form-row-custom {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.form-row-custom .form-group-custom {
+    flex: 1;
+}
+
+.breakdown-card {
+    padding: 2rem;
+}
+
+.breakdown-card h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+/* Payroll Specific Styling */
+.payroll-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+}
+
+.payroll-header h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.payroll-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.payroll-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.payroll-stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 100px;
+}
+
+.payroll-stat-card label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payroll-stat-card .value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.payroll-table-container {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.payroll-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.payroll-table thead th {
+    background-color: #e57368; /* Salmon color from image */
+    color: white;
+    text-align: left;
+    padding: 1rem 1.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payroll-table tbody td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.btn-process-payroll {
+    background-color: #1e0178; /* Dark purple from image */
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-process-payroll:hover {
+    background-color: #2a02a8;
+}
+
 /* Dashboard Stats Cards */
 .stats-grid {
     display: grid;
