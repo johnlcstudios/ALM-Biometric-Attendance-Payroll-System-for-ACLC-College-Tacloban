@@ -16,6 +16,15 @@ let employeeAllowances = [
     { employee: 'John Doe', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' },
     { employee: 'Jane Smith', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' }
 ];
+let deductionCategories = [
+    { name: 'SSS', rate: 4.5, type: 'Percentage', recurring: 'Yes' },
+    { name: 'PhilHealth', rate: 2.0, type: 'Percentage', recurring: 'Yes' },
+    { name: 'Pag-IBIG', rate: 100, type: 'Fixed', recurring: 'Yes' }
+];
+let employeeDeductions = [
+    { employee: 'John Doe', deduction: 'SSS', amount: 900, date: '2026-03-01' },
+    { employee: 'Jane Smith', deduction: 'PhilHealth', amount: 400, date: '2026-03-01' }
+];
 let deductionsConfig = {
     gov: [
         { name: 'SSS', type: 'percentage', value: 4.5, active: true },
@@ -830,6 +839,12 @@ function populateEmployeeDropdown() {
         assignSelect.innerHTML = '<option value="">Select Employee...</option>' + 
             employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
     }
+
+    const assignDeductionSelect = document.getElementById('assignDeductionEmployeeSelect');
+    if (assignDeductionSelect) {
+        assignDeductionSelect.innerHTML = '<option value="">Select Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+    }
 }
 
 // --- Allowances ---
@@ -941,6 +956,131 @@ function deleteEmployeeAllowance(employee, benefit) {
     if (confirm(`Are you sure you want to remove ${benefit} for ${employee}?`)) {
         employeeAllowances = employeeAllowances.filter(a => !(a.employee === employee && a.benefit === benefit));
         renderAllowances();
+    }
+}
+
+// --- Deductions ---
+function renderDeductions() {
+    renderDeductionCategories();
+    renderDeductionBreakdown();
+    populateEmployeeDropdown();
+    
+    // Populate deduction types list for assignment
+    const typesList = document.getElementById('deductionTypesList');
+    if (typesList) {
+        typesList.innerHTML = deductionCategories.map(cat => `
+            <div style="margin-bottom: 5px;">
+                <input type="checkbox" name="assignDeductionType" value="${cat.name}"> ${cat.name}
+            </div>
+        `).join('');
+    }
+}
+
+function renderDeductionCategories() {
+    const tbody = document.getElementById('deductionCategoriesBody');
+    if (!tbody) return;
+    tbody.innerHTML = deductionCategories.map(cat => `
+        <tr>
+            <td>${cat.name}</td>
+            <td>${cat.type === 'Percentage' ? cat.rate + '%' : '₱' + cat.rate.toLocaleString()}</td>
+            <td>${cat.type}</td>
+            <td>${cat.recurring}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteDeductionCategory('${cat.name}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderDeductionBreakdown() {
+    const tbody = document.getElementById('deductionBreakdownBody');
+    if (!tbody) return;
+    tbody.innerHTML = employeeDeductions.map(item => `
+        <tr>
+            <td>${item.employee}</td>
+            <td>${item.deduction}</td>
+            <td>₱${item.amount.toLocaleString()}</td>
+            <td>${item.date}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmployeeDeduction('${item.employee}', '${item.deduction}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function addDeductionCategory() {
+    const name = document.getElementById('deductionName').value;
+    const type = document.getElementById('deductionType').value;
+    const rate = document.getElementById('deductionRate').value;
+    const desc = document.getElementById('deductionDesc').value;
+
+    if (!name || !rate) return alert("Please fill in all required fields.");
+
+    deductionCategories.push({
+        name,
+        rate: parseFloat(rate),
+        type,
+        recurring: 'Yes'
+    });
+
+    renderDeductions();
+    document.getElementById('deductionName').value = '';
+    document.getElementById('deductionRate').value = '';
+    document.getElementById('deductionDesc').value = '';
+}
+
+function assignDeduction() {
+    const employee = document.getElementById('assignDeductionEmployeeSelect').value;
+    const overrideAmount = document.getElementById('deductionOverrideAmount').value;
+    const date = document.getElementById('deductionEffectiveDate').value;
+    
+    const selectedTypes = Array.from(document.querySelectorAll('input[name="assignDeductionType"]:checked'))
+        .map(cb => cb.value);
+
+    if (!employee || selectedTypes.length === 0 || !date) {
+        return alert("Please select an employee, at least one deduction type, and an effective date.");
+    }
+
+    selectedTypes.forEach(type => {
+        const category = deductionCategories.find(c => c.name === type);
+        let amount = overrideAmount ? parseFloat(overrideAmount) : 0;
+        
+        if (!overrideAmount) {
+            if (category.type === 'Fixed') {
+                amount = category.rate;
+            } else {
+                // Simplified percentage calculation for preview
+                const emp = employees.find(e => e.full_name === employee);
+                const salary = emp ? parseFloat(emp.basic_salary) : 20000;
+                amount = salary * (category.rate / 100);
+            }
+        }
+
+        employeeDeductions.push({
+            employee,
+            deduction: type,
+            amount: amount,
+            date
+        });
+    });
+
+    renderDeductions();
+    document.getElementById('deductionOverrideAmount').value = '';
+    document.getElementById('deductionEffectiveDate').value = '';
+    document.querySelectorAll('input[name="assignDeductionType"]:checked').forEach(cb => cb.checked = false);
+}
+
+function deleteDeductionCategory(name) {
+    if (confirm(`Are you sure you want to delete the ${name} category?`)) {
+        deductionCategories = deductionCategories.filter(c => c.name !== name);
+        renderDeductions();
+    }
+}
+
+function deleteEmployeeDeduction(employee, deduction) {
+    if (confirm(`Are you sure you want to remove ${deduction} for ${employee}?`)) {
+        employeeDeductions = employeeDeductions.filter(a => !(a.employee === employee && a.deduction === deduction));
+        renderDeductions();
     }
 }
 
