@@ -87,19 +87,23 @@ on Saturday 3/28/26 (full list will be updated on 04/02/26)
 - Console Errors
 - **Biometric Logs**: Enhance `attendance` logs to record liveness verification stability scores.
 
+
 ### Frontend 
 - [DONE] Redesign Payroll History to support batch-based view.
 - [DONE] Implement high-fidelity Allowances and Earnings page.
 - [DONE] Implement high-fidelity Deductions Configuration page.
 - [DONE] Implement specialized Faculty Payroll reporting page (17 columns).
 - [DONE] Implement specialized Utility Payroll reporting page (15 columns).
+- [DONE] Implement high-fidelity Subject Load Management page.
+- [DONE] Implement high-fidelity Assign Payroll Officer page.
 - [Partial] Prepare for full Backend Integration of new specialized payroll pages.
 - Console Errors cleanup.
 
 ### Backend
+- **Role Management API**: Implement `update_role` endpoint to handle Admin/Payroll/Employee transitions.
 - **Faculty Payroll Persistence**: Create API actions to save and retrieve semi-monthly faculty payroll runs.
 - **Utility Payroll Persistence**: Create API actions for utility-specific earnings and deductions.
-- **Allowance/Deduction CRUD**: Implement full database support for allowance/deduction categories and employee assignments (currently in JS state).
+- **Allowance/Deduction CRUD**: Implement full database support for allowance/deduction categories and employee assignments.
 - **Batch Metadata**: Update `payroll` table or create a `payroll_batches` table to support the new batch-view aggregation.
 - **Loan/Resignation Workflow**: Finalize backend logic for processing loan and resignation requests.
 - Full System Integration and Console Errors fix.

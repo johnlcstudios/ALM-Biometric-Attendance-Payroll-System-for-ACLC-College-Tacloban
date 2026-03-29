@@ -43,7 +43,7 @@
     </div>
 </section>
 
-<?php if ($_SESSION['role'] === 'HR'): ?>
+<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll'])): ?>
 <!-- Employee Management Page -->
 <section id="employees" class="page">
     <div class="page-header">
@@ -385,13 +385,35 @@
 
 <!-- Leave Management Page -->
 <section id="leave" class="page">
+    <?php if (in_array($role, ['Admin', 'HR', 'Payroll'])): ?>
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Leave Request Management</h2>
+            <p>Review and manage employee leave applications.</p>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 2rem;">
+        <h3>Manage Leave Balances</h3>
+        <div class="allowance-form-row">
+            <select id="leaveBalanceEmployeeSelect" class="form-control-gray">
+                <option value="">Select Employee...</option>
+                <!-- Dynamic Content -->
+            </select>
+            <input type="number" id="newLeaveBalance" placeholder="Total Leave Days" class="form-control-gray">
+            <button class="btn-dark-purple" onclick="updateLeaveBalance()">Update Balance</button>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="table-container">
         <table id="leaveTable">
             <thead>
                 <tr>
                     <th>Employee</th>
                     <th>Type</th>
-                    <th>Duration</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
                     <th>Reason</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -444,7 +466,7 @@
     </div>
 </section>
 
-<?php if ($_SESSION['role'] === 'HR'): ?>
+<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll'])): ?>
 <!-- Deductions Page -->
 <section id="deductions" class="page">
     <div class="payroll-header">
@@ -582,6 +604,68 @@ $stmt_company = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
 $stmt_company->execute([$_SESSION['company_id']]);
 $company = $stmt_company->fetch();
 ?>
+<!-- Subject Loads Page -->
+<section id="subject_loads" class="page">
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Subject Load Management</h2>
+            <p>Assign and manage teaching loads for faculty members.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addLoadModal')">
+            <i class="fas fa-plus"></i> Add Subject Load
+        </button>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table class="payroll-table">
+                <thead>
+                    <tr>
+                        <th>FACULTY NAME</th>
+                        <th>SUBJECT CODE</th>
+                        <th>DESCRIPTION</th>
+                        <th>UNITS</th>
+                        <th>HOURS/WEEK</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="subjectLoadsTableBody">
+                    <!-- Dynamic Content -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Assign Payroll Officer Page -->
+<section id="assign_payroll" class="page">
+    <div class="payroll-header">
+        <div class="header-left">
+            <h2>Assign Payroll Officer</h2>
+            <p>Grant payroll management access to selected employees.</p>
+        </div>
+    </div>
+    
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h3>Set Payroll Officer Role</h3>
+        <div class="form-group-custom">
+            <label>Select Employee</label>
+            <select id="payrollOfficerSelect" class="form-control-large-gray">
+                <option value="">Choose Employee...</option>
+                <!-- Dynamic Content -->
+            </select>
+        </div>
+        <button class="btn-dark-purple btn-full" onclick="assignPayrollOfficerRole()">Assign Access</button>
+        
+        <div style="margin-top: 2rem;">
+            <h4>Current Officers</h4>
+            <ul id="payrollOfficersList" class="selection-box-gray">
+                <!-- Dynamic List -->
+            </ul>
+        </div>
+    </div>
+</section>
+
 <!-- Settings Page -->
 <section id="settings" class="page">
     <div class="settings-container">
@@ -594,41 +678,74 @@ $company = $stmt_company->fetch();
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Shift Start</label>
+                        <label>Time In (Shift Start)</label>
                         <input type="time" name="workStart" value="<?php echo $company['work_start']; ?>">
                     </div>
                     <div class="form-group">
-                        <label>Shift End</label>
+                        <label>Time Out (Shift End)</label>
                         <input type="time" name="workEnd" value="<?php echo $company['work_end']; ?>">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Lunch Out Range (From)</label>
-                        <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '11:30'; ?>">
+                        <label>Lunch Out Range</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '11:30'; ?>">
+                            <span>to</span>
+                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '12:30'; ?>">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label>Lunch Out Range (To)</label>
-                        <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '12:30'; ?>">
+                        <label>Lunch In Range</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '12:30'; ?>">
+                            <span>to</span>
+                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '13:30'; ?>">
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Lunch In Range (From)</label>
-                        <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '12:30'; ?>">
+                        <label>Late Grace Period (Minutes)</label>
+                        <input type="number" name="gracePeriod" value="<?php echo $company['grace_period'] ?? '15'; ?>" min="0">
                     </div>
                     <div class="form-group">
-                        <label>Lunch In Range (To)</label>
-                        <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '13:30'; ?>">
+                        <label>Overtime Percentage (%)</label>
+                        <input type="number" name="otPercentage" value="<?php echo $company['ot_percentage'] ?? '25'; ?>" min="0">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Late Grace Period (Minutes)</label>
-                    <input type="number" name="gracePeriod" value="<?php echo $company['grace_period'] ?? '15'; ?>" min="0">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Deduction Per Second (₱)</label>
+                        <input type="number" step="0.0001" name="deductionPerSec" value="<?php echo $company['deduction_per_sec'] ?? '0.0083'; ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Deduction Per Minute (₱)</label>
+                        <input type="number" step="0.01" name="deductionPerMin" value="<?php echo $company['deduction_per_min'] ?? '0.50'; ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Deduction Per Hour (₱)</label>
+                        <input type="number" step="0.01" name="deductionPerHour" value="<?php echo $company['deduction_per_hour'] ?? '30.00'; ?>">
+                    </div>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
             </form>
         </div>
+        
+        <?php if ($role === 'Admin' || $role === 'HR'): ?>
+        <div class="settings-card">
+            <h3>Admin Tools</h3>
+            <div class="setting-item">
+                <p>Assign Payroll Officer</p>
+                <button class="btn btn-primary btn-sm" onclick="showPage('assign_payroll')">Manage Access</button>
+            </div>
+            <div class="setting-item">
+                <p>Manage Subject Loads</p>
+                <button class="btn btn-secondary btn-sm" onclick="showPage('subject_loads')">Configure Loads</button>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="settings-card">
                             <h3>Backup & Security</h3>
                             <div class="setting-item">

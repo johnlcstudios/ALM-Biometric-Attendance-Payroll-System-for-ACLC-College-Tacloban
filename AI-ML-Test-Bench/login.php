@@ -1,7 +1,14 @@
 <?php
 session_start();
 if (isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    $role = $_SESSION['role'] ?? 'Employee';
+    if ($role === 'Payroll') {
+        header('Location: Payroll-Officer.php');
+    } elseif ($role === 'Admin' || $role === 'HR') {
+        header('Location: index.php');
+    } else {
+        header('Location: ess.php');
+    }
     exit;
 }
 ?>
@@ -189,10 +196,13 @@ document.getElementById('loginForm').onsubmit = async (e) => {
     const result = await response.json();
 
     if (result.success) {
-        if (result.role === 'Employee') {
-            window.location.href = 'ess.php';
-        } else {
+        const role = result.role ? result.role.trim() : 'Employee';
+        if (role === 'Payroll') {
+            window.location.href = 'Payroll-Officer.php';
+        } else if (role === 'Admin' || role === 'HR') {
             window.location.href = 'index.php';
+        } else {
+            window.location.href = 'ess.php';
         }
     } else {
         alert(result.message);

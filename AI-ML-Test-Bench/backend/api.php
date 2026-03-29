@@ -34,9 +34,9 @@ try {
             if ($user && password_verify($password, $user['password'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
-                $_SESSION['role'] = $user['role'];
+                $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
-                echo json_encode(['success' => true, 'role' => $user['role'], 'company_name' => $user['company_name']]);
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -86,7 +86,7 @@ try {
 
         case 'get_employees':
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT e.*, u.username FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
+            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
@@ -589,6 +589,77 @@ try {
             }
 
             echo json_encode(['profile' => $emp, 'attendance' => $attendance, 'payroll' => $payroll, 'leave' => $leave]);
+            break;
+
+        case 'update_leave_balance':
+            if (!isset($_SESSION['company_id']) || !in_array($_SESSION['role'], ['Admin', 'HR', 'Payroll'])) exit(json_encode(['error' => 'Unauthorized']));
+            $employee_id = $_GET['employee_id'] ?? '';
+            $balance = $_GET['balance'] ?? 0;
+            $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE id = ? AND company_id = ?");
+            $stmt->execute([$balance, $employee_id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_subject_loads':
+            if (!isset($_SESSION['company_id'])) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT sl.*, e.full_name as faculty_name FROM subject_loads sl JOIN employees e ON sl.faculty_id = e.id WHERE sl.company_id = ?");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_subject_load':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) exit(json_encode(['error' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'], $data['hours']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_load':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) exit(json_encode(['error' => 'Unauthorized']));
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'update_role':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) exit(json_encode(['error' => 'Unauthorized']));
+            $id = $_GET['id'] ?? ''; // Employee ID
+            $role = $_GET['role'] ?? 'Employee';
+            
+            try {
+                $pdo->beginTransaction();
+
+                // 1. Get user_id from employee
+                $stmt = $pdo->prepare("SELECT user_id FROM employees WHERE id = ? AND company_id = ?");
+                $stmt->execute([$id, $_SESSION['company_id']]);
+                $user_id = $stmt->fetchColumn();
+                
+                if (!$user_id) {
+                    throw new Exception('Employee user account not found.');
+                }
+
+                // 2. Update user role
+                $stmt = $pdo->prepare("UPDATE users SET role = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([$role, $user_id, $_SESSION['company_id']]);
+
+                // 3. Update employee position if assigned as Payroll
+                if ($role === 'Payroll') {
+                    $stmt = $pdo->prepare("UPDATE employees SET position = 'Payroll Officer' WHERE id = ? AND company_id = ?");
+                    $stmt->execute([$id, $_SESSION['company_id']]);
+                } else if ($role === 'Employee') {
+                    // Revert to a generic position if access is revoked
+                    $stmt = $pdo->prepare("UPDATE employees SET position = 'Staff' WHERE id = ? AND company_id = ?");
+                    $stmt->execute([$id, $_SESSION['company_id']]);
+                }
+
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
             break;
 
         default:

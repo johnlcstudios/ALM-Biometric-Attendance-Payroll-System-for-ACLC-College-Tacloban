@@ -59,6 +59,7 @@ async function fetchData() {
         loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
         resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
         deductionsConfig = await fetchJSON('backend/api.php?action=get_deductions') || [];
+        subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
         const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
         if (dashboardStats) {
             document.getElementById('stat-total-emp').innerText = dashboardStats.total_employees;
@@ -67,9 +68,15 @@ async function fetchData() {
             document.getElementById('stat-leave').innerText = dashboardStats.pending_leave;
         }
         
-        // Render initial page
-        const currentPage = document.querySelector('.page.active')?.id || 'dashboard';
-        showPage(currentPage);
+        // Determine initial page based on role
+        let initialPage = 'dashboard';
+        if (typeof USER_ROLE !== 'undefined' && USER_ROLE === 'Payroll') {
+            initialPage = 'payroll';
+        } else {
+            initialPage = document.querySelector('.page.active')?.id || 'dashboard';
+        }
+        
+        showPage(initialPage);
     } catch (err) {
         console.error("Error fetching data:", err);
     } finally {
@@ -100,6 +107,8 @@ function showPage(pageId) {
         'payroll': 'Payroll Processing',
         'faculty_payroll': 'Faculty Payroll System',
         'utility_payroll': 'Utility Payroll System',
+        'subject_loads': 'Subject Load Management',
+        'assign_payroll': 'Assign Payroll Officer',
         'allowances': 'Allowances and Earnings',
         'leave': 'Leave Management',
         'deductions': 'Deductions & Allowances',
@@ -116,6 +125,8 @@ function showPage(pageId) {
     if (pageId === 'payroll') renderPayrollTable();
     if (pageId === 'faculty_payroll') renderFacultyPayroll();
     if (pageId === 'utility_payroll') renderUtilityPayroll();
+    if (pageId === 'subject_loads') renderSubjectLoads();
+    if (pageId === 'assign_payroll') renderPayrollOfficerAssignment();
     if (pageId === 'allowances') renderAllowances();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
@@ -412,8 +423,9 @@ function renderLeaveTable() {
     tbody.innerHTML = leaveRequests.map(req => `
         <tr>
             <td>${req.full_name}</td>
-            <td>${req.type}</td>
-            <td>${req.duration}</td>
+            <td>${req.leave_type || req.type}</td>
+            <td>${req.start_date || '-'}</td>
+            <td>${req.end_date || '-'}</td>
             <td>${req.reason}</td>
             <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
             <td>
@@ -423,7 +435,25 @@ function renderLeaveTable() {
                 ` : '<span class="text-muted">Processed</span>'}
             </td>
         </tr>
-    `).join('');
+    `).join('') || '<tr><td colspan="7" class="text-center">No leave requests found.</td></tr>';
+}
+
+async function updateLeaveBalance() {
+    const employeeId = document.getElementById('leaveBalanceEmployeeSelect').value;
+    const balance = document.getElementById('newLeaveBalance').value;
+
+    if (!employeeId || !balance) return alert("Please select an employee and enter a balance.");
+
+    const response = await fetch(`backend/api.php?action=update_leave_balance&employee_id=${employeeId}&balance=${balance}`);
+    const result = await response.json();
+    
+    if (result.success) {
+        alert("Leave balance updated successfully.");
+        document.getElementById('newLeaveBalance').value = '';
+        fetchData();
+    } else {
+        alert("Error: " + (result.message || "Failed to update balance."));
+    }
 }
 
 async function updateLeaveStatus(id, status) {
@@ -849,6 +879,12 @@ function populateEmployeeDropdown() {
         assignDeductionSelect.innerHTML = '<option value="">Select Employee...</option>' + 
             employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
     }
+
+    const leaveBalanceSelect = document.getElementById('leaveBalanceEmployeeSelect');
+    if (leaveBalanceSelect) {
+        leaveBalanceSelect.innerHTML = '<option value="">Select Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.id}">${emp.full_name}</option>`).join('');
+    }
 }
 
 // --- Allowances ---
@@ -1192,6 +1228,120 @@ function renderUtilityPayroll() {
 
 function showRunUtilityPayroll() {
     alert("Utility Payroll processing initialized...");
+}
+
+// --- Subject Loads ---
+let subjectLoads = [];
+async function fetchSubjectLoads() {
+    const response = await fetch('backend/api.php?action=get_subject_loads');
+    const result = await response.json();
+    subjectLoads = Array.isArray(result) ? result : [];
+    if (currentPage === 'subject_loads') renderSubjectLoads();
+}
+
+function renderSubjectLoads() {
+    const tbody = document.getElementById('subjectLoadsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = subjectLoads.map(load => `
+        <tr>
+            <td>${load.faculty_name}</td>
+            <td>${load.code}</td>
+            <td>${load.description}</td>
+            <td>${load.units}</td>
+            <td>${load.hours}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('') || '<tr><td colspan="6" class="text-center">No subject loads assigned.</td></tr>';
+
+    // Populate faculty dropdown in modal
+    const facultySelect = document.getElementById('loadFacultySelect');
+    if (facultySelect) {
+        const faculty = employees.filter(emp => emp.position === 'Faculty' || emp.department === 'Faculty');
+        facultySelect.innerHTML = '<option value="">Choose Faculty...</option>' + 
+            faculty.map(f => `<option value="${f.id}">${f.full_name}</option>`).join('');
+    }
+}
+
+async function saveSubjectLoad() {
+    const facultyId = document.getElementById('loadFacultySelect').value;
+    const code = document.getElementById('loadSubjectCode').value;
+    const description = document.getElementById('loadDescription').value;
+    const units = document.getElementById('loadUnits').value;
+    const hours = document.getElementById('loadHours').value;
+
+    if (!facultyId || !code || !units || !hours) return alert("Please fill in all required fields.");
+
+    const response = await fetch('backend/api.php?action=save_subject_load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculty_id: facultyId, code, description, units, hours })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        closeModal('addLoadModal');
+        document.getElementById('subjectLoadForm').reset();
+        fetchData(); // Refresh all
+    } else {
+        alert("Error: " + (result.message || "Failed to save."));
+    }
+}
+
+async function deleteSubjectLoad(id) {
+    if (confirm("Are you sure you want to delete this subject load?")) {
+        const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
+        const result = await response.json();
+        if (result.success) {
+            fetchSubjectLoads();
+        } else {
+            alert("Error: " + (result.message || "Failed to delete."));
+        }
+    }
+}
+
+// --- Payroll Officer Assignment ---
+function renderPayrollOfficerAssignment() {
+    const select = document.getElementById('payrollOfficerSelect');
+    if (select) {
+        select.innerHTML = '<option value="">Choose Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.position})</option>`).join('');
+    }
+    
+    const list = document.getElementById('payrollOfficersList');
+    if (list) {
+        const officers = employees.filter(emp => emp.role === 'Payroll');
+        list.innerHTML = officers.map(off => `
+            <li style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span>${off.full_name}</span>
+                <button class="btn btn-danger btn-sm" onclick="removePayrollOfficer('${off.id}')">Revoke</button>
+            </li>
+        `).join('') || 'No officers assigned.';
+    }
+}
+
+async function assignPayrollOfficerRole() {
+    const empId = document.getElementById('payrollOfficerSelect').value;
+    if (!empId) return alert("Please select an employee.");
+    
+    const response = await fetch(`backend/api.php?action=update_role&id=${empId}&role=Payroll`);
+    const result = await response.json();
+    if (result.success) {
+        alert("Payroll Officer assigned successfully.");
+        fetchData(); // Refresh local data
+    }
+}
+
+async function removePayrollOfficer(empId) {
+    if (confirm("Revoke payroll officer access?")) {
+        const response = await fetch(`backend/api.php?action=update_role&id=${empId}&role=Employee`);
+        const result = await response.json();
+        if (result.success) {
+            alert("Access revoked.");
+            fetchData();
+        }
+    }
 }
 
 // --- Charts ---
