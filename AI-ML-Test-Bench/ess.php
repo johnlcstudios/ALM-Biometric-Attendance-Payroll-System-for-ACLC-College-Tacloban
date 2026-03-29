@@ -5,6 +5,17 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
+
+// Redirect Admin, HR, and Payroll roles
+$session_role = trim($_SESSION['role'] ?? '');
+if (strcasecmp($session_role, 'Payroll') === 0) {
+    header('Location: Payroll-Officer.php');
+    exit;
+}
+if (in_array($session_role, ['Admin', 'HR'])) {
+    header('Location: index.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
