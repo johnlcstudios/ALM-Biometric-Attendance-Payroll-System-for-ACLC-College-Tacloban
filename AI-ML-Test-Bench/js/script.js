@@ -773,9 +773,6 @@ async function initFaceEnrollment() {
             else video.onloadedmetadata = () => resolve();
         });
 
-        const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
-        faceapi.matchDimensions(canvas, displaySize);
-
         let isEnrolling = false;
         let lastBox = null;
         let stabilityCounter = 0;
@@ -786,6 +783,9 @@ async function initFaceEnrollment() {
         async function onPlay() {
             if (!video.srcObject || isEnrolling) return;
             
+            // Match dimensions and get dimensions for scaling
+            const displaySize = faceapi.matchDimensions(canvas, video, true);
+
             // Higher input size for better landmark precision
             const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                 .withFaceLandmarks();

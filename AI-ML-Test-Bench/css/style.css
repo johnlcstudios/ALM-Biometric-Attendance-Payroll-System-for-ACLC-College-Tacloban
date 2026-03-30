@@ -722,6 +722,14 @@ tr:last-child td {
     gap: 2rem;
 }
 
+.camera-preview video, 
+.camera-preview canvas,
+#biometrics video,
+#biometrics canvas {
+    transform: scaleX(-1) !important;
+    -webkit-transform: scaleX(-1) !important;
+}
+
 .camera-preview {
     position: relative;
     background: #000;
@@ -733,8 +741,19 @@ tr:last-child td {
     justify-content: center;
 }
 
-.camera-preview video, .camera-preview canvas {
-    transform: scaleX(-1);
+#biometrics #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1) !important;
+}
+
+#biometrics video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 #camera-placeholder {
