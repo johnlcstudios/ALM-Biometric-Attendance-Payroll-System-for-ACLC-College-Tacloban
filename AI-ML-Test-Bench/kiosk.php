@@ -523,30 +523,34 @@
 
         let stabilityCounter = 0;
         let lastBox = null;
-        const STABILITY_REQUIRED = 5; // number of stable frames before scanning
-        const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
-        let blinkDetected = false;
-        let maxEAR = 0; // Baseline for "open eyes"
+        const STABILITY_REQUIRED = 3; // Reduced for faster reaction
+        const MOVEMENT_THRESHOLD = 30; // Slightly more relaxed for UX
+        
+        let mouthOpenDetected = false;
+        let smileDetected = false;
+        
+        let minMAR = 1.0; // Mouth Aspect Ratio
+        
+        const LIVENESS_MODES = ['SMILE', 'OPEN_MOUTH'];
+        let currentLivenessMode = LIVENESS_MODES[Math.floor(Math.random() * LIVENESS_MODES.length)];
 
         async function detectFace() {
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
-            // Higher input size for better landmark precision (crucial for blink detection)
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+            // SSD Mobilenet is more accurate than TinyFaceDetector for landmarks
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
 
             async function loop() {
                 if (isProcessing || !currentCompanyId) {
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
                     stabilityCounter = 0;
                     lastBox = null;
-                    blinkDetected = false;
-                    maxEAR = 0;
+                    resetLiveness();
                     requestAnimationFrame(loop);
                     return;
                 }
 
-                // Initial detection for face presence and stability
-                const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks();
+                const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceExpressions();
                 
                 ctx.clearRect(0, 0, overlay.width, overlay.height);
 
@@ -554,110 +558,102 @@
                     const dims = faceapi.matchDimensions(overlay, video, true);
                     const resizedDetection = faceapi.resizeResults(detection, dims);
                     const landmarks = resizedDetection.landmarks;
+                    const expressions = resizedDetection.expressions;
                     const box = resizedDetection.detection.box;
 
-                    // Liveness Check: Improved Blink Detection (Relative EAR)
-                    const leftEye = landmarks.getLeftEye();
-                    const rightEye = landmarks.getRightEye();
-                    
-                    const getEAR = (eye) => {
-                        // Using precise Euclidean distance for EAR calculation
-                        const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-                        const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-                        const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-                        return (v1 + v2) / (2.0 * h);
+                    // 1. Mouth Open Detection (MAR)
+                    const mouth = landmarks.getMouth();
+                    const getMAR = (m) => {
+                        const v = Math.hypot(m[14].x - m[18].x, m[14].y - m[18].y); // Inner lip vertical
+                        const h = Math.hypot(m[12].x - m[16].x, m[12].y - m[16].y); // Inner lip horizontal
+                        return v / h;
                     };
+                    const currentMAR = getMAR(mouth);
+                    if (currentMAR > 0.5) mouthOpenDetected = true;
 
-                    const currentEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
-
-                    // Update baseline with a sanity check (EAR shouldn't exceed 0.4 for normal eyes)
-                    if (currentEAR > maxEAR && currentEAR < 0.4) {
-                        maxEAR = currentEAR;
-                    }
-
-                    // Blink detection logic:
-                    // 1. We need a baseline (maxEAR) of at least 0.15 (typical open eye)
-                    // 2. Current EAR must drop by 30% or more compared to baseline
-                    // 3. Or absolute drop below 0.18 if baseline is already established
-                    if (maxEAR > 0.15 && currentEAR < maxEAR * 0.70) {
-                        blinkDetected = true;
-                    }
+                    // 2. Smile Detection (Expressions API)
+                    if (expressions.happy > 0.85) smileDetected = true;
 
                     // Stability Check
                     if (lastBox) {
                         const dx = Math.abs(box.x - lastBox.x);
                         const dy = Math.abs(box.y - lastBox.y);
-                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) {
-                            stabilityCounter++;
-                        } else {
-                            stabilityCounter = 0;
-                        }
+                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
+                        else stabilityCounter = 0;
                     }
                     lastBox = box;
 
+                    // Draw UI
                     faceapi.draw.drawDetections(overlay, resizedDetection);
-                    faceapi.draw.drawFaceLandmarks(overlay, resizedDetection);
-
-                    // Mirror text drawing
+                    
                     ctx.save();
                     ctx.scale(-1, 1);
                     ctx.translate(-overlay.width, 0);
                     
                     const textX = overlay.width - (box.x + box.width / 2);
                     const textY = box.y + box.height + 30;
-
-                    ctx.font = "bold 16px Inter";
+                    ctx.font = "bold 20px Inter";
                     ctx.textAlign = "center";
                     
+                    let livenessVerified = false;
+                    let instruction = "";
+                    let instructionColor = "#f39c12";
+
                     if (stabilityCounter < STABILITY_REQUIRED) {
-                        ctx.fillStyle = "#f39c12";
-                        ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
-                    } else if (!blinkDetected) {
-                        ctx.fillStyle = "#f39c12";
-                        ctx.fillText("STABLE - BLINK TO SCAN...", textX, textY);
+                        instruction = "HOLD STILL...";
                     } else {
-                        ctx.fillStyle = "#27ae60";
-                        ctx.fillText("LIVENESS VERIFIED - SCANNING...", textX, textY);
-                        
+                        switch(currentLivenessMode) {
+                            case 'SMILE':
+                                instruction = "SMILE BIG! 😊";
+                                if (smileDetected) livenessVerified = true;
+                                break;
+                            case 'OPEN_MOUTH':
+                                instruction = "OPEN YOUR MOUTH 😮";
+                                if (mouthOpenDetected) livenessVerified = true;
+                                break;
+                        }
+                    }
+
+                    if (livenessVerified) {
+                        instruction = "VERIFIED! SCANNING...";
+                        instructionColor = "#27ae60";
                         if (!isProcessing) {
                             isProcessing = true;
                             cameraCircle.classList.add('scanning');
-                            
-                            // Get high-quality descriptor
+                            // Use FaceRecognitionNet for high accuracy
                             const fullDetection = await faceapi.detectSingleFace(video, options)
                                 .withFaceLandmarks()
                                 .withFaceDescriptor();
-                                
+                            
                             if (fullDetection) {
-                                // Keep state for a moment to show success before resetting
-                                setTimeout(() => { 
-                                    stabilityCounter = 0; 
-                                    lastBox = null;
-                                    blinkDetected = false;
-                                    maxEAR = 0;
-                                }, 5000);
                                 await processLog(fullDetection.descriptor);
+                                setTimeout(() => {
+                                    resetLiveness();
+                                    currentLivenessMode = LIVENESS_MODES[Math.floor(Math.random() * LIVENESS_MODES.length)];
+                                }, 5000);
                             } else {
-                                // Detection failed at the last moment
                                 isProcessing = false;
                                 cameraCircle.classList.remove('scanning');
-                                stabilityCounter = 0;
                             }
                         }
                     }
+
+                    ctx.fillStyle = instructionColor;
+                    ctx.fillText(instruction, textX, textY);
                     ctx.restore();
                 } else {
                     stabilityCounter = 0;
                     lastBox = null;
-                    // Don't reset blink immediately if face is lost for a split second
-                    // but reset maxEAR to adapt to potential new person
-                    maxEAR = 0; 
                 }
-
                 requestAnimationFrame(loop);
             }
-
             loop();
+        }
+
+        function resetLiveness() {
+            mouthOpenDetected = false;
+            smileDetected = false;
+            stabilityCounter = 0;
         }
 
         async function processLog(descriptor) {

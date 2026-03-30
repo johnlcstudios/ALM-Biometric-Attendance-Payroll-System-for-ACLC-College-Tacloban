@@ -382,16 +382,20 @@ async function runPayroll() {
         return alert('Please select both a start and end date.');
     }
 
-    const response = await fetch('backend/api.php?action=run_payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start_date, end_date })
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-        alert(result.message || `Payroll processed for ${start_date} to ${end_date}`);
-        fetchData();
+    if (confirm(`Run payroll for the period ${start_date} to ${end_date}?`)) {
+        const response = await fetch('backend/api.php?action=run_payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_date, end_date })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            alert(result.message || `Payroll processed for ${start_date} to ${end_date}`);
+            fetchData();
+        } else {
+            alert("Error: " + (result.message || "Failed to process payroll."));
+        }
     }
 }
 
@@ -428,6 +432,8 @@ function renderPayrollTable() {
 }
 
 function showPayrollModal() {
+    // This function will now open a more sophisticated modal
+    // For now, we will keep the simple prompt for direct payroll run
     const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
     if (!start) return;
     const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
@@ -450,8 +456,17 @@ async function runPayrollDirect(start_date, end_date) {
 }
 
 function viewBatch(period) {
-    // Implement viewing individual records in a batch
-    alert(`Viewing details for payroll period: ${period}`);
+    const records = payrollHistory.filter(p => p.period === period);
+    if (records.length === 0) return alert("No records found for this batch.");
+
+    let report = `Payroll Details for ${period}\n\n`;
+    report += "Name".padEnd(30) + "Net Pay".padStart(15) + "\n";
+    report += "-".repeat(45) + "\n";
+    records.forEach(r => {
+        report += `${r.full_name.padEnd(30)} ${('₱' + parseFloat(r.net_pay).toLocaleString()).padStart(15)}\n`;
+    });
+
+    alert(report);
 }
 
 // --- Leave ---
@@ -597,27 +612,7 @@ function renderDeductions() {
     `).join('');
 }
 
-function addDeduction() {
-    const name = prompt("Enter deduction name:");
-    if (!name) return;
-    const type = prompt("Enter type (percentage or fixed):", "fixed");
-    const value = parseFloat(prompt("Enter value:"));
-    const is_government = confirm("Is this a government mandated deduction?");
 
-    saveDeduction({ name, type, value, is_active: true, is_government });
-}
-
-async function saveDeduction(deduction) {
-    const response = await fetch('backend/api.php?action=save_deduction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deduction)
-    });
-    const result = await response.json();
-    if (result.success) {
-        fetchData();
-    }
-}
 
 async function deleteDeduction(id) {
     if (confirm("Are you sure you want to delete this deduction?")) {
@@ -700,8 +695,10 @@ function generateReport(type) {
     } else if (type === 'payroll') {
         csvContent += "Employee,Period,Basic Pay,Deductions,Net Pay,Status\n";
         payrollHistory.forEach(p => csvContent += `${p.full_name},${p.period},${p.basic_pay},${p.deductions},${p.net_pay},${p.status}\n`);
+    } else if (type === 'employees') {
+        csvContent += "Employee ID,Full Name,Position,Department,Status\n";
+        employees.forEach(emp => csvContent += `${emp.employee_id},${emp.full_name},${emp.position},${emp.department},${emp.status}\n`);
     }
-    // ... other report types
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -784,8 +781,6 @@ async function initFaceEnrollment() {
         let stabilityCounter = 0;
         const STABILITY_REQUIRED = 5; // number of stable frames before scanning
         const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
-        let blinkDetected = false;
-        let maxEAR = 0;
 
         // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
@@ -802,27 +797,6 @@ async function initFaceEnrollment() {
                 const resizedDetection = faceapi.resizeResults(detection, displaySize);
                 const landmarks = resizedDetection.landmarks;
                 const box = resizedDetection.detection.box;
-
-                // Liveness Check: Improved Blink Detection (Relative EAR)
-                const leftEye = landmarks.getLeftEye();
-                const rightEye = landmarks.getRightEye();
-                
-                const getEAR = (eye) => {
-                    const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-                    const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-                    const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-                    return (v1 + v2) / (2.0 * h);
-                };
-
-                const currentEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
-
-                if (currentEAR > maxEAR && currentEAR < 0.4) {
-                    maxEAR = currentEAR;
-                }
-
-                if (maxEAR > 0.15 && currentEAR < maxEAR * 0.70) {
-                    blinkDetected = true;
-                }
 
                 // Stability Check: Faster than waiting for a blink
                 if (lastBox) {
@@ -857,17 +831,14 @@ async function initFaceEnrollment() {
                 if (stabilityCounter < STABILITY_REQUIRED) {
                     ctx.fillStyle = "#f20e0eff";
                     ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
-                } else if (!blinkDetected) {
-                    ctx.fillStyle = "#f39c12";
-                    ctx.fillText("STABLE - BLINK TO SCAN...", textX, textY);
                 } else {
                     ctx.fillStyle = "#27ae60";
-                    ctx.fillText(`Liveness Verified!`, textX, textY);
+                    ctx.fillText(`Stability Verified!`, textX, textY);
 
                     if (!isEnrolling) {
                         isEnrolling = true;
                         
-                        // Now that liveness is verified, get the full descriptor
+                        // Get the full descriptor
                         const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                             .withFaceLandmarks()
                             .withFaceDescriptor();
@@ -901,7 +872,6 @@ async function initFaceEnrollment() {
              } else {
                  stabilityCounter = 0;
                  lastBox = null;
-                 maxEAR = 0;
                  if (captureBtn) captureBtn.disabled = true;
              }
              
@@ -1238,7 +1208,7 @@ function renderFacultyPayroll() {
     tbody.innerHTML = faculty.map((emp, index) => {
         const basicPay = parseFloat(emp.basic_salary) || 0;
         const earned = basicPay / 2; // Semi-monthly
-        const hdmfCont = 100; // Placeholder
+        const hdmfCont = emp.pagibig ? 100 : 0; // Check if Pag-IBIG exists
         const totalDeduction = hdmfCont;
         const honorarium = 0;
         const netPay = earned - totalDeduction + honorarium;
@@ -1308,7 +1278,7 @@ function renderUtilityPayroll() {
         const basicPay = parseFloat(emp.basic_salary) || 0;
         const ratePerDay = basicPay / 22;
         const earned = ratePerDay * 11;
-        const hdmfCont = 100;
+        const hdmfCont = emp.pagibig ? 100 : 0; // Check if Pag-IBIG exists
         const totalDeduction = hdmfCont;
         const netPay = earned - totalDeduction;
 
