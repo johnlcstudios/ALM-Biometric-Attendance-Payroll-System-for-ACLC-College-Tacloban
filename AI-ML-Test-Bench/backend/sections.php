@@ -95,8 +95,8 @@
             </button>
         </div>
         <div class="camera-preview">
-            <video id="video" width="640" height="480" autoplay muted></video>
-            <canvas id="overlay"></canvas>
+            <video id="video" width="640" height="480" autoplay muted style="transform: scaleX(-1);"></video>
+            <canvas id="overlay" style="transform: scaleX(-1);"></canvas>
             <div id="camera-placeholder">
                 <i class="fas fa-camera-retro"></i>
                 <p>Camera Preview Not Started</p>
@@ -282,10 +282,6 @@
 <!-- Allowances and Earnings Page -->
 <section id="allowances" class="page">
     <div class="payroll-header">
-        <div class="header-left">
-            <h2>Allowances and Earnings</h2>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
-        </div>
     </div>
 
     <div class="allowances-grid">
@@ -471,10 +467,6 @@
 <!-- Deductions Page -->
 <section id="deductions" class="page">
     <div class="payroll-header">
-        <div class="header-left">
-            <h2>Deductions Configuration</h2>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
-        </div>
     </div>
 
     <div class="allowances-grid">
