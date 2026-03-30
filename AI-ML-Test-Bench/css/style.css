@@ -733,6 +733,10 @@ tr:last-child td {
     justify-content: center;
 }
 
+.camera-preview video, .camera-preview canvas {
+    transform: scaleX(-1);
+}
+
 #camera-placeholder {
     color: #444;
     text-align: center;

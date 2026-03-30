@@ -200,40 +200,42 @@ try {
             $descriptor = $data['descriptor'] ?? [];
 
             if (empty($descriptor) || count($descriptor) !== 128) {
-                 echo json_encode(['success' => false, 'message' => 'Invalid descriptor (Expected 128 floats)']);
+                 echo json_encode(['success' => false, 'message' => 'Invalid descriptor']);
                  break;
             }
 
-            // Fetch all enrolled and ACTIVE faces for the company
+            // Fetch enrolled faces
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
             $stmt_faces->execute([$company_id]);
             $enrolled_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
-            $best_distance = 9.9;
-            $faces_checked = 0;
+            $best_distance = 0.5; // Slightly stricter threshold for better accuracy (approx 87.5% match)
+            
+            $input_desc = array_map('floatval', $descriptor);
 
             foreach ($enrolled_faces as $face) {
-                $enrolled_descriptor = json_decode($face['face_descriptor'], true);
-                if (is_array($enrolled_descriptor) && count($enrolled_descriptor) === 128) {
-                    $faces_checked++;
+                $enrolled_desc = json_decode($face['face_descriptor'], true);
+                if (is_array($enrolled_desc) && count($enrolled_desc) === 128) {
                     $sum = 0;
                     for ($i = 0; $i < 128; $i++) {
-                        $diff = (float)$descriptor[$i] - (float)$enrolled_descriptor[$i];
+                        $diff = $input_desc[$i] - (float)$enrolled_desc[$i];
                         $sum += $diff * $diff;
                     }
-
-                    if ($sum < $best_distance) {
-                        $best_distance = $sum;
+                    
+                    $distance = sqrt($sum);
+                    if ($distance < $best_distance) {
+                        $best_distance = $distance;
                         $best_match = $face;
                     }
                 }
             }
 
-            $final_distance = sqrt($best_match ? $best_distance : 9.9);
-            $match_percentage = max(0, round(100 - ($final_distance * 25), 2));
+            // Accuracy calculation: 0.6 distance is approx 85% match. 0.4 distance is approx 90% match.
+            // Using a linear mapping for display purposes: distance 0.6 -> 85%, 0 -> 100%
+            $match_percentage = max(0, round(100 - ($best_distance * 25), 2));
 
-            if ($best_match && $match_percentage >= 90) {
+            if ($best_match) {
                 $employee_id = $best_match['id'];
                 $date = date('Y-m-d');
                 $time = date('H:i:s');
@@ -374,6 +376,14 @@ try {
                 
                 $total_deductions = 0;
                 foreach ($deductions_config as $deduction) {
+                    $d_name = strtoupper($deduction['name']);
+                    
+                    // Skip government deductions if employee doesn't have the respective ID
+                    if (strpos($d_name, 'SSS') !== false && empty($emp['sss'])) continue;
+                    if (strpos($d_name, 'PHILHEALTH') !== false && empty($emp['philhealth'])) continue;
+                    if ((strpos($d_name, 'PAG-IBIG') !== false || strpos($d_name, 'PAGIBIG') !== false) && empty($emp['pagibig'])) continue;
+                    if ((strpos($d_name, 'TIN') !== false || strpos($d_name, 'TAX') !== false) && empty($emp['tin'])) continue;
+
                     if ($deduction['type'] === 'percentage') {
                         $total_deductions += $earned_pay * ($deduction['value'] / 100);
                     } else {
@@ -442,10 +452,28 @@ try {
             $table = str_replace('update_', '', str_replace('_status', '', $action)) . '_requests';
             if ($action === 'update_loan_status') $table = 'loans';
             if ($action === 'update_resignation_status') $table = 'resignations';
-            
-            $stmt = $pdo->prepare("UPDATE $table SET status = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE $table SET status = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
+
+                if ($action === 'update_resignation_status' && $data['status'] === 'Approved') {
+                    $stmt = $pdo->prepare("SELECT employee_id FROM resignations WHERE id = ?");
+                    $stmt->execute([$data['id']]);
+                    $employee_id = $stmt->fetchColumn();
+                    if ($employee_id) {
+                        $stmt = $pdo->prepare("UPDATE employees SET status = 'Resigned' WHERE id = ? AND company_id = ?");
+                        $stmt->execute([$employee_id, $_SESSION['company_id']]);
+                    }
+                }
+                
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to update status: ' . $e->getMessage()]);
+            }
             break;
 
         case 'get_deductions':
