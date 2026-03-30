@@ -733,9 +733,27 @@ tr:last-child td {
     justify-content: center;
 }
 
+.camera-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.camera-preview canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: scaleX(-1);
+}
+
 #camera-placeholder {
     color: #444;
     text-align: center;
+    position: absolute;
+    z-index: 10;
 }
 
 #camera-placeholder i { font-size: 4rem; margin-bottom: 1rem; }

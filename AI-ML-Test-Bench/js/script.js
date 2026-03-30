@@ -695,7 +695,8 @@ async function initFaceEnrollment() {
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
         ]);
         console.log("Models loaded successfully");
 
@@ -722,10 +723,13 @@ async function initFaceEnrollment() {
 
         // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
-            if (!video.srcObject || isEnrolling) return;
+            if (!video.srcObject || isEnrolling || !video.videoWidth) {
+                requestAnimationFrame(onPlay);
+                return;
+            }
             
-            // SPEED OPTIMIZATION: Only detect landmarks during the liveness phase.
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+            // SPEED OPTIMIZATION: Throttled detection and smaller input size
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
                 .withFaceLandmarks();
             
             const ctx = canvas.getContext('2d');
@@ -776,7 +780,7 @@ async function initFaceEnrollment() {
                         isEnrolling = true;
                         
                         // Now that liveness is verified, get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
                             .withFaceLandmarks()
                             .withFaceDescriptor();
 
@@ -812,7 +816,7 @@ async function initFaceEnrollment() {
                  if (captureBtn) captureBtn.disabled = true;
              }
              
-             requestAnimationFrame(onPlay);
+             requestAnimationFrame(() => setTimeout(onPlay, 50));
         }
         
         onPlay();
@@ -832,7 +836,7 @@ async function saveFaceEnrollment(manualDescriptor = null) {
 
     if (!descriptor) {
         // Use the same detector options as the live preview
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
         const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
         if (detection) {
             descriptor = detection.descriptor;
