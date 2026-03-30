@@ -229,9 +229,9 @@ try {
                 if ($time > $late_time) {
                     $status = 'Late';
                 }
-            } elseif ($time >= $config['lunch_out_start'] && $time <= $config['lunch_out_end']) {
+            } elseif ($time >= date('H:i:s', strtotime($config['lunch_start'] . ' - 30 minutes')) && $time <= date('H:i:s', strtotime($config['lunch_start'] . ' + 30 minutes'))) {
                 $column = 'lunch_out';
-            } elseif ($time >= $config['lunch_in_start'] && $time <= $config['lunch_in_end']) {
+            } elseif ($time >= date('H:i:s', strtotime($config['lunch_end'] . ' - 30 minutes')) && $time <= date('H:i:s', strtotime($config['lunch_end'] . ' + 30 minutes'))) {
                 $column = 'lunch_in';
             } else {
                 $column = 'check_out';

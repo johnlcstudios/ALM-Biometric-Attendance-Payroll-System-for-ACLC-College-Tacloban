@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALM Attendance Kiosk</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         :root {
@@ -502,12 +505,14 @@
                 statusLabel.innerText = "Loading AI Models...";
 
                 console.log("Loading models...");
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
                 await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-                    faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-                    faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
                 ]);
-                console.log("Models loaded.");
+                console.log("Models loaded successfully.");
                 statusLabel.innerText = "Ready!";
                 
                 setTimeout(() => {
@@ -531,11 +536,11 @@
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
             // Optimized inputSize for better detection speed/accuracy balance
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
 
             async function loop() {
-                if (isProcessing || !currentCompanyId) {
-                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+                if (isProcessing || !currentCompanyId || !video.videoWidth) {
+                    if (overlay.width > 0) ctx.clearRect(0, 0, overlay.width, overlay.height);
                     stabilityCounter = 0;
                     lastBox = null;
                     requestAnimationFrame(loop);
@@ -614,9 +619,9 @@
                     lastBox = null;
                 }
 
-                requestAnimationFrame(loop);
+                requestAnimationFrame(() => setTimeout(loop, 50));
             }
-
+  
             loop();
         }
 
