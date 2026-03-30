@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALM Attendance Kiosk</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
         :root {
@@ -505,14 +502,12 @@
                 statusLabel.innerText = "Loading AI Models...";
 
                 console.log("Loading models...");
-                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
                 await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+                    faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
                 ]);
-                console.log("Models loaded successfully.");
+                console.log("Models loaded.");
                 statusLabel.innerText = "Ready!";
                 
                 setTimeout(() => {
@@ -526,23 +521,26 @@
             }
         }
 
-        let isEnrolling = false;
-        let lastBox = null;
         let stabilityCounter = 0;
+        let lastBox = null;
         const STABILITY_REQUIRED = 5; // number of stable frames before scanning
-        const MOVEMENT_THRESHOLD = 15; // pixel movement allowed for "stable"
+        const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
+        let blinkDetected = false;
+        let maxEAR = 0; // Baseline for "open eyes"
 
         async function detectFace() {
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
-            // Optimized inputSize for better detection speed/accuracy balance
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+            // Higher input size for better landmark precision (crucial for blink detection)
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
 
             async function loop() {
-                if (isProcessing || !currentCompanyId || !video.videoWidth) {
-                    if (overlay.width > 0) ctx.clearRect(0, 0, overlay.width, overlay.height);
+                if (isProcessing || !currentCompanyId) {
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
                     stabilityCounter = 0;
                     lastBox = null;
+                    blinkDetected = false;
+                    maxEAR = 0;
                     requestAnimationFrame(loop);
                     return;
                 }
@@ -555,9 +553,37 @@
                 if (detection) {
                     const dims = faceapi.matchDimensions(overlay, video, true);
                     const resizedDetection = faceapi.resizeResults(detection, dims);
+                    const landmarks = resizedDetection.landmarks;
                     const box = resizedDetection.detection.box;
 
-                    // Stability Check: Faster than waiting for a blink
+                    // Liveness Check: Improved Blink Detection (Relative EAR)
+                    const leftEye = landmarks.getLeftEye();
+                    const rightEye = landmarks.getRightEye();
+                    
+                    const getEAR = (eye) => {
+                        // Using precise Euclidean distance for EAR calculation
+                        const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+                        const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+                        const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+                        return (v1 + v2) / (2.0 * h);
+                    };
+
+                    const currentEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
+
+                    // Update baseline with a sanity check (EAR shouldn't exceed 0.4 for normal eyes)
+                    if (currentEAR > maxEAR && currentEAR < 0.4) {
+                        maxEAR = currentEAR;
+                    }
+
+                    // Blink detection logic:
+                    // 1. We need a baseline (maxEAR) of at least 0.15 (typical open eye)
+                    // 2. Current EAR must drop by 30% or more compared to baseline
+                    // 3. Or absolute drop below 0.18 if baseline is already established
+                    if (maxEAR > 0.15 && currentEAR < maxEAR * 0.70) {
+                        blinkDetected = true;
+                    }
+
+                    // Stability Check
                     if (lastBox) {
                         const dx = Math.abs(box.x - lastBox.x);
                         const dy = Math.abs(box.y - lastBox.y);
@@ -586,27 +612,33 @@
                     if (stabilityCounter < STABILITY_REQUIRED) {
                         ctx.fillStyle = "#f39c12";
                         ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
+                    } else if (!blinkDetected) {
+                        ctx.fillStyle = "#f39c12";
+                        ctx.fillText("STABLE - BLINK TO SCAN...", textX, textY);
                     } else {
                         ctx.fillStyle = "#27ae60";
-                        ctx.fillText("STABLE - SCANNING...", textX, textY);
+                        ctx.fillText("LIVENESS VERIFIED - SCANNING...", textX, textY);
                         
                         if (!isProcessing) {
                             isProcessing = true;
                             cameraCircle.classList.add('scanning');
                             
-                            // Immediately get descriptor once stable
+                            // Get high-quality descriptor
                             const fullDetection = await faceapi.detectSingleFace(video, options)
                                 .withFaceLandmarks()
                                 .withFaceDescriptor();
                                 
                             if (fullDetection) {
-                                // Reset for next person
+                                // Keep state for a moment to show success before resetting
                                 setTimeout(() => { 
                                     stabilityCounter = 0; 
                                     lastBox = null;
+                                    blinkDetected = false;
+                                    maxEAR = 0;
                                 }, 5000);
                                 await processLog(fullDetection.descriptor);
                             } else {
+                                // Detection failed at the last moment
                                 isProcessing = false;
                                 cameraCircle.classList.remove('scanning');
                                 stabilityCounter = 0;
@@ -617,11 +649,14 @@
                 } else {
                     stabilityCounter = 0;
                     lastBox = null;
+                    // Don't reset blink immediately if face is lost for a split second
+                    // but reset maxEAR to adapt to potential new person
+                    maxEAR = 0; 
                 }
 
-                requestAnimationFrame(() => setTimeout(loop, 50));
+                requestAnimationFrame(loop);
             }
-  
+
             loop();
         }
 

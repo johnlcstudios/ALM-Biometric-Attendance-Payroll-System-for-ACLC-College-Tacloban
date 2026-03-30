@@ -63,6 +63,7 @@
                     <th>Name</th>
                     <th>Position</th>
                     <th>Department</th>
+                    <th>Loads</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -140,7 +141,7 @@
     <div class="payroll-header">
         <div class="header-left">
             <h2>Payroll History</h2>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+            <p>View and manage past payroll disbursements and processing runs.</p>
         </div>
         <button class="btn-process-payroll" onclick="showPayrollModal()">
             + Process New Payroll
@@ -606,30 +607,30 @@ $company = $stmt_company->fetch();
 ?>
 <!-- Subject Loads Page -->
 <section id="subject_loads" class="page">
-    <div class="payroll-header">
+
+    <div class="payroll-header" style="margin-top: 3rem;">
         <div class="header-left">
-            <h2>Subject Load Management</h2>
-            <p>Assign and manage teaching loads for faculty members.</p>
+            <h2>Master Subject List</h2>
+            <p>Create and manage available subjects for the system.</p>
         </div>
-        <button class="btn btn-primary" onclick="openModal('addLoadModal')">
-            <i class="fas fa-plus"></i> Add Subject Load
+        <button class="btn btn-primary" onclick="openModal('subjectModal')">
+            <i class="fas fa-plus"></i> Create New Subject
         </button>
     </div>
-    
+
     <div class="card">
         <div class="table-container">
             <table class="payroll-table">
                 <thead>
                     <tr>
-                        <th>FACULTY NAME</th>
-                        <th>SUBJECT CODE</th>
+                        <th>CODE</th>
                         <th>DESCRIPTION</th>
                         <th>UNITS</th>
                         <th>HOURS/WEEK</th>
                         <th>ACTIONS</th>
                     </tr>
                 </thead>
-                <tbody id="subjectLoadsTableBody">
+                <tbody id="subjectsTableBody">
                     <!-- Dynamic Content -->
                 </tbody>
             </table>

@@ -13,6 +13,15 @@ CREATE TABLE companies (
     work_end TIME DEFAULT '17:00:00',
     lunch_start TIME DEFAULT '12:00:00',
     lunch_end TIME DEFAULT '13:00:00',
+    lunch_out_start TIME DEFAULT '11:30:00',
+    lunch_out_end TIME DEFAULT '12:30:00',
+    lunch_in_start TIME DEFAULT '12:30:00',
+    lunch_in_end TIME DEFAULT '13:30:00',
+    grace_period INT DEFAULT 15,
+    ot_percentage INT DEFAULT 25,
+    deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
+    deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
+    deduction_per_hour DECIMAL(10, 2) DEFAULT 30.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -44,6 +53,7 @@ CREATE TABLE employees (
     tin VARCHAR(50),
     philhealth VARCHAR(50),
     pagibig VARCHAR(50),
+    leave_balance INT DEFAULT 15,
     face_descriptor JSON, -- Serialized 128-float array
     user_id INT, -- Link to users table for ESS
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -105,6 +115,32 @@ CREATE TABLE deductions (
     is_active BOOLEAN DEFAULT true,
     is_government BOOLEAN DEFAULT false,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+-- Subjects Master Table
+CREATE TABLE subjects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    units INT DEFAULT 3,
+    hours INT DEFAULT 3,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+-- Subject Loads Table (Assigned to Faculty)
+CREATE TABLE subject_loads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    faculty_id INT NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    units INT DEFAULT 3,
+    hours INT DEFAULT 3,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (faculty_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
 -- Insert Demo Company

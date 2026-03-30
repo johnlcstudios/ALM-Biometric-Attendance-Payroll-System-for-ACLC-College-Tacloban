@@ -7,34 +7,16 @@ let employees = [];
 let payrollHistory = [];
 let attendanceLogs = [];
 let leaveRequests = [];
-let allowanceCategories = [
-    { name: 'Rice Allowance', rate: 1500, type: 'Fixed', recurring: 'Yes' },
-    { name: 'Laundry Allowance', rate: 300, type: 'Fixed', recurring: 'Yes' },
-    { name: 'Clothing Allowance', rate: 500, type: 'Fixed', recurring: 'Yes' }
-];
-let employeeAllowances = [
-    { employee: 'John Doe', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' },
-    { employee: 'Jane Smith', benefit: 'Rice Allowance', amount: 1500, date: '2026-03-01' }
-];
-let deductionCategories = [
-    { name: 'SSS', rate: 4.5, type: 'Percentage', recurring: 'Yes' },
-    { name: 'PhilHealth', rate: 2.0, type: 'Percentage', recurring: 'Yes' },
-    { name: 'Pag-IBIG', rate: 100, type: 'Fixed', recurring: 'Yes' }
-];
-let employeeDeductions = [
-    { employee: 'John Doe', deduction: 'SSS', amount: 900, date: '2026-03-01' },
-    { employee: 'Jane Smith', deduction: 'PhilHealth', amount: 400, date: '2026-03-01' }
-];
+let allowanceCategories = [];
+let employeeAllowances = [];
+let deductionCategories = [];
+let employeeDeductions = [];
 let deductionsConfig = {
-    gov: [
-        { name: 'SSS', type: 'percentage', value: 4.5, active: true },
-        { name: 'PhilHealth', type: 'percentage', value: 2.0, active: true },
-        { name: 'Pag-IBIG', type: 'fixed', value: 100, active: true }
-    ],
-    company: [
-        { name: 'Health Insurance', type: 'fixed', value: 500, active: true }
-    ]
+    gov: [],
+    company: []
 };
+let masterSubjects = [];
+let currentPage = 'dashboard';
 
 async function fetchData() {
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -43,6 +25,7 @@ async function fetchData() {
     try {
         const fetchJSON = async (url) => {
             const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const text = await res.text();
             try {
                 return JSON.parse(text);
@@ -59,6 +42,11 @@ async function fetchData() {
         loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
         resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
         deductionsConfig = await fetchJSON('backend/api.php?action=get_deductions') || [];
+        allowanceCategories = await fetchJSON('backend/api.php?action=get_allowance_categories') || [];
+        employeeAllowances = await fetchJSON('backend/api.php?action=get_employee_allowances') || [];
+        deductionCategories = await fetchJSON('backend/api.php?action=get_deduction_categories') || [];
+        employeeDeductions = await fetchJSON('backend/api.php?action=get_employee_deductions') || [];
+        masterSubjects = await fetchJSON('backend/api.php?action=get_subjects') || [];
         subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
         const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
         if (dashboardStats) {
@@ -86,6 +74,7 @@ async function fetchData() {
 
 // --- Navigation Logic ---
 function showPage(pageId) {
+    currentPage = pageId;
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.getAttribute('onclick')?.includes(`'${pageId}'`)) {
@@ -125,7 +114,10 @@ function showPage(pageId) {
     if (pageId === 'payroll') renderPayrollTable();
     if (pageId === 'faculty_payroll') renderFacultyPayroll();
     if (pageId === 'utility_payroll') renderUtilityPayroll();
-    if (pageId === 'subject_loads') renderSubjectLoads();
+    if (pageId === 'subject_loads') {
+        fetchMasterSubjects();
+        fetchSubjectLoads();
+    }
     if (pageId === 'assign_payroll') renderPayrollOfficerAssignment();
     if (pageId === 'allowances') renderAllowances();
     if (pageId === 'leave') renderLeaveTable();
@@ -150,7 +142,11 @@ function closeModal(modalId) {
 function renderEmployeeTable() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
-    tbody.innerHTML = employees.map(emp => `
+    tbody.innerHTML = employees.map(emp => {
+        const isFaculty = (emp.position || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'education';
+        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        
+        return `
         <tr id="row-${emp.id}">
             <td>${emp.employee_id}</td>
             <td>
@@ -159,14 +155,55 @@ function renderEmployeeTable() {
             </td>
             <td>${emp.position}</td>
             <td>${emp.department}</td>
+            <td>
+                ${isFaculty ? `
+                    <span class="badge badge-info" style="cursor: pointer; padding: 5px 10px; border-radius: 4px; background: #3498db; color: white;" onclick="viewFacultyLoads('${emp.id}')">
+                        ${loadCount} Loads
+                    </span>
+                ` : '<span class="text-muted">---</span>'}
+            </td>
             <td><span class="status-badge status-${emp.status.toLowerCase().replace(' ', '-')}">${emp.status}</span></td>
             <td>
-                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
                 <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
+                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
             </td>
         </tr>
-    `).join('');
+    `; }).join('');
+}
+
+function openAddLoadModal(empId) {
+    const emp = employees.find(e => e.id == empId);
+    if (!emp) return;
+    
+    document.getElementById('subjectLoadForm').reset();
+    document.getElementById('loadFacultyId').value = empId;
+    
+    // Populate subject select
+    const subjectSelect = document.getElementById('loadSubjectSelect');
+    if (subjectSelect) {
+        subjectSelect.innerHTML = '<option value="">-- Choose Subject --</option>' + 
+            masterSubjects.map(s => `<option value="${s.id}">${s.code} - ${s.description}</option>`).join('');
+    }
+    
+    const modal = document.getElementById('addLoadModal');
+    if (modal) {
+        modal.style.display = 'block';
+        const title = modal.querySelector('h3');
+        if (title) title.innerText = `Add Subject Load for ${emp.full_name}`;
+    }
+}
+
+function onLoadSubjectChange(subjectId) {
+    if (!subjectId) return;
+    const subject = masterSubjects.find(s => s.id == subjectId);
+    if (subject) {
+        document.getElementById('loadSubjectCode').value = subject.code;
+        document.getElementById('loadDescription').value = subject.description;
+        document.getElementById('loadUnits').value = subject.units;
+        document.getElementById('loadHours').value = subject.hours;
+    }
 }
 
 async function resetPassword(userId) {
@@ -362,53 +399,54 @@ function renderPayrollTable() {
     const tbody = document.getElementById('payrollTableBody');
     if (!tbody) return;
 
-    // Group payroll records by period to show as "batches"
-    const batches = {};
-    payrollHistory.forEach(p => {
-        if (!batches[p.period]) {
-            batches[p.period] = {
-                id: `BATCH-${Object.keys(batches).length + 101}`,
-                period: p.period,
-                total: 0,
-                date: new Date(p.created_at).toLocaleDateString(),
-                created_by: 'Admin', // Placeholder
-                status: 'Completed',
-                count: 0
-            };
-        }
-        batches[p.period].total += parseFloat(p.net_pay);
-        batches[p.period].count++;
-    });
+    fetch('backend/api.php?action=get_payroll_batches')
+        .then(res => res.json())
+        .then(batchList => {
+            // Update stats
+            if (batchList.length > 0) {
+                document.getElementById('stat-total-batches').innerText = batchList.length;
+                const totalDisbursed = batchList.reduce((sum, b) => sum + parseFloat(b.total_disbursed), 0);
+                document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                document.getElementById('stat-last-run').innerText = batchList[0].period;
+                document.getElementById('stat-last-staff-count').innerText = batchList[0].staff_count;
+            }
 
-    const batchList = Object.values(batches);
-
-    // Update stats
-    if (batchList.length > 0) {
-        document.getElementById('stat-total-batches').innerText = batchList.length;
-        const totalDisbursed = batchList.reduce((sum, b) => sum + b.total, 0);
-        document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-        document.getElementById('stat-last-run').innerText = batchList[0].period;
-        document.getElementById('stat-last-staff-count').innerText = batchList[0].count;
-    }
-
-    tbody.innerHTML = batchList.map(b => `
-        <tr>
-            <td><strong>${b.id}</strong></td>
-            <td>${b.period}</td>
-            <td>₱${b.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-            <td>${b.date}</td>
-            <td>${b.created_by}</td>
-            <td><span class="status-badge status-active">${b.status}</span></td>
-            <td>
-                <button class="btn btn-secondary btn-sm" onclick="viewBatch('${b.period}')"><i class="fas fa-eye"></i> View</button>
-            </td>
-        </tr>
-    `).join('');
+            tbody.innerHTML = batchList.map((b, index) => `
+                <tr>
+                    <td><strong>BATCH-${101 + index}</strong></td>
+                    <td>${b.period}</td>
+                    <td>₱${parseFloat(b.total_disbursed).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td>${new Date(b.processing_date).toLocaleDateString()}</td>
+                    <td>Admin</td>
+                    <td><span class="status-badge status-active">Completed</span></td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewBatch('${b.period}')"><i class="fas fa-eye"></i> View</button>
+                    </td>
+                </tr>
+            `).join('');
+        });
 }
 
 function showPayrollModal() {
-    // Implement the modal showing logic here
-    alert('Process New Payroll feature coming soon!');
+    const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!start) return;
+    const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!end) return;
+    
+    if (confirm(`Run payroll for ${start} to ${end}?`)) {
+        runPayrollDirect(start, end);
+    }
+}
+
+async function runPayrollDirect(start_date, end_date) {
+    const response = await fetch('backend/api.php?action=run_payroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date, end_date })
+    });
+    const result = await response.json();
+    alert(result.message);
+    fetchData();
 }
 
 function viewBatch(period) {
@@ -674,6 +712,33 @@ function generateReport(type) {
     document.body.removeChild(link);
 }
 
+function viewFacultyLoads(empId) {
+    const emp = employees.find(e => e.id == empId);
+    if (!emp) return;
+
+    const facultyLoads = subjectLoads.filter(load => load.faculty_id == empId);
+    const tbody = document.getElementById('viewLoadsTableBody');
+    const title = document.getElementById('viewLoadsTitle');
+
+    if (title) title.innerText = `Subject Loads: ${emp.full_name}`;
+    
+    if (tbody) {
+        tbody.innerHTML = facultyLoads.map(load => `
+            <tr>
+                <td><strong>${load.code}</strong></td>
+                <td>${load.description}</td>
+                <td>${load.units}</td>
+                <td>${load.hours}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}'); viewFacultyLoads('${empId}');"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" class="text-center">No loads assigned to this faculty.</td></tr>';
+    }
+
+    openModal('viewLoadsModal');
+}
+
 // --- Biometrics Enrollment ---
 async function initFaceEnrollment() {
     const select = document.getElementById('enrollEmployeeSelect');
@@ -695,8 +760,7 @@ async function initFaceEnrollment() {
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
         console.log("Models loaded successfully");
 
@@ -719,17 +783,16 @@ async function initFaceEnrollment() {
         let lastBox = null;
         let stabilityCounter = 0;
         const STABILITY_REQUIRED = 5; // number of stable frames before scanning
-        const MOVEMENT_THRESHOLD = 15; // pixel movement allowed for "stable"
+        const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
+        let blinkDetected = false;
+        let maxEAR = 0;
 
         // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
-            if (!video.srcObject || isEnrolling || !video.videoWidth) {
-                requestAnimationFrame(onPlay);
-                return;
-            }
+            if (!video.srcObject || isEnrolling) return;
             
-            // SPEED OPTIMIZATION: Throttled detection and smaller input size
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+            // Higher input size for better landmark precision
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                 .withFaceLandmarks();
             
             const ctx = canvas.getContext('2d');
@@ -737,7 +800,29 @@ async function initFaceEnrollment() {
 
             if (detection) {
                 const resizedDetection = faceapi.resizeResults(detection, displaySize);
+                const landmarks = resizedDetection.landmarks;
                 const box = resizedDetection.detection.box;
+
+                // Liveness Check: Improved Blink Detection (Relative EAR)
+                const leftEye = landmarks.getLeftEye();
+                const rightEye = landmarks.getRightEye();
+                
+                const getEAR = (eye) => {
+                    const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+                    const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+                    const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+                    return (v1 + v2) / (2.0 * h);
+                };
+
+                const currentEAR = (getEAR(leftEye) + getEAR(rightEye)) / 2;
+
+                if (currentEAR > maxEAR && currentEAR < 0.4) {
+                    maxEAR = currentEAR;
+                }
+
+                if (maxEAR > 0.15 && currentEAR < maxEAR * 0.70) {
+                    blinkDetected = true;
+                }
 
                 // Stability Check: Faster than waiting for a blink
                 if (lastBox) {
@@ -772,6 +857,9 @@ async function initFaceEnrollment() {
                 if (stabilityCounter < STABILITY_REQUIRED) {
                     ctx.fillStyle = "#f20e0eff";
                     ctx.fillText("ALIGN FACE & HOLD STILL...", textX, textY);
+                } else if (!blinkDetected) {
+                    ctx.fillStyle = "#f39c12";
+                    ctx.fillText("STABLE - BLINK TO SCAN...", textX, textY);
                 } else {
                     ctx.fillStyle = "#27ae60";
                     ctx.fillText(`Liveness Verified!`, textX, textY);
@@ -780,7 +868,7 @@ async function initFaceEnrollment() {
                         isEnrolling = true;
                         
                         // Now that liveness is verified, get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 }))
+                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
                             .withFaceLandmarks()
                             .withFaceDescriptor();
 
@@ -813,10 +901,11 @@ async function initFaceEnrollment() {
              } else {
                  stabilityCounter = 0;
                  lastBox = null;
+                 maxEAR = 0;
                  if (captureBtn) captureBtn.disabled = true;
              }
              
-             requestAnimationFrame(() => setTimeout(onPlay, 50));
+             requestAnimationFrame(onPlay);
         }
         
         onPlay();
@@ -836,7 +925,7 @@ async function saveFaceEnrollment(manualDescriptor = null) {
 
     if (!descriptor) {
         // Use the same detector options as the live preview
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
         const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
         if (detection) {
             descriptor = detection.descriptor;
@@ -1179,15 +1268,31 @@ function renderFacultyPayroll() {
 }
 
 function showRunFacultyPayroll() {
-    alert("Faculty Payroll processing initialized...");
+    const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!start) return;
+    const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!end) return;
+    
+    if (confirm(`Run Faculty Payroll for ${start} to ${end}?`)) {
+        runPayrollDirect(start, end);
+    }
 }
 
-// --- Utility Payroll ---
+function showRunUtilityPayroll() {
+    const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!start) return;
+    const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if (!end) return;
+    
+    if (confirm(`Run Utility Payroll for ${start} to ${end}?`)) {
+        runPayrollDirect(start, end);
+    }
+}
+
 function renderUtilityPayroll() {
     const tbody = document.getElementById('utilityPayrollTableBody');
     if (!tbody) return;
 
-    // Filter utility staff only (Maintenance, Security, etc.)
     const utility = employees.filter(emp => ['Maintenance', 'Security', 'Janitorial'].includes(emp.department) || emp.position === 'Utility');
     
     if (utility.length === 0) {
@@ -1195,15 +1300,14 @@ function renderUtilityPayroll() {
         return;
     }
 
-    // Update Header Info
     const today = new Date();
     document.getElementById('utility-payroll-period').innerText = today.toLocaleString('default', { month: 'long', year: 'numeric' });
     document.getElementById('utility-cutoff-period').innerText = `${today.getMonth() + 1}/01 - ${today.getMonth() + 1}/15`;
 
     tbody.innerHTML = utility.map((emp, index) => {
         const basicPay = parseFloat(emp.basic_salary) || 0;
-        const ratePerDay = basicPay / 22; // Assumption: 22 working days
-        const earned = ratePerDay * 11; // Semi-monthly (11 days)
+        const ratePerDay = basicPay / 22;
+        const earned = ratePerDay * 11;
         const hdmfCont = 100;
         const totalDeduction = hdmfCont;
         const netPay = earned - totalDeduction;
@@ -1230,10 +1334,6 @@ function renderUtilityPayroll() {
     }).join('');
 }
 
-function showRunUtilityPayroll() {
-    alert("Utility Payroll processing initialized...");
-}
-
 // --- Subject Loads ---
 let subjectLoads = [];
 async function fetchSubjectLoads() {
@@ -1241,35 +1341,54 @@ async function fetchSubjectLoads() {
     const result = await response.json();
     subjectLoads = Array.isArray(result) ? result : [];
     if (currentPage === 'subject_loads') renderSubjectLoads();
+    if (currentPage === 'employees') renderEmployeeTable();
+}
+
+async function fetchMasterSubjects() {
+    const response = await fetch('backend/api.php?action=get_subjects');
+    const result = await response.json();
+    masterSubjects = Array.isArray(result) ? result : [];
+    if (currentPage === 'subject_loads') renderSubjectLoads();
 }
 
 function renderSubjectLoads() {
-    const tbody = document.getElementById('subjectLoadsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = subjectLoads.map(load => `
-        <tr>
-            <td>${load.faculty_name}</td>
-            <td>${load.code}</td>
-            <td>${load.description}</td>
-            <td>${load.units}</td>
-            <td>${load.hours}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('') || '<tr><td colspan="6" class="text-center">No subject loads assigned.</td></tr>';
+    // Render current loads
+    const loadTbody = document.getElementById('subjectLoadsTableBody');
+    if (loadTbody) {
+        loadTbody.innerHTML = subjectLoads.map(load => `
+            <tr>
+                <td>${load.faculty_name}</td>
+                <td>${load.code}</td>
+                <td>${load.description}</td>
+                <td>${load.units}</td>
+                <td>${load.hours}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" class="text-center">No subject loads assigned.</td></tr>';
+    }
 
-    // Populate faculty dropdown in modal
-    const facultySelect = document.getElementById('loadFacultySelect');
-    if (facultySelect) {
-        const faculty = employees.filter(emp => emp.position === 'Faculty' || emp.department === 'Faculty');
-        facultySelect.innerHTML = '<option value="">Choose Faculty...</option>' + 
-            faculty.map(f => `<option value="${f.id}">${f.full_name}</option>`).join('');
+    // Render master subjects
+    const subjectTbody = document.getElementById('subjectsTableBody');
+    if (subjectTbody) {
+        subjectTbody.innerHTML = masterSubjects.map(s => `
+            <tr>
+                <td><strong>${s.code}</strong></td>
+                <td>${s.description}</td>
+                <td>${s.units}</td>
+                <td>${s.hours}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editMasterSubject('${s.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMasterSubject('${s.id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" class="text-center">No subjects created yet.</td></tr>';
     }
 }
 
 async function saveSubjectLoad() {
-    const facultyId = document.getElementById('loadFacultySelect').value;
+    const facultyId = document.getElementById('loadFacultyId').value;
     const code = document.getElementById('loadSubjectCode').value;
     const description = document.getElementById('loadDescription').value;
     const units = document.getElementById('loadUnits').value;
@@ -1287,7 +1406,7 @@ async function saveSubjectLoad() {
     if (result.success) {
         closeModal('addLoadModal');
         document.getElementById('subjectLoadForm').reset();
-        fetchData(); // Refresh all
+        fetchSubjectLoads(); // Refresh loads
     } else {
         alert("Error: " + (result.message || "Failed to save."));
     }
@@ -1299,6 +1418,60 @@ async function deleteSubjectLoad(id) {
         const result = await response.json();
         if (result.success) {
             fetchSubjectLoads();
+        } else {
+            alert("Error: " + (result.message || "Failed to delete."));
+        }
+    }
+}
+
+// --- Master Subject CRUD ---
+function editMasterSubject(id) {
+    const subject = masterSubjects.find(s => s.id == id);
+    if (!subject) return;
+    
+    document.getElementById('subjectId').value = subject.id;
+    document.getElementById('subjectCode').value = subject.code;
+    document.getElementById('subjectDescription').value = subject.description;
+    document.getElementById('subjectUnits').value = subject.units;
+    document.getElementById('subjectHours').value = subject.hours;
+    
+    document.getElementById('subjectModalTitle').innerText = 'Edit Subject';
+    openModal('subjectModal');
+}
+
+async function saveMasterSubject() {
+    const id = document.getElementById('subjectId').value;
+    const code = document.getElementById('subjectCode').value;
+    const description = document.getElementById('subjectDescription').value;
+    const units = document.getElementById('subjectUnits').value;
+    const hours = document.getElementById('subjectHours').value;
+
+    if (!code || !description) return alert("Code and Description are required.");
+
+    const response = await fetch('backend/api.php?action=save_subject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, code, description, units, hours })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        closeModal('subjectModal');
+        document.getElementById('masterSubjectForm').reset();
+        document.getElementById('subjectId').value = '';
+        document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
+        fetchMasterSubjects();
+    } else {
+        alert("Error: " + (result.message || "Failed to save subject."));
+    }
+}
+
+async function deleteMasterSubject(id) {
+    if (confirm("Are you sure you want to delete this subject? It will not remove already assigned loads.")) {
+        const response = await fetch(`backend/api.php?action=delete_subject&id=${id}`);
+        const result = await response.json();
+        if (result.success) {
+            fetchMasterSubjects();
         } else {
             alert("Error: " + (result.message || "Failed to delete."));
         }
@@ -1401,6 +1574,8 @@ async function logout() {
 // Initialize on Load
 window.onload = () => {
     fetchData();
-    const dateFilter = document.getElementById('attendanceDateFilter');
+        fetchMasterSubjects();
+        fetchSubjectLoads();
+        const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
 };

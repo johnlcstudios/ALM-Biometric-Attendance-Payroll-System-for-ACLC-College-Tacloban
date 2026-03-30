@@ -114,9 +114,11 @@
         </div>
         <div class="modal-body">
             <form id="subjectLoadForm">
+                <input type="hidden" id="loadFacultyId">
                 <div class="form-group">
-                    <label>Faculty Member</label>
-                    <select id="loadFacultySelect" class="form-control" required>
+                    <label>Select Subject</label>
+                    <select id="loadSubjectSelect" class="form-control" onchange="onLoadSubjectChange(this.value)">
+                        <option value="">-- Choose Subject --</option>
                         <!-- Dynamic Content -->
                     </select>
                 </div>
@@ -147,6 +149,43 @@
     </div>
 </div>
 
+<!-- Master Subject Modal -->
+<div id="subjectModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="subjectModalTitle">Create New Subject</h3>
+            <span class="close" onclick="closeModal('subjectModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="masterSubjectForm">
+                <input type="hidden" id="subjectId">
+                <div class="form-group">
+                    <label>Subject Code</label>
+                    <input type="text" id="subjectCode" class="form-control" placeholder="e.g. MATH101" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="subjectDescription" class="form-control" placeholder="e.g. College Algebra" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Units</label>
+                        <input type="number" id="subjectUnits" class="form-control" value="3" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hours/Week</label>
+                        <input type="number" id="subjectHours" class="form-control" value="3" required>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
+        </div>
+    </div>
+</div>
+
 <!-- Password Change Modal -->
 <div id="passwordModal" class="modal">
     <div class="modal-content">
@@ -173,6 +212,37 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancel</button>
             <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Faculty Loads Modal -->
+<div id="viewLoadsModal" class="modal">
+    <div class="modal-content large">
+        <div class="modal-header">
+            <h3 id="viewLoadsTitle">Faculty Subject Loads</h3>
+            <span class="close" onclick="closeModal('viewLoadsModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="table-container">
+                <table class="payroll-table">
+                    <thead>
+                        <tr>
+                            <th>CODE</th>
+                            <th>DESCRIPTION</th>
+                            <th>UNITS</th>
+                            <th>HOURS/WEEK</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="viewLoadsTableBody">
+                        <!-- Dynamic Content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('viewLoadsModal')">Close</button>
         </div>
     </div>
 </div>

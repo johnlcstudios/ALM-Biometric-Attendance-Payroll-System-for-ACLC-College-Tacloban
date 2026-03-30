@@ -6,6 +6,16 @@
 
 require_once 'db.php';
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Only allow Admin or HR to run this script
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'HR'])) {
+    http_response_code(403);
+    die("<h2>Access Denied</h2><p>You must be an Admin or HR to run this update script.</p>");
+}
+
 echo "<h2>Biometric Attendance & Payroll System - Database Updater</h2>";
 echo "<pre>";
 
@@ -119,6 +129,68 @@ try {
             ADD COLUMN lunch_in_start TIME DEFAULT '12:30:00', 
             ADD COLUMN lunch_in_end TIME DEFAULT '13:30:00'");
         echo "DONE\n";
+    }
+
+    // 10. Add OT and dynamic deduction columns to 'companies'
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'ot_percentage'");
+    if (!$stmt->fetch()) {
+        echo "Adding OT and deduction config columns to 'companies'... ";
+        $pdo->exec("ALTER TABLE companies 
+            ADD COLUMN ot_percentage INT DEFAULT 25,
+            ADD COLUMN deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
+            ADD COLUMN deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
+            ADD COLUMN deduction_per_hour DECIMAL(10, 2) DEFAULT 30.00");
+        echo "DONE\n";
+    }
+
+    // 11. Add 'leave_balance' to 'employees'
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'leave_balance'");
+    if (!$stmt->fetch()) {
+        echo "Adding 'leave_balance' to 'employees'... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN leave_balance INT DEFAULT 15");
+        echo "DONE\n";
+    }
+
+    // 8. Create 'subjects' master table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'subjects'");
+    if (!$stmt->fetch()) {
+        echo "Creating 'subjects' table... ";
+        $sql = "CREATE TABLE subjects (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            description VARCHAR(255) NOT NULL,
+            units INT DEFAULT 3,
+            hours INT DEFAULT 3,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        echo "DONE\n";
+    } else {
+        echo "'subjects' table already exists.\n";
+    }
+
+    // 9. Create 'subject_loads' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'subject_loads'");
+    if (!$stmt->fetch()) {
+        echo "Creating 'subject_loads' table... ";
+        $sql = "CREATE TABLE subject_loads (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            faculty_id INT NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            description VARCHAR(255) NOT NULL,
+            units INT DEFAULT 3,
+            hours INT DEFAULT 3,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (faculty_id) REFERENCES employees(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        echo "DONE\n";
+    } else {
+        echo "'subject_loads' table already exists.\n";
     }
 
     echo "\n<b>Database update completed successfully!</b>";
