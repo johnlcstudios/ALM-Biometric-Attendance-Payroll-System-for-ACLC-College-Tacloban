@@ -16,7 +16,7 @@
 }
 
 body {
-    background-color: var(--dark-bg);
+    background: #f0f2f5 url('../assets/bg.jpg') no-repeat center center/cover;
     height: 100vh;
     display: flex;
     align-items: center;
