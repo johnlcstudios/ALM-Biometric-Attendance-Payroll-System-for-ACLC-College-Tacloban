@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 
 // Redirect Admin, HR, and Payroll roles
 $session_role = trim($_SESSION['role'] ?? '');
-if (strcasecmp($session_role, 'Payroll') === 0) {
+if (in_array($session_role, ['Payroll', 'Payroll Officer'])) {
     header('Location: Payroll-Officer.php');
     exit;
 }

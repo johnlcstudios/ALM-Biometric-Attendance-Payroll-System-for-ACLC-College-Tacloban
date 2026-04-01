@@ -2,7 +2,7 @@
 session_start();
 if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['role'] ?? 'Employee';
-    if ($role === 'Payroll') {
+    if (in_array($role, ['Payroll', 'Payroll Officer'])) {
         header('Location: Payroll-Officer.php');
     } elseif ($role === 'Admin' || $role === 'HR') {
         header('Location: index.php');
@@ -197,7 +197,7 @@ document.getElementById('loginForm').onsubmit = async (e) => {
 
     if (result.success) {
         const role = result.role ? result.role.trim() : 'Employee';
-        if (role === 'Payroll') {
+        if (role === 'Payroll' || role === 'Payroll Officer') {
             window.location.href = 'Payroll-Officer.php';
         } else if (role === 'Admin' || role === 'HR') {
             window.location.href = 'index.php';

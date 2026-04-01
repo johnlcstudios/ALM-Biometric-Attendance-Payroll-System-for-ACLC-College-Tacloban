@@ -11,9 +11,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Only allow Admin or HR to run this script
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'HR'])) {
-    http_response_code(403);
-    die("<h2>Access Denied</h2><p>You must be an Admin or HR to run this update script.</p>");
+if (php_sapi_name() !== 'cli') {
+    if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'HR'])) {
+        http_response_code(403);
+        die("<h2>Access Denied</h2><p>You must be an Admin or HR to run this update script.</p>");
+    }
 }
 
 echo "<h2>Biometric Attendance & Payroll System - Database Updater</h2>";
@@ -150,6 +152,82 @@ try {
         $pdo->exec("ALTER TABLE employees ADD COLUMN leave_balance INT DEFAULT 15");
         echo "DONE\n";
     }
+
+    // 12. Add 'late_minutes' to 'attendance'
+    $stmt = $pdo->query("SHOW COLUMNS FROM attendance LIKE 'late_minutes'");
+    if (!$stmt->fetch()) {
+        echo "Adding 'late_minutes' to 'attendance' table... ";
+        $pdo->exec("ALTER TABLE attendance ADD COLUMN late_minutes INT DEFAULT 0");
+        echo "DONE\n";
+    }
+
+    // 13. Create 'allowance_categories' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'allowance_categories'");
+    if (!$stmt->fetch()) {
+        echo "Creating 'allowance_categories' table... ";
+        $sql = "CREATE TABLE allowance_categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            type ENUM('Fixed', 'Percentage') NOT NULL,
+            rate DECIMAL(10, 2) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        echo "DONE\n";
+    }
+
+    // 14. Create 'employee_allowances' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'employee_allowances'");
+    if (!$stmt->fetch()) {
+        echo "Creating 'employee_allowances' table... ";
+        $sql = "CREATE TABLE employee_allowances (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            employee_id INT NOT NULL,
+            category_id INT NOT NULL,
+            override_amount DECIMAL(10, 2),
+            effective_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+            FOREIGN KEY (category_id) REFERENCES allowance_categories(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        echo "DONE\n";
+    }
+
+    // 15. Create 'employee_deductions' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'employee_deductions'");
+    if (!$stmt->fetch()) {
+        echo "Creating 'employee_deductions' table... ";
+        $sql = "CREATE TABLE employee_deductions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            employee_id INT NOT NULL,
+            deduction_id INT NOT NULL,
+            override_amount DECIMAL(10, 2),
+            effective_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+            FOREIGN KEY (deduction_id) REFERENCES deductions(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        echo "DONE\n";
+    }
+
+    // 16. Expand 'users' table 'role' enum
+    echo "Updating 'users' role enum... ";
+    $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee') DEFAULT 'Employee'");
+    echo "DONE\n";
+
+    // 17. Sync Payroll Officer roles
+    echo "Syncing Payroll Officer roles... ";
+    $pdo->exec("UPDATE users u JOIN employees e ON u.id = e.user_id SET u.role = 'Payroll Officer' WHERE e.position = 'Payroll Officer'");
+    echo "DONE\n";
 
     // 8. Create 'subjects' master table
     $stmt = $pdo->query("SHOW TABLES LIKE 'subjects'");

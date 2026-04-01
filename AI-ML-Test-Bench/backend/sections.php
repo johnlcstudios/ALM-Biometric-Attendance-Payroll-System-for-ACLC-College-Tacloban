@@ -43,7 +43,7 @@
     </div>
 </section>
 
-<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll'])): ?>
+<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
 <!-- Employee Management Page -->
 <section id="employees" class="page">
     <div class="page-header">
@@ -108,25 +108,65 @@
 
 <!-- Attendance Logs Page -->
 <section id="attendance" class="page">
-    <div class="page-header">
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="attendanceSearch" placeholder="Filter attendance..." oninput="filterTable(this, 'attendanceTable')">
+    <div class="attendance-summary-cards">
+        <div class="att-stat-card">
+            <div class="att-stat-icon blue"><i class="fas fa-users"></i></div>
+            <div class="att-stat-content">
+                <span class="att-stat-label">Total Logs Today</span>
+                <span class="att-stat-value" id="att-total-logs">0</span>
+            </div>
         </div>
-        <div class="date-filter">
-            <input type="date" id="attendanceDateFilter">
+        <div class="att-stat-card">
+            <div class="att-stat-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="att-stat-content">
+                <span class="att-stat-label">On-Time</span>
+                <span class="att-stat-value text-success" id="att-ontime-count">0</span>
+            </div>
+        </div>
+        <div class="att-stat-card">
+            <div class="att-stat-icon orange"><i class="fas fa-clock"></i></div>
+            <div class="att-stat-content">
+                <span class="att-stat-label">Late Arrivals</span>
+                <span class="att-stat-value text-warning" id="att-late-count">0</span>
+            </div>
+        </div>
+        <div class="att-stat-card">
+            <div class="att-stat-icon red"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="att-stat-content">
+                <span class="att-stat-label">Absences</span>
+                <span class="att-stat-value text-danger" id="att-absent-count">0</span>
+            </div>
         </div>
     </div>
-    <div class="table-container">
-        <table id="attendanceTable">
+
+    <div class="attendance-controls card">
+        <div class="control-group">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="attendanceSearch" placeholder="Search by name or ID..." oninput="filterTable(this, 'attendanceTable')">
+            </div>
+        </div>
+        <div class="control-group right">
+            <div class="filter-item">
+                <label><i class="fas fa-calendar-day"></i> Filter Date</label>
+                <input type="date" id="attendanceDateFilter" class="form-control-gray">
+            </div>
+            <button class="btn btn-secondary" onclick="exportAttendance()"><i class="fas fa-download"></i> Export</button>
+        </div>
+    </div>
+
+    <div class="table-container modern-table-wrapper">
+        <table id="attendanceTable" class="modern-table">
             <thead>
                 <tr>
-                    <th>Employee ID</th>
-                    <th>Name</th>
-                    <th>Date</th>
-                    <th>Check-In</th>
-                    <th>Check-Out</th>
-                    <th>Status</th>
+                    <th>EMPLOYEE</th>
+                    <th>DATE</th>
+                    <th>CHECK-IN</th>
+                    <th>LUNCH-OUT</th>
+                    <th>LUNCH-IN</th>
+                    <th>CHECK-OUT</th>
+                    <th>STATUS</th>
+                    <th>ACTION</th>
                 </tr>
             </thead>
             <tbody id="attendanceTableBody">
@@ -143,9 +183,29 @@
             <h2>Payroll History</h2>
             <p>View and manage past payroll disbursements and processing runs.</p>
         </div>
-        <button class="btn-process-payroll" onclick="showPayrollModal()">
-            + Process New Payroll
-        </button>
+        <div class="header-right" style="display: flex; gap: 10px;">
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="printSpecializedPayroll('facultyPayrollTable', 'FACULTY PAYROLL')">Faculty Payroll</a>
+                    <a href="#" onclick="printSpecializedPayroll('utilityPayrollTable', 'UTILITY PAYROLL')">Utility Payroll</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-success dropdown-toggle">
+                    <i class="fas fa-download"></i> Export Excel
+                </button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="exportFacultyPayroll()">Faculty Payroll</a>
+                    <a href="#" onclick="exportUtilityPayroll()">Utility Payroll</a>
+                </div>
+            </div>
+            <button class="btn-process-payroll" onclick="showPayrollModal()">
+                + Process New Payroll
+            </button>
+        </div>
     </div>
 
     <div class="payroll-stats">
@@ -197,7 +257,13 @@
                 <p><strong>Cut-off Period:</strong> <span id="faculty-cutoff-period">---</span></p>
             </div>
         </div>
-        <div class="header-right">
+        <div class="header-right" style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="printSpecializedPayroll('facultyPayrollTable', 'FACULTY PAYROLL')">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button class="btn btn-success" onclick="exportFacultyPayroll()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
             <button class="btn-process-payroll" onclick="showRunFacultyPayroll()">
                 Run Faculty Payroll
             </button>
@@ -244,7 +310,13 @@
                 <p><strong>Cut-off Period:</strong> <span id="utility-cutoff-period">---</span></p>
             </div>
         </div>
-        <div class="header-right">
+        <div class="header-right" style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="printSpecializedPayroll('utilityPayrollTable', 'UTILITY PAYROLL')">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button class="btn btn-success" onclick="exportUtilityPayroll()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
             <button class="btn-process-payroll" onclick="showRunUtilityPayroll()">
                 Run Utility Payroll
             </button>
@@ -353,7 +425,10 @@
                         </div>
                     </div>
 
-                    <button class="btn-dark-purple btn-full" onclick="assignAllowance()">Assign Deduction</button>
+                    <div class="form-row-custom">
+                        <button class="btn-dark-purple" style="flex: 1;" onclick="assignAllowance()">Assign Benefit</button>
+                        <button class="btn-secondary" style="flex: 1;" onclick="applyAllowanceToAll()"><i class="fas fa-users"></i> Apply to All</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -382,7 +457,7 @@
 
 <!-- Leave Management Page -->
 <section id="leave" class="page">
-    <?php if (in_array($role, ['Admin', 'HR', 'Payroll'])): ?>
+    <?php if (in_array($role, ['Admin', 'HR', 'Payroll', 'Payroll Officer'])): ?>
     <div class="payroll-header">
         <div class="header-left">
             <h2>Leave Request Management</h2>
@@ -463,7 +538,7 @@
     </div>
 </section>
 
-<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll'])): ?>
+<?php if (in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
 <!-- Deductions Page -->
 <section id="deductions" class="page">
     <div class="payroll-header">
@@ -538,7 +613,10 @@
                         </div>
                     </div>
 
-                    <button class="btn-dark-purple btn-full" onclick="assignDeduction()">Assign Deduction</button>
+                    <div class="form-row-custom">
+                        <button class="btn-dark-purple" style="flex: 1;" onclick="assignDeduction()">Assign Deduction</button>
+                        <button class="btn-secondary" style="flex: 1;" onclick="applyDeductionToAll()"><i class="fas fa-users"></i> Apply to All</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -725,7 +803,7 @@ $company = $stmt_company->fetch();
             </form>
         </div>
         
-        <?php if ($role === 'Admin' || $role === 'HR'): ?>
+        <?php if (in_array($role, ['Admin', 'HR', 'Payroll Officer'])): ?>
         <div class="settings-card">
             <h3>Admin Tools</h3>
             <div class="setting-item">

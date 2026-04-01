@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if ($_SESSION['role'] === 'Payroll') {
+if (in_array($_SESSION['role'], ['Payroll', 'Payroll Officer'])) {
     header('Location: Payroll-Officer.php');
     exit;
 }
@@ -56,7 +56,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 </button>
                 
                 <!-- Shared Role-Based Access -->
-                <?php if ($role === 'HR' || $role === 'Admin' || $role === 'Payroll'): ?>
+                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
                 <button class="nav-btn" onclick="showPage('employees')">
                     <i class="fas fa-users"></i> <span>Employees</span>
                 </button>
@@ -65,8 +65,8 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 </button>
                 <?php endif; ?>
 
-                <!-- Role: Admin / HR Only -->
-                <?php if ($role === 'HR' || $role === 'Admin'): ?>
+                <!-- Role: Admin / HR / Payroll Officer -->
+                <?php if (in_array($role, ['HR', 'Admin', 'Payroll Officer'])): ?>
                 <button class="nav-btn" onclick="showPage('biometrics')">
                     <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
                 </button>
@@ -76,7 +76,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 <?php endif; ?>
 
                 <!-- Role: Payroll Officer specific or Admin -->
-                <?php if ($role === 'HR' || $role === 'Admin' || $role === 'Payroll'): ?>
+                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
                 <button class="nav-btn" onclick="showPage('attendance')">
                     <i class="fas fa-calendar-alt"></i> <span>Attendance Logs</span>
                 </button>
@@ -101,7 +101,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 <button class="nav-btn" onclick="showPage('leave')">
                     <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
                 </button>
-                <?php if ($role === 'HR' || $role === 'Admin' || $role === 'Payroll'): ?>
+                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
                 <button class="nav-btn" onclick="showPage('loans')">
                     <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
                 </button>

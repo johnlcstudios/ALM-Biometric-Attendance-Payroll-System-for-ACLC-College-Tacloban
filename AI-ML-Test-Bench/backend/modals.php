@@ -1,88 +1,164 @@
 <!-- Modals -->
 <div id="employeeModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Add New Employee</h3>
+    <div class="modal-content large-modal">
+        <div class="modal-header bg-dark-purple text-white">
+            <h3 id="employeeModalTitle">Add New Employee</h3>
             <span class="close" onclick="closeModal('employeeModal')">&times;</span>
         </div>
         <div class="modal-body">
-            <div class="step-indicator">
-                <span class="step active" id="step1-indicator">1</span>
-                <span class="step" id="step2-indicator">2</span>
-                <span class="step" id="step3-indicator">3</span>
-                <span class="step" id="step4-indicator">4</span>
+            <!-- Step Indicator -->
+            <div class="stepper-container">
+                <div class="stepper-item active" id="step1-indicator">
+                    <div class="step-counter">1</div>
+                    <div class="step-name">Personal</div>
+                </div>
+                <div class="stepper-item" id="step2-indicator">
+                    <div class="step-counter">2</div>
+                    <div class="step-name">Employment</div>
+                </div>
+                <div class="stepper-item" id="step3-indicator">
+                    <div class="step-counter">3</div>
+                    <div class="step-name">Government</div>
+                </div>
+                <div class="stepper-item" id="step4-indicator">
+                    <div class="step-counter">4</div>
+                    <div class="step-name">Subjects</div>
+                </div>
             </div>
-            <form id="employeeForm">
-                <!-- Step 1: Personal Info -->
+
+            <form id="employeeForm" class="modern-form">
+                <!-- Step 1: Personal Information -->
                 <div class="form-step active" id="step1">
-                    <h4>Personal Information</h4>
-                    <div class="form-group">
-                        <label>Full Name</label>
-                        <input type="text" name="fullName" required>
+                    <div class="step-header">
+                        <i class="fas fa-user-circle"></i>
+                        <h4>Personal Information</h4>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Date of Birth</label>
-                            <input type="date" name="dob">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label><i class="fas fa-user"></i> Full Name <span class="required text-danger">*</span></label>
+                            <input type="text" name="fullName" placeholder="Enter full name" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Please enter a valid full name.</div>
                         </div>
                         <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" name="email">
+                            <label><i class="fas fa-calendar-alt"></i> Date of Birth <span class="required text-danger">*</span></label>
+                            <input type="date" name="dob" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Valid DOB required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-envelope"></i> Email Address <span class="required text-danger">*</span></label>
+                            <input type="email" name="email" placeholder="email@example.com" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Valid email required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-phone"></i> Contact Number</label>
+                            <input type="text" name="contactNo" placeholder="09XX XXX XXXX">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-venus-mars"></i> Gender</label>
+                            <select name="gender">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                     </div>
                 </div>
-                <!-- Step 2: Employment -->
+
+                <!-- Step 2: Employment Details -->
                 <div class="form-step" id="step2">
-                    <h4>Employment Details</h4>
-                    <div class="form-row">
+                    <div class="step-header">
+                        <i class="fas fa-briefcase"></i>
+                        <h4>Employment Details</h4>
+                    </div>
+                    <div class="form-grid">
                         <div class="form-group">
-                            <label>Position</label>
-                            <select name="position">
-                                <option value="Faculty">Faculty</option>
-                                <option value="Staff">Staff</option>
-                                <option value="Utility">Utility</option>
+                            <label><i class="fas fa-id-badge"></i> Position <span class="required text-danger">*</span></label>
+                            <select name="position" onchange="toggleSubjectStep()" required>
+                                <option value="Faculty">Full-Time Faculty</option>
+                                <option value="Staff">Regular Staff</option>
+                                <option value="Utility">Utility Staff</option>
+                                <option value="Payroll Officer">Payroll Officer</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Department</label>
-                            <select name="department">
-                                <option value="IT">IT</option>
+                            <label><i class="fas fa-building"></i> Department <span class="required text-danger">*</span></label>
+                            <select name="department" required>
+                                <option value="IT">Information Technology</option>
                                 <option value="Education">Education</option>
-                                <option value="Admin">Admin</option>
+                                <option value="Admin">Administration</option>
+                                <option value="Utility">General Services</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-money-bill-wave"></i> Basic Salary (Monthly) <span class="required text-danger">*</span></label>
+                            <div class="input-with-icon">
+                                <span class="icon">₱</span>
+                                <input type="number" name="basicSalary" placeholder="0.00" min="0" required>
+                            </div>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Minimum salary 0 required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user-tag"></i> Employment Status</label>
+                            <select name="status">
+                                <option value="Active">Active</option>
+                                <option value="Probationary">Probationary</option>
+                                <option value="Contractual">Contractual</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Basic Salary</label>
-                        <input type="number" name="basicSalary">
-                    </div>
                 </div>
-                <!-- Step 3: Subject Load (Faculty) -->
+
+                <!-- Step 3: Government Identifiers -->
                 <div class="form-step" id="step3">
-                    <h4>Subject Load (Faculty Only)</h4>
-                    <div id="subjectRows">
-                        <!-- Dynamic rows -->
+                    <div class="step-header">
+                        <i class="fas fa-id-card"></i>
+                        <h4>Government Identifiers</h4>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="addSubjectRow()">+ Add Subject</button>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>SSS Number</label>
+                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9-]*">
+                        </div>
+                        <div class="form-group">
+                            <label>PhilHealth ID</label>
+                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9-]*">
+                        </div>
+                        <div class="form-group">
+                            <label>TIN Number</label>
+                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9-]*">
+                        </div>
+                        <div class="form-group">
+                            <label>Pag-IBIG MID</label>
+                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9-]*">
+                        </div>
+                    </div>
                 </div>
-                <!-- Step 4: Government IDs -->
+
+                <!-- Step 4: Subject Load (Faculty Only) -->
                 <div class="form-step" id="step4">
-                    <h4>Government Identifiers</h4>
-                    <div class="form-row">
-                        <div class="form-group"><label>SSS</label><input type="text" name="sss"></div>
-                        <div class="form-group"><label>PhilHealth</label><input type="text" name="philhealth"></div>
+                    <div class="step-header">
+                        <i class="fas fa-book"></i>
+                        <h4>Subject Load Allocation</h4>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>TIN</label><input type="text" name="tin"></div>
-                        <div class="form-group"><label>Pag-IBIG</label><input type="text" name="pagibig"></div>
+                    <div id="subjectRowsContainer" class="subject-rows-wrapper">
+                        <!-- Dynamic rows will be injected here -->
                     </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-3" onclick="addSubjectRow()">
+                        <i class="fas fa-plus"></i> Add Another Subject
+                    </button>
                 </div>
             </form>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">Previous</button>
-            <button class="btn btn-primary" id="nextBtn" onclick="goEmpStep(1)">Next</button>
-            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">Save Employee</button>
+        <div class="modal-footer border-top-0">
+            <button class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <button class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
+                Next <i class="fas fa-arrow-right"></i>
+            </button>
+            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
+                <i class="fas fa-check-circle"></i> Save Employee
+            </button>
         </div>
     </div>
 </div>
@@ -182,6 +258,45 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
             <button class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
+        </div>
+    </div>
+</div>
+
+<!-- Run Payroll Modal -->
+<div id="runPayrollModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Process New Payroll</h3>
+            <span class="close" onclick="closeModal('runPayrollModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="runPayrollForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="payrollStartDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="payrollEndDate" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Filter by Category/Position</label>
+                    <select id="payrollCategorySelect" class="form-control">
+                        <option value="all">All Employees</option>
+                        <option value="Faculty">Full-Time Faculty</option>
+                        <option value="Staff">Regular Staff</option>
+                        <option value="Utility">Utility Staff</option>
+                        <option value="Payroll Officer">Payroll Officer</option>
+                    </select>
+                </div>
+                <p class="text-muted small"><i class="fas fa-info-circle"></i> This will calculate earnings and deductions for the selected period and employees.</p>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('runPayrollModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="runPayroll()">Run Payroll Now</button>
         </div>
     </div>
 </div>
