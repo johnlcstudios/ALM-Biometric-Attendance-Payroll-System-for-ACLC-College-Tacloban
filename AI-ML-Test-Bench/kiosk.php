@@ -390,6 +390,17 @@
             
             <div class="clock-container">
                 <div class="clock" id="clock">00:00 AM</div>
+                <div id="current-action-badge" style="
+                    background: var(--primary-blue);
+                    color: white;
+                    padding: 5px 15px;
+                    border-radius: 20px;
+                    font-size: 0.8rem;
+                    margin-top: 10px;
+                    display: inline-block;
+                    font-weight: bold;
+                    letter-spacing: 1px;
+                ">LOADING...</div>
             </div>
 
             <div class="summary-card">
@@ -432,9 +443,11 @@
         const statAbsent = document.getElementById('stat-absent');
         const statEmpId = document.getElementById('stat-empid');
         const cameraCircle = document.querySelector('.camera-circle');
+        const actionBadge = document.getElementById('current-action-badge');
         
         let isProcessing = false;
         let currentCompanyId = null;
+        let companyConfig = null;
 
         // Initialize Kiosk
         async function init() {
@@ -474,11 +487,13 @@
             const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?company_id=' + id;
             window.history.pushState({path:newUrl},'',newUrl);
 
-            // Fetch Company Name
+            // Fetch Company Info & Config
             fetch(`backend/api.php?action=get_company_info&company_id=${id}`)
                 .then(res => res.json())
                 .then(data => {
                     document.getElementById('company-name').innerText = data.name.toUpperCase();
+                    companyConfig = data;
+                    updateCurrentAction();
                 });
 
             // If video is not started, start it
@@ -487,11 +502,57 @@
             }
         }
 
-        // Update Clock
+        // Update Clock & Action Badge
         setInterval(() => {
             const now = new Date();
             clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            updateCurrentAction();
         }, 1000);
+
+        function updateCurrentAction() {
+            if (!companyConfig) return;
+
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0]; // HH:MM:SS
+            
+            let action = "CHECK OUT";
+            let color = "var(--primary-blue)";
+
+            const workStart = companyConfig.work_start;
+            const workEnd = companyConfig.work_end;
+            const lunchOutStart = companyConfig.lunch_out_start;
+            const lunchOutEnd = companyConfig.lunch_out_end;
+            const lunchInStart = companyConfig.lunch_in_start;
+            const lunchInEnd = companyConfig.lunch_in_end;
+
+            if (timeString >= lunchOutStart && timeString <= lunchOutEnd) {
+                action = "LUNCH OUT";
+                color = "#f39c12"; // Orange
+            } else if (timeString >= lunchInStart && timeString <= lunchInEnd) {
+                action = "LUNCH IN";
+                color = "#27ae60"; // Green
+            } else {
+                // Morning check-in up to 4 hours after start
+                const checkInLimit = new Date();
+                const [h, m, s] = workStart.split(':');
+                checkInLimit.setHours(parseInt(h) + 4, parseInt(m), parseInt(s));
+                const checkInLimitStr = checkInLimit.toTimeString().split(' ')[0];
+
+                if (timeString <= checkInLimitStr) {
+                    action = "CHECK IN";
+                    color = "var(--primary-blue)";
+                } else if (timeString >= workEnd) {
+                    action = "CHECK OUT";
+                    color = "var(--accent-red)";
+                } else {
+                    action = "CHECK OUT (EARLY)";
+                    color = "#7f8c8d"; // Grey
+                }
+            }
+
+            actionBadge.innerText = action;
+            actionBadge.style.background = color;
+        }
 
         async function startKiosk() {
             try {
@@ -689,21 +750,34 @@
                         cameraCircle.className = 'camera-circle border-danger';
                         statusEl.innerHTML = `
                             <h3 class="text-danger">CHECK-OUT (ABSENT)</h3>
-                            <p style="color: var(--accent-red); font-size: 0.8rem;">No Check-in Found! Match: ${result.match_percentage}%</p>
+                            <p style="color: var(--accent-red); font-size: 0.8rem;">No Check-in Found!</p>
                             ${morningWarning}
                         `;
                     } else if (result.status === 'Half-Day') {
                         cameraCircle.className = 'camera-circle border-warning';
                         statusEl.innerHTML = `
                             <h3 style="color: #f39c12">HALF-DAY SUCCESS!</h3>
-                            <p style="color: #f39c12; font-size: 0.8rem;">Partial Log Recorded. Match: ${result.match_percentage}%</p>
+                            <p style="color: #f39c12; font-size: 0.8rem;">Partial Log Recorded.</p>
+                            ${morningWarning}
+                        `;
+                    } else if (result.status === 'Late') {
+                        cameraCircle.className = 'camera-circle border-warning';
+                        statusEl.innerHTML = `
+                            <h3 style="color: #f39c12">LATE CHECKED IN!</h3>
+                            <p style="color: #f39c12; font-size: 0.8rem;">Logged at ${result.time}.</p>
                             ${morningWarning}
                         `;
                     } else {
                         cameraCircle.className = 'camera-circle border-success';
+                        let displayAction = "VERIFIED";
+                        if (result.action === 'lunch_out') displayAction = "LUNCHED OUT";
+                        else if (result.action === 'lunch_in') displayAction = "LUNCHED IN";
+                        else if (result.action === 'check_in') displayAction = "CHECKED IN";
+                        else if (result.action === 'check_out') displayAction = "CHECKED OUT";
+
                         statusEl.innerHTML = `
-                            <h3 class="text-success">${result.action.toUpperCase()} SUCCESS!</h3>
-                            <p style="color: #27ae60; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
+                            <h3 class="text-success">${displayAction} SUCCESS!</h3>
+                            <p style="color: #27ae60; font-size: 0.8rem;">Time: ${result.time || ''}</p>
                             ${morningWarning}
                         `;
                     }
@@ -723,9 +797,10 @@
                     displayRole.innerText = "Action Duplicate";
                     
                     let morningWarning = result.missed_morning ? '<br><small style="color: var(--accent-red)">⚠️ MISSED MORNING CHECK-IN</small>' : '';
+                    const actionName = (result.action || "LOGGED").replace('_', ' ').toUpperCase();
 
                     statusEl.innerHTML = `
-                        <h3 class="text-danger">ALREADY ${result.action.toUpperCase()}!</h3>
+                        <h3 class="text-danger">ALREADY ${actionName}!</h3>
                         <p style="color: #f39c12; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
                         ${morningWarning}
                     `;
@@ -738,13 +813,13 @@
                         resetUI();
                         isProcessing = false;
                     }, 5000);
-                } else if (result.message === 'MUST CHECK-IN FIRST' || result.message === 'MUST TIME-IN FIRST') {
+                } else if (result.message && result.message.startsWith('MUST')) {
                     cameraCircle.className = 'camera-circle border-danger';
                     displayName.innerText = result.name;
-                    displayRole.innerText = "Entry Point Required";
+                    displayRole.innerText = "Action Required";
                     statusEl.innerHTML = `
                         <h3 class="text-danger">${result.message}</h3>
-                        <p style="color: var(--accent-red); font-size: 0.8rem;">Entry Scan Required! Match: ${result.match_percentage}%</p>
+                        <p style="color: var(--accent-red); font-size: 0.8rem;">Sequence Error! Match: ${result.match_percentage}%</p>
                     `;
                     
                     setTimeout(() => {
@@ -754,7 +829,10 @@
                 } else {
                     cameraCircle.className = 'camera-circle border-danger';
                     const matchText = result.match_percentage > 0 ? `<br><small>Match: ${result.match_percentage}% (Required: 90%)</small>` : '';
-                    statusEl.innerHTML = `<p class="text-danger">MATCH FAILED${matchText}</p>`;
+                    statusEl.innerHTML = `
+                        <h3 class="text-danger">NOT RECOGNISED</h3>
+                        <p style="color: var(--accent-red); font-size: 0.8rem;">Face Not Matched! ${matchText}</p>
+                    `;
                     setTimeout(() => {
                         statusEl.innerHTML = '';
                         cameraCircle.className = 'camera-circle';

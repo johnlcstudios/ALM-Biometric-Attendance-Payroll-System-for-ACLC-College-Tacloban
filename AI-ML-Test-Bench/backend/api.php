@@ -15,14 +15,14 @@ try {
 
 $action = $_GET['action'] ?? '';
 
-// Helper to check for HR or Admin role
+// Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin']);
+    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer']);
 }
 
-// Helper to check for Payroll role (includes Admin/HR)
+// Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
 function isPayrollOrHigher() {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll']);
+    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
 }
 
 try {
@@ -82,6 +82,344 @@ try {
             }
             break;
 
+        case 'get_faculty_payroll':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $period = $_GET['period'] ?? '';
+            
+            if ($period === 'latest' || $period === 'current' || empty($period)) {
+                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND e.position = 'Faculty' ORDER BY p.created_at DESC LIMIT 1");
+                $stmt_latest->execute([$_SESSION['company_id']]);
+                $period = $stmt_latest->fetchColumn() ?: '';
+            }
+
+            $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.basic_salary 
+                                 FROM payroll p 
+                                 JOIN employees e ON p.employee_id = e.id 
+                                 WHERE p.company_id = ? AND e.position = 'Faculty' 
+                                 AND p.period = ?");
+            $stmt->execute([$_SESSION['company_id'], $period]);
+            $results = $stmt->fetchAll();
+            echo json_encode(['period' => $period, 'data' => $results]);
+            break;
+
+        case 'get_utility_payroll':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $period = $_GET['period'] ?? '';
+
+            if ($period === 'latest' || $period === 'current' || empty($period)) {
+                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND e.position = 'Utility' ORDER BY p.created_at DESC LIMIT 1");
+                $stmt_latest->execute([$_SESSION['company_id']]);
+                $period = $stmt_latest->fetchColumn() ?: '';
+            }
+
+            $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.basic_salary 
+                                 FROM payroll p 
+                                 JOIN employees e ON p.employee_id = e.id 
+                                 WHERE p.company_id = ? AND e.position = 'Utility' 
+                                 AND p.period = ?");
+            $stmt->execute([$_SESSION['company_id'], $period]);
+            $results = $stmt->fetchAll();
+            echo json_encode(['period' => $period, 'data' => $results]);
+            break;
+
+        case 'run_specialized_payroll':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $type = $data['type']; // 'faculty' or 'utility'
+            $start_date = $data['start_date'];
+            $end_date = $data['end_date'];
+            $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
+            $company_id = $_SESSION['company_id'];
+
+            $position = ($type === 'faculty') ? 'Faculty' : 'Utility';
+            
+            $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
+            $stmt_employees->execute([$company_id, $position]);
+            $employees = $stmt_employees->fetchAll();
+
+            $pdo->beginTransaction();
+            try {
+                foreach ($employees as $emp) {
+                    // Basic Attendance Stats for calculations
+                    $stmt_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ?");
+                    $stmt_att->execute([$emp['id'], $start_date, $end_date]);
+                    $logs = $stmt_att->fetchAll();
+                    
+                    $total_absent = 0; // Simplified for now
+                    $total_late_min = 0;
+                    foreach ($logs as $l) {
+                        if ($l['status'] === 'Late') $total_late_min += $l['late_minutes'];
+                        if ($l['status'] === 'Absent') $total_absent++;
+                    }
+
+                    $basic_pay = $emp['basic_salary'] / 2; // Semi-monthly
+                    $deductions = ($total_late_min * 0.5); // Example late deduction
+                    
+                    if ($type === 'faculty') {
+                        // Faculty specific calculations (17 columns)
+                        $load_pay = 5000; // Placeholder for load calculation
+                        $overtime = 0;
+                        $differential = 0;
+                        $substitution = 0;
+                        $adj_plus = 0;
+                        $absences_deduction = $total_absent * ( ($emp['basic_salary']/22) );
+                        $late_ut = $total_late_min * 2; // Example rate
+                        $hdmf_cont = 100;
+                        $hdmf_loans = 0;
+                        $hdmf_mp2 = 0;
+                        $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2;
+                        $honorarium = 0;
+                        $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium) - $total_deduction;
+
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid')");
+                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay]);
+                    } else {
+                        // Utility specific calculations (15 columns)
+                        $rate_per_day = $emp['basic_salary'] / 22;
+                        $earned = $rate_per_day * (count($logs)); 
+                        $ot_holiday = 0;
+                        $adj_plus = 0;
+                        $late_ut = $total_late_min * 1.5;
+                        $adj_minus = 0;
+                        $hdmf_cont = 100;
+                        $hdmf_loans = 0;
+                        $cash_advance = 0;
+                        $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance;
+                        $net_pay = ($earned + $ot_holiday + $adj_plus) - $total_deduction;
+                        $atm = $net_pay; // Placeholder
+                        $non_atm = 0;
+
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid')");
+                        $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay]);
+                    }
+                }
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+            }
+            break;
+
+        case 'get_allowance_categories':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'add_allowance_category':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
+            echo json_encode(['success' => true, 'message' => 'Category added successfully']);
+            break;
+
+        case 'get_employee_allowances':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
+                                 FROM employee_allowances ea 
+                                 JOIN employees e ON ea.employee_id = e.id 
+                                 JOIN allowance_categories ac ON ea.category_id = ac.id 
+                                 WHERE ea.company_id = ? ORDER BY ea.created_at DESC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'assign_employee_allowance':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['category_id'], $data['override_amount'], $data['effective_date']]);
+            echo json_encode(['success' => true, 'message' => 'Allowance assigned successfully']);
+            break;
+
+        case 'delete_allowance_category':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'];
+            $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Category deleted']);
+            break;
+
+        case 'delete_employee_allowance':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'];
+            $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
+            break;
+
+        case 'bulk_assign_allowance':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $category_id = $data['category_id'];
+            $override_amount = $data['override_amount'] ?: null;
+            $effective_date = $data['effective_date'] ?: date('Y-m-d');
+            
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
+            $stmt->execute([$_SESSION['company_id']]);
+            $employees = $stmt->fetchAll();
+            
+            $pdo->beginTransaction();
+            try {
+                foreach ($employees as $emp) {
+                    $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $category_id, $override_amount, $effective_date, $override_amount, $effective_date]);
+                }
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Allowance applied to all active employees']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'get_deduction_breakdown':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name, d.type as category_type, d.value as category_rate 
+                                 FROM employee_deductions ed 
+                                 JOIN employees e ON ed.employee_id = e.id 
+                                 JOIN deductions d ON ed.deduction_id = d.id 
+                                 WHERE ed.company_id = ? ORDER BY ed.created_at DESC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'assign_employee_deduction':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['deduction_id'], $data['override_amount'], $data['effective_date']]);
+            echo json_encode(['success' => true, 'message' => 'Deduction assigned successfully']);
+            break;
+
+        case 'delete_employee_deduction':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'];
+            $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
+            break;
+
+        case 'bulk_assign_deduction':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $deduction_id = $data['deduction_id'];
+            $override_amount = $data['override_amount'] ?: null;
+            $effective_date = $data['effective_date'] ?: date('Y-m-d');
+            
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
+            $stmt->execute([$_SESSION['company_id']]);
+            $employees = $stmt->fetchAll();
+            
+            $pdo->beginTransaction();
+            try {
+                foreach ($employees as $emp) {
+                    $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $deduction_id, $override_amount, $effective_date, $override_amount, $effective_date]);
+                }
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Deduction applied to all active employees']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'get_subjects':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT * FROM subjects WHERE company_id = ?");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'get_subject_loads':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT * FROM subject_loads WHERE company_id = ?");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'delete_subject_load':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'];
+            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'revoke_payroll_access':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'];
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET position = 'Staff' WHERE id = ? AND company_id = ?");
+                $stmt->execute([$id, $_SESSION['company_id']]);
+                
+                $stmt_user = $pdo->prepare("UPDATE users u JOIN employees e ON u.id = e.user_id SET u.role = 'Employee' WHERE e.id = ?");
+                $stmt_user->execute([$id]);
+                
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'get_loan_requests':
+            if (!isPayrollOrHigher()) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT l.*, e.full_name FROM loans l JOIN employees e ON l.employee_id = e.id WHERE e.company_id = ? ORDER BY l.id DESC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'update_loan_status':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("UPDATE loans SET status = ? WHERE id = ? AND company_id = ?");
+            $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_resignation_requests':
+            if (!isPayrollOrHigher()) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT r.*, e.full_name FROM resignations r JOIN employees e ON r.employee_id = e.id WHERE e.company_id = ? ORDER BY r.id DESC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'update_resignation_status':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("UPDATE resignations SET status = ? WHERE id = ? AND company_id = ?");
+            $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_leave_requests':
+            if (!isPayrollOrHigher()) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT lr.*, e.full_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.company_id = ? ORDER BY lr.id DESC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'get_deduction_categories':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ?");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'get_employee_deductions':
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name FROM employee_deductions ed JOIN employees e ON ed.employee_id = e.id JOIN deductions d ON ed.deduction_id = d.id WHERE ed.company_id = ?");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
         case 'logout':
             session_destroy();
             echo json_encode(['success' => true]);
@@ -98,14 +436,55 @@ try {
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             
+            // Server-side Bulletproofing: Validation
+            $required = ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary'];
+            foreach ($required as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    exit(json_encode(['success' => false, 'message' => "Missing required field: $field"]));
+                }
+            }
+
+            // Sanitize Email
+            $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid email format']));
+            }
+
+            // Ensure Numeric Salary
+            $basic_salary = (float)$data['basicSalary'];
+            if ($basic_salary < 0) {
+                exit(json_encode(['success' => false, 'message' => 'Salary cannot be negative']));
+            }
+
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
-                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE id = ? AND company_id = ?");
-                $stmt->execute([$data['fullName'], $data['dob'], $data['email'], $data['position'], $data['department'], $data['basicSalary'], $data['sss'], $data['philhealth'], $data['tin'], $data['pagibig'], $data['id'], $_SESSION['company_id']]);
+                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([
+                    trim($data['fullName']), 
+                    $data['dob'], 
+                    $email, 
+                    $data['position'], 
+                    $data['department'], 
+                    $basic_salary, 
+                    trim($data['sss'] ?? ''), 
+                    trim($data['philhealth'] ?? ''), 
+                    trim($data['tin'] ?? ''), 
+                    trim($data['pagibig'] ?? ''), 
+                    $data['status'], 
+                    $data['id'], 
+                    $_SESSION['company_id']
+                ]);
             } else {
                 // Create new employee
                 $pdo->beginTransaction();
                 try {
+                    // Check if email already exists
+                    $stmt_check = $pdo->prepare("SELECT id FROM employees WHERE email = ? AND company_id = ?");
+                    $stmt_check->execute([$email, $_SESSION['company_id']]);
+                    if ($stmt_check->fetch()) {
+                        throw new Exception("Email already registered in this company.");
+                    }
+
                     $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? ORDER BY id DESC LIMIT 1");
                     $stmt->execute([$_SESSION['company_id']]);
                     $last_id = $stmt->fetchColumn();
@@ -113,16 +492,51 @@ try {
                     $emp_id = 'EMP' . str_pad($num, 3, '0', STR_PAD_LEFT);
 
                     $hashed_pass = password_hash('welcome123', PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'Employee', ?)");
-                    $stmt->execute([$_SESSION['company_id'], strtolower(str_replace(' ', '.', $data['fullName'])), $hashed_pass, $data['email']]);
+                    $username = strtolower(str_replace(' ', '.', trim($data['fullName'])));
+                    $role = ($data['position'] === 'Payroll Officer') ? 'Payroll Officer' : 'Employee';
+                    
+                    $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->execute([$_SESSION['company_id'], $username, $hashed_pass, $role, $email]);
                     $user_id = $pdo->lastInsertId();
 
-                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, department, basic_salary, sss, philhealth, tin, pagibig, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$_SESSION['company_id'], $emp_id, $data['fullName'], $data['dob'], $data['email'], $data['position'], $data['department'], $data['basicSalary'], $data['sss'], $data['philhealth'], $data['tin'], $data['pagibig'], $user_id]);
+                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, department, basic_salary, sss, philhealth, tin, pagibig, user_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $_SESSION['company_id'], 
+                        $emp_id, 
+                        trim($data['fullName']), 
+                        $data['dob'], 
+                        $email, 
+                        $data['position'], 
+                        $data['department'], 
+                        $basic_salary, 
+                        trim($data['sss'] ?? ''), 
+                        trim($data['philhealth'] ?? ''), 
+                        trim($data['tin'] ?? ''), 
+                        trim($data['pagibig'] ?? ''), 
+                        $user_id, 
+                        $data['status']
+                    ]);
+                    $new_emp_id = $pdo->lastInsertId();
+
+                    // Handle subjects if provided
+                    if ($data['position'] === 'Faculty' && !empty($data['subjects']) && is_array($data['subjects'])) {
+                        foreach ($data['subjects'] as $sub) {
+                            if (empty($sub['description'])) continue;
+                            $stmt_sub = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units) VALUES (?, ?, ?, ?, ?)");
+                            $stmt_sub->execute([
+                                $_SESSION['company_id'], 
+                                $new_emp_id, 
+                                'AUTO', 
+                                trim($sub['description']), 
+                                (float)$sub['units']
+                            ]);
+                        }
+                    }
+
                     $pdo->commit();
                 } catch (Exception $e) {
                     $pdo->rollBack();
-                    exit(json_encode(['success' => false, 'message' => 'Failed to save employee: ' . $e->getMessage()]));
+                    exit(json_encode(['success' => false, 'message' => $e->getMessage()]));
                 }
             }
             echo json_encode(['success' => true]);
@@ -240,7 +654,7 @@ try {
                 $date = date('Y-m-d');
                 $time = date('H:i:s');
 
-                $stmt_emp = $pdo->prepare("SELECT employee_id, position FROM employees WHERE id = ?");
+                $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
                 $stmt_emp->execute([$employee_id]);
                 $emp_data = $stmt_emp->fetch();
 
@@ -252,64 +666,14 @@ try {
                 $stmt_log->execute([$employee_id, $date]);
                 $log = $stmt_log->fetch();
 
-                $missed_morning = (!$log || empty($log['check_in'])) && $time > date('H:i:s', strtotime($config['work_start'] . ' + 4 hours'));
-                $status = 'On-Time';
-                $column = '';
-                
-                $work_start = $config['work_start'];
-                $grace_period = $config['grace_period'] ?? 15;
-                $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
-                
-                if ($time >= date('H:i:s', strtotime($config['work_end'] . ' - 30 minutes'))) {
-                    $column = 'check_out';
-                } elseif ($time <= date('H:i:s', strtotime($work_start . ' + 2 hours'))) {
-                    $column = 'check_in';
-                    if ($time > $late_time) $status = 'Late';
-                } elseif ($time >= $config['lunch_out_start'] && $time <= $config['lunch_out_end']) {
-                    $column = 'lunch_out';
-                } elseif ($time >= $config['lunch_in_start'] && $time <= $config['lunch_in_end']) {
-                    $column = 'lunch_in';
-                } else {
-                    $column = 'check_out';
-                }
-
-                // Entry point requirements
-                if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
-                    echo json_encode(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'name' => $best_match['full_name']]);
-                    break;
-                }
-                if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
-                    echo json_encode(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'name' => $best_match['full_name']]);
-                    break;
-                }
-
-                if ($log && !empty($log[$column])) {
-                    echo json_encode(['success' => false, 'message' => 'ALREADY LOGGED', 'name' => $best_match['full_name']]);
-                    break;
-                }
-
-                if (!$log) {
-                    $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status) VALUES (?, ?, ?, ?, ?)");
-                    $stmt->execute([$company_id, $employee_id, $date, $time, $status]);
-                } else {
-                    if ($column === 'check_out') {
-                        if (empty($log['check_in']) && !empty($log['lunch_in'])) $status = 'Half-Day';
-                        else if (!empty($log['check_in']) && empty($log['lunch_in'])) $status = 'Half-Day';
-                        else if (empty($log['check_in'])) $status = 'Absent';
-                    }
-                    $stmt = $pdo->prepare("UPDATE attendance SET $column = ?, status = ? WHERE id = ?");
-                    $stmt->execute([$time, $status, $log['id']]);
-                }
-
                 $stmt_stats = $pdo->prepare("SELECT 
-                    (SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL) as total_attendance,
-                    (SELECT created_at FROM employees WHERE id = ?) as joined_date
+                    (SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL) as total_attendance
                 ");
-                $stmt_stats->execute([$employee_id, $employee_id]);
+                $stmt_stats->execute([$employee_id]);
                 $stats = $stmt_stats->fetch();
 
                 // Calculate Absences: Days since joining - total attendance (excluding weekends)
-                $joined = new DateTime($stats['joined_date']);
+                $joined = new DateTime($emp_data['created_at']);
                 $today_dt = new DateTime();
                 $interval = $joined->diff($today_dt);
                 $days_diff = $interval->days;
@@ -324,20 +688,86 @@ try {
                 }
                 
                 $absent_count = max(0, $work_days - $stats['total_attendance']);
-
-                echo json_encode([
-                    'success' => true, 
-                    'action' => $column, 
-                    'time' => $time, 
-                    'status' => $status, 
+                $common_data = [
                     'name' => $best_match['full_name'],
                     'employee_id' => $emp_data['employee_id'],
                     'position' => $emp_data['position'],
                     'attendance_count' => $stats['total_attendance'],
                     'absent_count' => $absent_count,
-                    'match_percentage' => $match_percentage,
+                    'match_percentage' => $match_percentage
+                ];
+
+                $missed_morning = (!$log || empty($log['check_in'])) && $time > date('H:i:s', strtotime($config['work_start'] . ' + 4 hours'));
+                $status = $log ? ($log['status'] ?? 'On-Time') : 'On-Time';
+                $late_minutes = $log ? ($log['late_minutes'] ?? 0) : 0;
+                $column = '';
+                
+                $work_start = $config['work_start'];
+                $grace_period = $config['grace_period'] ?? 15;
+                $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
+                
+                // Determine the correct column based on time and ranges
+                if ($time >= $config['lunch_out_start'] && $time <= $config['lunch_out_end']) {
+                    $column = 'lunch_out';
+                } elseif ($time >= $config['lunch_in_start'] && $time <= $config['lunch_in_end']) {
+                    $column = 'lunch_in';
+                } elseif ($time >= date('H:i:s', strtotime($config['work_end'] . ' - 30 minutes'))) {
+                    $column = 'check_out';
+                } elseif ($time <= date('H:i:s', strtotime($work_start . ' + 4 hours'))) {
+                    $column = 'check_in';
+                    // Only mark as late during check-in
+                    if ($time > $late_time) {
+                        $status = 'Late';
+                        $start_ts = strtotime($work_start);
+                        $now_ts = strtotime($time);
+                        $late_minutes = max(0, floor(($now_ts - $start_ts) / 60));
+                    }
+                } else {
+                    // Default to check_out if it's after lunch_in_end and before work_end
+                    $column = 'check_out';
+                }
+
+                // Entry point requirements
+                if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+
+                if ($log && !empty($log[$column])) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'ALREADY LOGGED', 'action' => $column], $common_data));
+                    break;
+                }
+
+                if (!$log) {
+                    $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status, late_minutes) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$company_id, $employee_id, $date, $time, $status, $late_minutes]);
+                } else {
+                    if ($column === 'check_out') {
+                        if (empty($log['check_in']) && !empty($log['lunch_in'])) $status = 'Half-Day';
+                        else if (!empty($log['check_in']) && empty($log['lunch_in'])) $status = 'Half-Day';
+                        else if (empty($log['check_in'])) $status = 'Absent';
+                    }
+                    // For lunch_out/lunch_in, we keep the existing status (Late or On-Time)
+                    $stmt = $pdo->prepare("UPDATE attendance SET $column = ?, status = ?, late_minutes = ? WHERE id = ?");
+                    $stmt->execute([$time, $status, $late_minutes, $log['id']]);
+                }
+
+                echo json_encode(array_merge([
+                    'success' => true, 
+                    'action' => $column, 
+                    'time' => $time, 
+                    'status' => $status, 
+                    'late_minutes' => $late_minutes,
                     'missed_morning' => $missed_morning
-                ]);
+                ], $common_data));
             } else {
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
             }
@@ -348,6 +778,7 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $start_date = $data['start_date'];
             $end_date = $data['end_date'];
+            $category = $data['category'] ?? 'all';
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
 
             $work_days_in_period = 0;
@@ -358,54 +789,69 @@ try {
                 $current_date->add(new DateInterval('P1D'));
             }
 
-            $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND status = 'Active'");
-            $stmt_employees->execute([$_SESSION['company_id']]);
+            $query = "SELECT * FROM employees WHERE company_id = ? AND status = 'Active'";
+            $params = [$_SESSION['company_id']];
+            if ($category !== 'all') {
+                $query .= " AND position = ?";
+                $params[] = $category;
+            }
+
+            $stmt_employees = $pdo->prepare($query);
+            $stmt_employees->execute($params);
             $employees = $stmt_employees->fetchAll();
 
             $stmt_deductions = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ? AND is_active = true");
             $stmt_deductions->execute([$_SESSION['company_id']]);
             $deductions_config = $stmt_deductions->fetchAll();
 
-            foreach ($employees as $emp) {
-                $stmt_attendance = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
-                $stmt_attendance->execute([$emp['id'], $start_date, $end_date]);
-                $days_present = $stmt_attendance->fetchColumn();
+            $pdo->beginTransaction();
+            try {
+                foreach ($employees as $emp) {
+                    $stmt_attendance = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
+                    $stmt_attendance->execute([$emp['id'], $start_date, $end_date]);
+                    $days_present = $stmt_attendance->fetchColumn();
 
-                $monthly_salary = $emp['basic_salary'];
-                $earned_pay = ($work_days_in_period > 0) ? ($days_present / $work_days_in_period) * $monthly_salary : 0;
-                
-                $total_deductions = 0;
-                foreach ($deductions_config as $deduction) {
-                    $d_name = strtoupper($deduction['name']);
+                    $monthly_salary = $emp['basic_salary'];
+                    $earned_pay = ($work_days_in_period > 0) ? ($days_present / $work_days_in_period) * $monthly_salary : 0;
                     
-                    // Skip government deductions if employee doesn't have the respective ID
-                    if (strpos($d_name, 'SSS') !== false && empty($emp['sss'])) continue;
-                    if (strpos($d_name, 'PHILHEALTH') !== false && empty($emp['philhealth'])) continue;
-                    if ((strpos($d_name, 'PAG-IBIG') !== false || strpos($d_name, 'PAGIBIG') !== false) && empty($emp['pagibig'])) continue;
-                    if ((strpos($d_name, 'TIN') !== false || strpos($d_name, 'TAX') !== false) && empty($emp['tin'])) continue;
+                    $total_deductions = 0;
+                    foreach ($deductions_config as $deduction) {
+                        $d_name = strtoupper($deduction['name']);
+                        
+                        // Skip government deductions if employee doesn't have the respective ID
+                        if (strpos($d_name, 'SSS') !== false && empty($emp['sss'])) continue;
+                        if (strpos($d_name, 'PHILHEALTH') !== false && empty($emp['philhealth'])) continue;
+                        if ((strpos($d_name, 'PAG-IBIG') !== false || strpos($d_name, 'PAGIBIG') !== false) && empty($emp['pagibig'])) continue;
+                        if ((strpos($d_name, 'TIN') !== false || strpos($d_name, 'TAX') !== false) && empty($emp['tin'])) continue;
 
-                    if ($deduction['type'] === 'percentage') {
-                        $total_deductions += $earned_pay * ($deduction['value'] / 100);
-                    } else {
-                        $total_deductions += $deduction['value'];
+                        if ($deduction['type'] === 'percentage') {
+                            $total_deductions += $earned_pay * ($deduction['value'] / 100);
+                        } else {
+                            $total_deductions += $deduction['value'];
+                        }
                     }
+
+                    $stmt_loans = $pdo->prepare("SELECT id, amount FROM loans WHERE employee_id = ? AND company_id = ? AND status = 'Approved'");
+                    $stmt_loans->execute([$emp['id'], $_SESSION['company_id']]);
+                    $approved_loans = $stmt_loans->fetchAll();
+                    
+                    foreach ($approved_loans as $loan) {
+                        $total_deductions += $loan['amount'];
+                        $pdo->prepare("UPDATE loans SET status = 'Paid' WHERE id = ?")->execute([$loan['id']]);
+                    }
+
+                    $net_pay = $earned_pay - $total_deductions;
+
+                    $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE basic_pay = ?, deductions = ?, net_pay = ?, status = 'Paid'");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $earned_pay, $total_deductions, $net_pay]);
                 }
-
-                $stmt_loans = $pdo->prepare("SELECT id, amount FROM loans WHERE employee_id = ? AND company_id = ? AND status = 'Approved'");
-                $stmt_loans->execute([$emp['id'], $_SESSION['company_id']]);
-                $approved_loans = $stmt_loans->fetchAll();
-                
-                foreach ($approved_loans as $loan) {
-                    $total_deductions += $loan['amount'];
-                    $pdo->prepare("UPDATE loans SET status = 'Paid' WHERE id = ?")->execute([$loan['id']]);
-                }
-
-                $net_pay = $earned_pay - $total_deductions;
-
-                $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE basic_pay = ?, deductions = ?, net_pay = ?, status = 'Paid'");
-                $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $earned_pay, $total_deductions, $net_pay]);
+                $pdo->commit();
+                $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
+                echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period run successfully."]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => "Error running payroll: " . $e->getMessage()]);
             }
-            echo json_encode(['success' => true, 'message' => "Payroll for $period run successfully."]);
             break;
 
         case 'get_payroll':
@@ -505,7 +951,7 @@ try {
             break;
 
         case 'save_settings':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("UPDATE companies SET name = ?, work_start = ?, work_end = ?, lunch_out_start = ?, lunch_out_end = ?, lunch_in_start = ?, lunch_in_end = ?, grace_period = ?, ot_percentage = ?, deduction_per_sec = ?, deduction_per_min = ?, deduction_per_hour = ? WHERE id = ?");
             $stmt->execute([

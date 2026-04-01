@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $session_role = trim($_SESSION['role'] ?? '');
 
-if (strcasecmp($session_role, 'Payroll') !== 0) {
+if (!in_array($session_role, ['Payroll', 'Payroll Officer'])) {
     if (in_array($session_role, ['Admin', 'HR'])) {
         header('Location: index.php');
     } else {
@@ -33,6 +33,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
@@ -52,17 +53,33 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 </div>
             </div>
             <nav class="sidebar-nav">
+                <!-- Shared Dashboard -->
                 <button class="nav-btn active" onclick="showPage('dashboard')">
                     <i class="fas fa-th-large"></i> <span>Dashboard</span>
                 </button>
+                
+                <!-- Shared Role-Based Access -->
                 <button class="nav-btn" onclick="showPage('employees')">
-                    <i class="fas fa-users"></i> <span>View Employees</span>
+                    <i class="fas fa-users"></i> <span>Employees</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('subject_loads')">
                     <i class="fas fa-book"></i> <span>Subject Loads</span>
                 </button>
+
+                <!-- Payroll Officer / Admin Access -->
+                <button class="nav-btn" onclick="showPage('biometrics')">
+                    <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
+                </button>
+                <button class="nav-btn" onclick="showPage('assign_payroll')">
+                    <i class="fas fa-user-shield"></i> <span>Assign Payroll Officer</span>
+                </button>
+
+                <!-- Payroll Officer Access -->
+                <button class="nav-btn" onclick="showPage('attendance')">
+                    <i class="fas fa-calendar-alt"></i> <span>Attendance Logs</span>
+                </button>
                 <button class="nav-btn" onclick="showPage('payroll')">
-                    <i class="fas fa-file-invoice-dollar"></i> <span>Manage Payroll</span>
+                    <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('faculty_payroll')">
                     <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
@@ -76,50 +93,56 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 <button class="nav-btn" onclick="showPage('deductions')">
                     <i class="fas fa-calculator"></i> <span>Deductions</span>
                 </button>
+
+                <!-- Management Shared -->
                 <button class="nav-btn" onclick="showPage('leave')">
-                    <i class="fas fa-calendar-check"></i> <span>Leave Management</span>
+                    <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('loans')">
-                    <i class="fas fa-hand-holding-usd"></i> <span>Loan Review</span>
+                    <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('reports')">
-                    <i class="fas fa-chart-bar"></i> <span>Generate Reports</span>
+                    <i class="fas fa-chart-bar"></i> <span>Reports</span>
                 </button>
                 <button class="nav-btn" onclick="showPage('settings')">
-                    <i class="fas fa-cog"></i> <span>Payroll Settings</span>
+                    <i class="fas fa-cog"></i> <span>Settings</span>
                 </button>
             </nav>
             <div class="sidebar-footer">
-                <button class="logout-btn" onclick="logout()">
+                <button class="nav-btn logout" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
                 </button>
             </div>
         </aside>
 
-        <!-- Main Content -->
+        <!-- Main Content Area -->
         <main class="main-content">
-            <header class="content-header">
-                <div class="header-left">
-                    <h1 id="current-page-title">Officer Dashboard</h1>
+            <header class="top-bar">
+                <div class="page-title">
+                    <h2 id="current-page-title">Dashboard</h2>
+                    <p class="company-tag"><?php echo $company_name; ?></p>
                 </div>
-                <div class="header-right">
-                    <div class="user-info">
-                        <img src="https://ui-avatars.com/api/?name=Payroll+Officer&background=1e0178&color=fff" alt="Avatar">
-                        <span>Payroll Officer</span>
+                <div class="user-profile">
+                    <div class="profile-info">
+                        <div class="profile-text">
+                            <span class="name">Payroll Officer</span>
+                            <span class="role"><?php echo $role; ?> Portal</span>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <div class="content-body">
+            <div id="content-pages">
                 <?php include 'backend/sections.php'; ?>
             </div>
         </main>
     </div>
 
+    <!-- Same Modals as before -->
     <?php include 'backend/modals.php'; ?>
 
     <script>
-        const USER_ROLE = "Payroll";
+        const USER_ROLE = "<?php echo $role; ?>";
     </script>
     <script src="js/script.js"></script>
 </body>
