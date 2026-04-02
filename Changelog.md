@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --- 
 
 # To Fix
-on Saturday 3/28/26 (full list will be updated on 04/02/26)
+on Saturday 04/02/26 New Updated Tasks
 
 ### Biometrics — Task Backlog (Priority-Ordered)
 
