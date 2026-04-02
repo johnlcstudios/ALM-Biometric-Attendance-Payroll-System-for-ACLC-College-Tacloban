@@ -587,14 +587,42 @@
                 const statusLabel = document.getElementById('loading-status');
                 statusLabel.innerText = "Loading AI Models...";
 
-                console.log("Loading models...");
+                const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                const LOCAL_URL = '../kiosk/models/';
+                
+                // Helper to try loading a model from multiple locations
+                const loadModel = async (net, modelName) => {
+                    try {
+                        await net.loadFromUri(CDN_URL);
+                        console.log(`Loaded ${modelName} from CDN`);
+                    } catch (e) {
+                        console.warn(`Failed to load ${modelName} from CDN, trying local...`);
+                        try {
+                            await net.loadFromUri(LOCAL_URL);
+                            console.log(`Loaded ${modelName} from LOCAL`);
+                        } catch (ee) {
+                            console.error(`CRITICAL: Failed to load ${modelName} everywhere.`, ee);
+                            throw ee;
+                        }
+                    }
+                };
+
+                // Load essential models
                 await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-                    faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-                    faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-                    faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
+                    loadModel(faceapi.nets.tinyFaceDetector, 'TinyFaceDetector'),
+                    loadModel(faceapi.nets.ssdMobilenetv1, 'SsdMobilenetv1'),
+                    loadModel(faceapi.nets.faceLandmark68Net, 'FaceLandmark68'),
+                    loadModel(faceapi.nets.faceRecognitionNet, 'FaceRecognition')
                 ]);
-                console.log("Models loaded.");
+
+                // Try to load expression model (optional)
+                try {
+                    await loadModel(faceapi.nets.faceExpressionNet, 'FaceExpression');
+                    console.log("Expression model ready.");
+                } catch (e) {
+                    console.warn("Liveness SMILE might be less accurate (fallback to landmarks).");
+                }
+                
                 statusLabel.innerText = "Ready!";
                 
                 setTimeout(() => {
@@ -603,8 +631,8 @@
 
                 detectFace();
             } catch (err) {
-                console.error(err);
-                statusEl.innerHTML = '<p class="text-danger">Camera access required.</p>';
+                console.error("StartKiosk Error:", err);
+                statusEl.innerHTML = `<p class="text-danger">Failed to initialize: ${err.message}</p>`;
             }
         }
 
@@ -613,147 +641,143 @@
         const STABILITY_REQUIRED = 4;
         const MOVEMENT_THRESHOLD = 20;
         
-        let mouthOpenDetected = false;
         let smileDetected = false;
         
-        let minMAR = 1.0; // Mouth Aspect Ratio
-        
-        const LIVENESS_MODES = ['SMILE', 'OPEN_MOUTH'];
-        let currentLivenessMode = LIVENESS_MODES[Math.floor(Math.random() * LIVENESS_MODES.length)];
+        const LIVENESS_MODES = ['SMILE'];
+        let currentLivenessMode = 'SMILE';
 
         async function detectFace() {
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
-            // SSD Mobilenet is more accurate than TinyFaceDetector for landmarks
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.6 });
+            
+            // Standardized detection options
+            const getOptions = () => {
+                if (faceapi.nets.ssdMobilenetv1.params) {
+                    return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+                }
+                return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+            };
+
+            // Initialize dimensions once
+            faceapi.matchDimensions(overlay, video, true);
 
             async function loop() {
-                if (isProcessing || !currentCompanyId) {
+                if (!currentCompanyId) {
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
-                    stabilityCounter = 0;
-                    lastBox = null;
-                    resetLiveness();
                     requestAnimationFrame(loop);
                     return;
                 }
 
-                const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceExpressions();
-                
-                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                if (isProcessing) {
+                    // Keep the frame updated but don't detect
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+                    requestAnimationFrame(loop);
+                    return;
+                }
 
-                if (detection) {
-                    if ((detection.detection?.score || 0) < 0.85) {
-                        stabilityCounter = 0;
-                        lastBox = null;
-                        resetLiveness();
+                try {
+                    const options = getOptions();
+                    const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceExpressions();
+                    
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+                    if (detection) {
+                        const resizedDetection = faceapi.resizeResults(detection, { width: video.videoWidth, height: video.videoHeight });
+                        const landmarks = resizedDetection.landmarks;
+                        const expressions = resizedDetection.expressions;
+                        const box = resizedDetection.detection.box;
+
+                        // Smile Detection
+                        if (expressions && expressions.happy > 0.6) {
+                            smileDetected = true;
+                        } else if (landmarks) {
+                            const mouth = landmarks.getMouth();
+                            const width = Math.hypot(mouth[0].x - mouth[6].x, mouth[0].y - mouth[6].y);
+                            const height = Math.hypot(mouth[2].x - mouth[10].x, mouth[2].y - mouth[10].y);
+                            if (width / height > 2.5) smileDetected = true; // Slightly more relaxed
+                        }
+
+                        // Stability Check
+                        if (lastBox) {
+                            const dx = Math.abs(box.x - lastBox.x);
+                            const dy = Math.abs(box.y - lastBox.y);
+                            if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
+                            else stabilityCounter = 0;
+                        }
+                        lastBox = box;
+
+                        // Draw UI
+                        faceapi.draw.drawFaceLandmarks(overlay, resizedDetection);
+                        
                         ctx.save();
                         ctx.scale(-1, 1);
                         ctx.translate(-overlay.width, 0);
+                        
+                        const textX = overlay.width - (box.x + box.width / 2);
+                        const textY = box.y + box.height + 30;
                         ctx.font = "bold 20px Inter";
                         ctx.textAlign = "center";
-                        ctx.fillStyle = "#f39c12";
-                        ctx.fillText("MOVE CLOSER / BETTER LIGHTING", overlay.width / 2, overlay.height - 30);
-                        ctx.restore();
-                        requestAnimationFrame(loop);
-                        return;
-                    }
-                    const dims = faceapi.matchDimensions(overlay, video, true);
-                    const resizedDetection = faceapi.resizeResults(detection, dims);
-                    const landmarks = resizedDetection.landmarks;
-                    const expressions = resizedDetection.expressions;
-                    const box = resizedDetection.detection.box;
+                        
+                        let livenessVerified = false;
+                        let instruction = "";
+                        let instructionColor = "#f39c12";
 
-                    // 1. Mouth Open Detection (MAR)
-                    const mouth = landmarks.getMouth();
-                    const getMAR = (m) => {
-                        const v = Math.hypot(m[14].x - m[18].x, m[14].y - m[18].y); // Inner lip vertical
-                        const h = Math.hypot(m[12].x - m[16].x, m[12].y - m[16].y); // Inner lip horizontal
-                        return v / h;
-                    };
-                    const currentMAR = getMAR(mouth);
-                    if (currentMAR > 0.5) mouthOpenDetected = true;
-
-                    // 2. Smile Detection (Expressions API)
-                    if (expressions.happy > 0.85) smileDetected = true;
-
-                    // Stability Check
-                    if (lastBox) {
-                        const dx = Math.abs(box.x - lastBox.x);
-                        const dy = Math.abs(box.y - lastBox.y);
-                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
-                        else stabilityCounter = 0;
-                    }
-                    lastBox = box;
-
-                    // Draw UI
-                    faceapi.draw.drawDetections(overlay, resizedDetection);
-                    
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.translate(-overlay.width, 0);
-                    
-                    const textX = overlay.width - (box.x + box.width / 2);
-                    const textY = box.y + box.height + 30;
-                    ctx.font = "bold 20px Inter";
-                    ctx.textAlign = "center";
-                    
-                    let livenessVerified = false;
-                    let instruction = "";
-                    let instructionColor = "#f39c12";
-
-                    if (stabilityCounter < STABILITY_REQUIRED) {
-                        instruction = "HOLD STILL...";
-                    } else {
-                        switch(currentLivenessMode) {
-                            case 'SMILE':
-                                instruction = "SMILE BIG! 😊";
-                                if (smileDetected) livenessVerified = true;
-                                break;
-                            case 'OPEN_MOUTH':
-                                instruction = "OPEN YOUR MOUTH 😮";
-                                if (mouthOpenDetected) livenessVerified = true;
-                                break;
-                        }
-                    }
-
-                    if (livenessVerified) {
-                        instruction = "VERIFIED! SCANNING...";
-                        instructionColor = "#27ae60";
-                        if (!isProcessing) {
-                            isProcessing = true;
+                        if (stabilityCounter < STABILITY_REQUIRED) {
+                            instruction = "HOLD STILL...";
+                            cameraCircle.classList.remove('scanning');
+                        } else {
                             cameraCircle.classList.add('scanning');
-                            // Use FaceRecognitionNet for high accuracy
+                            instruction = "SMILE BIG! 😊";
+                            if (smileDetected) livenessVerified = true;
+                        }
+
+                        if (livenessVerified) {
+                            instruction = "VERIFIED! SCANNING...";
+                            instructionColor = "#27ae60";
+                            
+                            // Immediately stop processing next frames
+                            isProcessing = true;
+                            
+                            // Capture descriptor from the current detection results to avoid a second slow detection
                             const fullDetection = await faceapi.detectSingleFace(video, options)
                                 .withFaceLandmarks()
                                 .withFaceDescriptor();
                             
                             if (fullDetection) {
                                 await processLog(fullDetection.descriptor);
-                                setTimeout(() => {
-                                    resetLiveness();
-                                    currentLivenessMode = LIVENESS_MODES[Math.floor(Math.random() * LIVENESS_MODES.length)];
-                                }, 5000);
                             } else {
                                 isProcessing = false;
                                 cameraCircle.classList.remove('scanning');
                             }
                         }
-                    }
 
-                    ctx.fillStyle = instructionColor;
-                    ctx.fillText(instruction, textX, textY);
-                    ctx.restore();
-                } else {
-                    stabilityCounter = 0;
-                    lastBox = null;
+                        ctx.fillStyle = instructionColor;
+                        ctx.fillText(instruction, textX, textY);
+                        ctx.restore();
+                    } else {
+                        stabilityCounter = 0;
+                        lastBox = null;
+                        cameraCircle.classList.remove('scanning');
+                        
+                        ctx.save();
+                        ctx.scale(-1, 1);
+                        ctx.translate(-overlay.width, 0);
+                        ctx.font = "bold 20px Inter";
+                        ctx.textAlign = "center";
+                        ctx.fillStyle = "var(--primary-blue)";
+                        ctx.fillText("POSITION FACE IN CIRCLE", overlay.width / 2, overlay.height - 30);
+                        ctx.restore();
+                    }
+                } catch (err) {
+                    console.error("Loop Error:", err);
                 }
+                
                 requestAnimationFrame(loop);
             }
             loop();
         }
 
         function resetLiveness() {
-            mouthOpenDetected = false;
             smileDetected = false;
             stabilityCounter = 0;
         }
@@ -868,7 +892,7 @@
                     }, 5000);
                 } else {
                     cameraCircle.className = 'camera-circle border-danger';
-                    const matchText = result.match_percentage > 0 ? `<br><small>Match: ${result.match_percentage}% (Required: 90%)</small>` : '';
+                    const matchText = result.match_percentage > 0 ? `<br><small>Match: ${result.match_percentage}%</small>` : '';
                     statusEl.innerHTML = `
                         <h3 class="text-danger">NOT RECOGNISED</h3>
                         <p style="color: var(--accent-red); font-size: 0.8rem;">Face Not Matched! ${matchText}</p>

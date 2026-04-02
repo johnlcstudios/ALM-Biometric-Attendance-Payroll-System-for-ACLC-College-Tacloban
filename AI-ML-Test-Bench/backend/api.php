@@ -536,6 +536,14 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        case 'get_enrolled_faces':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
+            $stmt->execute([$_SESSION['company_id']]);
+            $faces = $stmt->fetchAll();
+            echo json_encode(['success' => true, 'faces' => $faces]);
+            break;
+
         case 'save_face_descriptor':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
@@ -613,8 +621,8 @@ try {
             $enrolled_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
-            $scan_threshold = 0.40;
-            $ambiguity_ratio_threshold = 1.10;
+            $scan_threshold = 0.60; // Standard threshold for Euclidean distance in Face-api.js
+            $ambiguity_ratio_threshold = 1.05; // Less aggressive ambiguity check
             $best_distance = 999;
             $second_best_distance = 999;
             
@@ -641,13 +649,14 @@ try {
             }
 
             if (!$best_match || $best_distance > $scan_threshold) {
-                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => 0]);
+                // Return a more helpful message for debugging
+                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
+                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
                 break;
             }
 
-            // Accuracy calculation: 0.6 distance is approx 85% match. 0.4 distance is approx 90% match.
-            // Using a linear mapping for display purposes: distance 0.6 -> 85%, 0 -> 100%
-            $match_percentage = max(0, round(100 - ($best_distance * 25), 2));
+            // Accuracy calculation: distance 0.6 -> approx 80% match. 0 -> 100%
+            $match_percentage = max(0, round(100 - ($best_distance * 35), 2));
 
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;

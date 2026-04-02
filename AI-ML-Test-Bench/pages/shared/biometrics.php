@@ -17,7 +17,7 @@
             </button>
         </div>
         <div class="camera-preview">
-            <video id="video" width="640" height="480" autoplay muted style="transform: scaleX(-1);"></video>
+            <video id="video" autoplay muted style="transform: scaleX(-1);"></video>
             <canvas id="overlay" style="transform: scaleX(-1);"></canvas>
             <div id="camera-placeholder">
                 <i class="fas fa-camera-retro"></i>
