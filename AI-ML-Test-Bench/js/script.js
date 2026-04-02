@@ -282,10 +282,14 @@ async function fetchData() {
         subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
         const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
         if (dashboardStats) {
-            document.getElementById('stat-total-emp').innerText = dashboardStats.total_employees;
-            document.getElementById('stat-present').innerText = dashboardStats.present_today;
-            document.getElementById('stat-absent').innerText = dashboardStats.absent_today;
-            document.getElementById('stat-leave').innerText = dashboardStats.pending_leave;
+            const totalEl = document.getElementById('stat-total-emp');
+            const presentEl = document.getElementById('stat-present');
+            const absentEl = document.getElementById('stat-absent');
+            const leaveEl = document.getElementById('stat-leave');
+            if (totalEl) totalEl.innerText = dashboardStats.total_employees;
+            if (presentEl) presentEl.innerText = dashboardStats.present_today;
+            if (absentEl) absentEl.innerText = dashboardStats.absent_today;
+            if (leaveEl) leaveEl.innerText = dashboardStats.pending_leave;
         }
         
         // Determine initial page based on role
@@ -309,7 +313,7 @@ function showPage(pageId) {
     currentPage = pageId;
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('active');
-        if (btn.getAttribute('onclick')?.includes(`'${pageId}'`)) {
+        if (btn.dataset.page === pageId || btn.getAttribute('onclick')?.includes(`'${pageId}'`)) {
             btn.classList.add('active');
         }
     });
@@ -982,6 +986,12 @@ function viewBatch(period) {
 
 // --- Leave ---
 function renderLeaveTable() {
+    const leaveBalanceSelect = document.getElementById('leaveBalanceEmployeeSelect');
+    if (leaveBalanceSelect) {
+        leaveBalanceSelect.innerHTML = '<option value="">Select Employee...</option>' + 
+            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+    }
+
     const tbody = document.getElementById('leaveTableBody');
     if (!tbody) return;
     tbody.innerHTML = leaveRequests.map(req => `
@@ -1000,6 +1010,24 @@ function renderLeaveTable() {
             </td>
         </tr>
     `).join('') || '<tr><td colspan="7" class="text-center">No leave requests found.</td></tr>';
+}
+
+async function applyLeaveBalanceToAll() {
+    const balance = document.getElementById('newLeaveBalance')?.value;
+    if (balance === undefined || balance === null || balance === '') return alert("Please enter a leave balance first.");
+    if (!confirm("Apply this leave balance to ALL active employees?")) return;
+
+    const response = await fetch('backend/api.php?action=bulk_update_leave_balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance })
+    });
+    const result = await response.json();
+    alert(result.message || (result.success ? "Leave balance applied to all employees." : "Failed to apply leave balance."));
+    if (result.success) {
+        document.getElementById('newLeaveBalance').value = '';
+        fetchData();
+    }
 }
 
 async function updateLeaveBalance() {

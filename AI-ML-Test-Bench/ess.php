@@ -28,53 +28,74 @@ if (in_array($session_role, ['Admin', 'HR'])) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .ess-dashboard { padding: 3rem; max-width: 1200px; margin: 0 auto; }
-        .ess-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; }
-        .ess-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
-        .profile-card { background: white; padding: 2rem; border-radius: var(--border-radius); text-align: center; }
-        .profile-card img { width: 120px; height: 120px; border-radius: 50%; margin-bottom: 1.5rem; border: 4px solid var(--accent-color); }
-        .profile-card h3 { color: var(--primary-color); margin-bottom: 0.5rem; }
-        .profile-card .tag { background: #eee; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; color: #666; }
-        .ess-tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-        .ess-tab { padding: 0.8rem 1.5rem; background: #eee; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .ess-tab.active { background: var(--accent-color); color: white; }
-        .ess-content-card { background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
+        body.bg-light { background: #fff; }
+        .emp-dashboard { padding: 3rem; max-width: 1200px; margin: 0 auto; }
+        .emp-topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5rem; }
+        .emp-welcome h1 { font-size: 2rem; font-weight: 700; color: #111; margin: 0; }
+        .emp-welcome .meta { color: #666; margin-top: 0.3rem; font-size: 0.95rem; }
+        .emp-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+        .emp-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 2rem; }
+        .emp-card { background: #fff; border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.12); padding: 1.5rem; min-height: 130px; }
+        .emp-card-title { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.8px; color: #111; text-transform: uppercase; margin-bottom: 1rem; }
+        .emp-card-value { font-size: 1.3rem; font-weight: 800; color: #111; }
+        .emp-card-sub { margin-top: 0.35rem; color: #666; font-size: 0.9rem; }
+
+        .emp-table-card { background: #fff; border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.12); margin-top: 2.5rem; overflow: hidden; }
+        .emp-table-card-header { padding: 1.5rem; font-size: 1.2rem; font-weight: 800; color: #111; }
+        .emp-table { width: 100%; border-collapse: collapse; }
+        .emp-table thead th { background: #e57368; color: #fff; padding: 0.9rem 1.2rem; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+        .emp-table tbody td { padding: 0.9rem 1.2rem; border-top: 1px solid #eee; font-size: 0.9rem; color: #333; }
+        .emp-table tbody tr:hover { background: #fafafa; }
+
+        @media (max-width: 950px) {
+            .emp-cards { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body class="bg-light">
-    <div class="ess-dashboard">
-        <header class="ess-header">
-            <div class="logo"><i class="fas fa-fingerprint"></i> <span>ALM Biometrics</span></div>
-            <button class="btn btn-danger btn-sm" onclick="logout()">Logout <i class="fas fa-sign-out-alt"></i></button>
-        </header>
+    <div class="emp-dashboard">
+        <div class="emp-topbar">
+            <div class="emp-welcome">
+                <h1>Welcome back!</h1>
+                <div class="meta"><span id="emp-welcome-meta">Employee ID | Employee Name</span></div>
+            </div>
+            <div class="emp-actions">
+                <button class="btn btn-danger btn-sm" onclick="logout()">Logout <i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
 
-        <div class="ess-grid">
-            <aside class="profile-card" id="profile-card">
-                <img src="https://ui-avatars.com/api/?name=Employee&background=1e2a6e&color=fff" alt="Profile">
-                <h3>---</h3>
-                <p class="tag">Employee</p>
-                <hr style="margin: 2rem 0; border: none; border-top: 1px solid #eee;">
-                <div style="text-align: left;">
-                    <p><strong>Employee ID:</strong> <span id="p-id">---</span></p>
-                    <p><strong>Department:</strong> <span id="p-dept">---</span></p>
-                    <p><strong>Position:</strong> <span id="p-pos">---</span></p>
-                    <p><strong>Email:</strong> <span id="p-email">---</span></p>
-                </div>
-            </aside>
+        <div class="emp-cards">
+            <div class="emp-card">
+                <div class="emp-card-title">Attendance</div>
+                <div class="emp-card-value" id="emp-attendance-value">---</div>
+                <div class="emp-card-sub" id="emp-attendance-sub">---</div>
+            </div>
+            <div class="emp-card">
+                <div class="emp-card-title">Last Payroll</div>
+                <div class="emp-card-value" id="emp-lastpayroll-value">---</div>
+                <div class="emp-card-sub" id="emp-lastpayroll-sub">---</div>
+            </div>
+            <div class="emp-card">
+                <div class="emp-card-title">Active Deductions</div>
+                <div class="emp-card-value" id="emp-deductions-value">---</div>
+                <div class="emp-card-sub" id="emp-deductions-sub">---</div>
+            </div>
+        </div>
 
-            <main>
-                <div class="ess-tabs">
-                    <button class="ess-tab active" onclick="switchTab('attendance')">Attendance</button>
-                    <button class="ess-tab" onclick="switchTab('payroll')">Payroll</button>
-                    <button class="ess-tab" onclick="switchTab('leave')">Leave</button>
-                    <button class="ess-tab" onclick="switchTab('loan')">Loan</button>
-                    <button class="ess-tab" onclick="switchTab('resignation')">Resignation</button>
-                </div>
-
-                <div class="ess-content-card" id="ess-content">
-                    <!-- Dynamic Content -->
-                </div>
-            </main>
+        <div class="emp-table-card">
+            <div class="emp-table-card-header">Recent Payroll Activity</div>
+            <table class="emp-table">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Status</th>
+                        <th>Total Payout</th>
+                    </tr>
+                </thead>
+                <tbody id="emp-payroll-activity-body">
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -89,185 +110,57 @@ if (in_array($session_role, ['Admin', 'HR'])) {
 
                 if (essData.error) throw new Error(essData.error);
 
-                // Fill Profile
                 const p = essData.profile;
-                document.querySelector('.profile-card h3').innerText = p.full_name || p.username;
-                document.querySelector('.profile-card .tag').innerText = p.role || 'Employee';
-                document.getElementById('p-id').innerText = p.employee_id || 'N/A';
-                document.getElementById('p-dept').innerText = p.department || 'N/A';
-                document.getElementById('p-pos').innerText = p.position || p.role;
-                document.getElementById('p-email').innerText = p.user_email || p.email;
+                const name = p.full_name || p.username || 'Employee';
+                const empId = p.employee_id || '---';
+                const meta = document.getElementById('emp-welcome-meta');
+                if (meta) meta.innerText = `${empId} | ${name}`;
 
-                const avatarName = (p.full_name || p.username).split(' ').join('+');
-                document.querySelector('.profile-card img').src = `https://ui-avatars.com/api/?name=${avatarName}&background=1e2a6e&color=fff`;
+                const attendance = Array.isArray(essData.attendance) ? essData.attendance : [];
+                const payroll = Array.isArray(essData.payroll) ? essData.payroll : [];
 
-                switchTab('attendance');
+                const attendedDays = attendance.filter(a => a.check_in).length;
+                const lastAttendance = attendance[0] || null;
+
+                document.getElementById('emp-attendance-value').innerText = `${attendedDays} Logs`;
+                document.getElementById('emp-attendance-sub').innerText = lastAttendance
+                    ? `Last: ${lastAttendance.log_date} (${lastAttendance.status || '---'})`
+                    : 'No attendance records yet';
+
+                const lastPayroll = payroll[0] || null;
+                if (lastPayroll) {
+                    const net = typeof lastPayroll.net_pay !== 'undefined' ? parseFloat(lastPayroll.net_pay) : 0;
+                    const ded = typeof lastPayroll.deductions !== 'undefined' ? parseFloat(lastPayroll.deductions) : 0;
+                    document.getElementById('emp-lastpayroll-value').innerText = `₱${net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    document.getElementById('emp-lastpayroll-sub').innerText = lastPayroll.period || '---';
+                    document.getElementById('emp-deductions-value').innerText = `₱${ded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    document.getElementById('emp-deductions-sub').innerText = 'From latest payroll';
+                } else {
+                    document.getElementById('emp-lastpayroll-value').innerText = '---';
+                    document.getElementById('emp-lastpayroll-sub').innerText = 'No payroll yet';
+                    document.getElementById('emp-deductions-value').innerText = '---';
+                    document.getElementById('emp-deductions-sub').innerText = 'No payroll yet';
+                }
+
+                const tbody = document.getElementById('emp-payroll-activity-body');
+                if (tbody) {
+                    const recent = payroll.slice(0, 5);
+                    tbody.innerHTML = recent.map(pr => {
+                        const payout = parseFloat(pr.net_pay || 0);
+                        return `
+                            <tr>
+                                <td>${pr.period || '---'}</td>
+                                <td>${pr.status || '---'}</td>
+                                <td>₱${payout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                        `;
+                    }).join('') || '<tr><td colspan="3" style="text-align:center; color:#666; padding: 1.5rem;">No payroll activity yet</td></tr>';
+                }
             } catch (error) {
                 console.error("Failed to load ESS data:", error);
-                document.getElementById('ess-content').innerHTML = `<p style='color:red;text-align:center;'>Failed to load your data. Error: ${error.message}. Please try logging in again.</p>`;
-                document.querySelector('.profile-card').style.display = 'none';
+                const meta = document.getElementById('emp-welcome-meta');
+                if (meta) meta.innerText = 'Failed to load data';
             }
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.ess-tab').forEach(t => t.classList.toggle('active', t.innerText.toLowerCase().includes(tab)));
-            
-            const container = document.getElementById('ess-content');
-            if (tab === 'attendance') {
-                container.innerHTML = `
-                    <h3>Recent Attendance Logs</h3>
-                    <table style="width:100%; margin-top:1.5rem;">
-                        <thead>
-                            <tr><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Status</th></tr>
-                        </thead>
-                        <tbody>
-                            ${essData.attendance.map(a => `
-                                <tr>
-                                    <td>${a.log_date}</td>
-                                    <td>${a.check_in || '---'}</td>
-                                    <td>${a.check_out || '---'}</td>
-                                    <td><span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else if (tab === 'payroll') {
-                container.innerHTML = `
-                    <h3>Payroll History</h3>
-                    <table style="width:100%; margin-top:1.5rem;">
-                        <thead>
-                            <tr><th>Period</th><th>Net Pay</th><th>Status</th><th>Action</th></tr>
-                        </thead>
-                        <tbody>
-                            ${essData.payroll.map(p => `
-                                <tr>
-                                    <td>${p.period}</td>
-                                    <td>₱${parseFloat(p.net_pay).toLocaleString()}</td>
-                                    <td><span class="status-badge status-active">${p.status}</span></td>
-                                    <td><button class="btn btn-primary btn-sm" onclick="exportPayslip('${p.id}')">Download PDF</button></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else if (tab === 'leave') {
-                container.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                        <h3>Leave Requests</h3>
-                        <button class="btn btn-primary btn-sm" onclick="showLeaveForm()">Apply for Leave</button>
-                    </div>
-                    <table style="width:100%;">
-                        <thead>
-                            <tr><th>Type</th><th>Duration</th><th>Reason</th><th>Status</th></tr>
-                        </thead>
-                        <tbody>
-                            ${essData.leave ? essData.leave.map(l => `
-                                <tr>
-                                    <td>${l.type}</td>
-                                    <td>${l.duration}</td>
-                                    <td>${l.reason}</td>
-                                    <td><span class="status-badge status-${l.status.toLowerCase()}">${l.status}</span></td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="4">No requests found</td></tr>'}
-                        </tbody>
-                    </table>
-                `;
-            } else if (tab === 'loan') {
-                container.innerHTML = `
-                    <h3>Apply for a Loan</h3>
-                    <form id="loanForm" style="margin-top:1.5rem;">
-                        <div class="form-group">
-                            <label>Amount (PHP)</label>
-                            <input type="number" name="amount" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Reason</label>
-                            <textarea name="reason" class="form-control" rows="3" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Submit Loan Application</button>
-                    </form>
-                `;
-                document.getElementById('loanForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.target);
-                    await fetch('backend/requests.php?action=apply_loan', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(Object.fromEntries(formData))
-                    });
-                    alert('Loan application submitted!');
-                    loadESS();
-                };
-            } else if (tab === 'resignation') {
-                container.innerHTML = `
-                    <h3>Submit Resignation</h3>
-                    <form id="resignationForm" style="margin-top:1.5rem;">
-                        <div class="form-group">
-                            <label>Effective Date</label>
-                            <input type="date" name="effective_date" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Reason for Leaving</label>
-                            <textarea name="reason" class="form-control" rows="4" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-danger">Submit Resignation</button>
-                    </form>
-                `;
-                document.getElementById('resignationForm').onsubmit = async (e) => {
-                    e.preventDefault();
-                    if (!confirm('Are you sure you want to submit your resignation? This action cannot be undone.')) return;
-                    const formData = new FormData(e.target);
-                    await fetch('backend/requests.php?action=apply_resignation', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(Object.fromEntries(formData))
-                    });
-                    alert('Resignation submitted. We are sorry to see you go.');
-                    loadESS();
-                };
-            }
-        }
-
-        function showLeaveForm() {
-            const container = document.getElementById('ess-content');
-            container.innerHTML = `
-                <h3>Apply for Leave</h3>
-                <form id="leaveForm" style="margin-top:1.5rem;">
-                    <div class="form-group">
-                        <label>Leave Type</label>
-                        <select name="type" class="form-control">
-                            <option>Sick Leave</option>
-                            <option>Vacation Leave</option>
-                            <option>Emergency Leave</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Duration (e.g. 2 days, 2026-04-01 to 2026-04-02)</label>
-                        <input type="text" name="duration" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Reason</label>
-                        <textarea name="reason" class="form-control" rows="3" required></textarea>
-                    </div>
-                    <div style="display:flex; gap:1rem; margin-top:1.5rem;">
-                        <button type="button" class="btn btn-secondary" onclick="switchTab('leave')">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Submit Request</button>
-                    </div>
-                </form>
-            `;
-
-            document.getElementById('leaveForm').onsubmit = async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const response = await fetch('backend/api.php?action=apply_leave', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(Object.fromEntries(formData))
-                });
-                if ((await response.json()).success) {
-                    alert('Leave request submitted!');
-                    loadESS();
-                }
-            };
         }
 
         async function logout() {

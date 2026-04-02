@@ -1153,6 +1153,27 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        case 'bulk_update_leave_balance':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $balance = isset($data['balance']) ? (float)$data['balance'] : null;
+            if ($balance === null || $balance < 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid leave balance']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE company_id = ? AND status = 'Active'");
+                $stmt->execute([$balance, $_SESSION['company_id']]);
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Leave balance applied to all active employees']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to apply leave balance: ' . $e->getMessage()]);
+            }
+            break;
+
         case 'get_payroll_batches':
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
             $stmt = $pdo->prepare("SELECT period, SUM(net_pay) as total_disbursed, COUNT(*) as staff_count, MAX(created_at) as processing_date FROM payroll WHERE company_id = ? GROUP BY period ORDER BY processing_date DESC");
@@ -1170,6 +1191,16 @@ try {
             $stmt = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode($stmt->fetch());
+            break;
+
+        case 'get_server_time':
+            $server_ms = (int) round(microtime(true) * 1000);
+            echo json_encode([
+                'server_ms' => $server_ms,
+                'date' => date('Y-m-d'),
+                'time' => date('H:i:s'),
+                'display_time' => date('h:i A')
+            ]);
             break;
 
         default:
