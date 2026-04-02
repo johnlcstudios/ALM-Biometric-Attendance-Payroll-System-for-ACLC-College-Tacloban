@@ -50,6 +50,9 @@ function filterTable(input, tableId) {
 
 // --- Data Fetching ---
 async function fetchData() {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
+
     try {
         const fetchJSON = async (url) => {
             const res = await fetch(url);
@@ -63,14 +66,16 @@ async function fetchData() {
             }
         };
 
-        employees = await fetchJSON('backend/api.php?action=get_employees') || [];
-        attendanceLogs = await fetchJSON('backend/api.php?action=get_attendance') || [];
-        payrollHistory = await fetchJSON('backend/api.php?action=get_payroll') || [];
-        leaveRequests = await fetchJSON('backend/api.php?action=get_leave_requests') || [];
-        loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
-        resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
-        masterSubjects = await fetchJSON('backend/api.php?action=get_subjects') || [];
-        subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
+        const getArray = (data) => Array.isArray(data) ? data : [];
+        
+        employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
+        attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
+        payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
+        leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
+        loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
+        resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
+        masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
+        subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
 
         const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
         if (dashboardStats) {
@@ -90,6 +95,14 @@ async function fetchData() {
 
     } catch (error) {
         console.error("Error fetching data:", error);
+    } finally {
+        if (loadingOverlay) {
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                loadingOverlay.style.opacity = '1';
+            }, 300);
+        }
     }
 }
 
@@ -97,12 +110,12 @@ async function fetchData() {
 function showPage(pageId) {
     currentPage = pageId;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.nav-btn, .nav-link').forEach(l => l.classList.remove('active'));
 
     const activePage = document.getElementById(pageId);
     if (activePage) activePage.classList.add('active');
 
-    const activeLink = document.querySelector(`.nav-link[onclick*="${pageId}"]`);
+    const activeLink = document.querySelector(`.nav-btn[onclick*="${pageId}"], .nav-link[onclick*="${pageId}"]`);
     if (activeLink) activeLink.classList.add('active');
 
     // Update Page Title
