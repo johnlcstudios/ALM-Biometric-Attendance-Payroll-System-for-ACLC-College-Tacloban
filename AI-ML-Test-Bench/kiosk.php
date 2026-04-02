@@ -444,10 +444,31 @@
         const statEmpId = document.getElementById('stat-empid');
         const cameraCircle = document.querySelector('.camera-circle');
         const actionBadge = document.getElementById('current-action-badge');
+        let serverTimeOffsetMs = 0;
         
         let isProcessing = false;
         let currentCompanyId = null;
         let companyConfig = null;
+
+        async function syncServerTime() {
+            try {
+                const startedAt = Date.now();
+                const res = await fetch('backend/api.php?action=get_server_time', { cache: 'no-store' });
+                const data = await res.json();
+                const endedAt = Date.now();
+                const rtt = endedAt - startedAt;
+                const approxNow = startedAt + Math.floor(rtt / 2);
+                if (typeof data.server_ms === 'number') {
+                    serverTimeOffsetMs = data.server_ms - approxNow;
+                }
+            } catch (e) {
+                serverTimeOffsetMs = 0;
+            }
+        }
+
+        function getNow() {
+            return new Date(Date.now() + serverTimeOffsetMs);
+        }
 
         // Initialize Kiosk
         async function init() {
@@ -493,7 +514,7 @@
                 .then(data => {
                     document.getElementById('company-name').innerText = data.name.toUpperCase();
                     companyConfig = data;
-                    updateCurrentAction();
+                    syncServerTime().then(() => updateCurrentAction());
                 });
 
             // If video is not started, start it
@@ -504,15 +525,19 @@
 
         // Update Clock & Action Badge
         setInterval(() => {
-            const now = new Date();
+            const now = getNow();
             clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             updateCurrentAction();
         }, 1000);
 
+        setInterval(() => {
+            if (currentCompanyId) syncServerTime();
+        }, 60000);
+
         function updateCurrentAction() {
             if (!companyConfig) return;
 
-            const now = new Date();
+            const now = getNow();
             const timeString = now.toTimeString().split(' ')[0]; // HH:MM:SS
             
             let action = "CHECK OUT";
@@ -533,7 +558,7 @@
                 color = "#27ae60"; // Green
             } else {
                 // Morning check-in up to 4 hours after start
-                const checkInLimit = new Date();
+                const checkInLimit = getNow();
                 const [h, m, s] = workStart.split(':');
                 checkInLimit.setHours(parseInt(h) + 4, parseInt(m), parseInt(s));
                 const checkInLimitStr = checkInLimit.toTimeString().split(' ')[0];

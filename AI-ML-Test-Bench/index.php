@@ -18,6 +18,26 @@ if (!in_array($_SESSION['role'], ['Admin', 'HR'])) {
 
 $role = $_SESSION['role'];
 $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+$allowed_pages = [
+    'dashboard',
+    'employees',
+    'subject_loads',
+    'biometrics',
+    'attendance',
+    'payroll',
+    'faculty_payroll',
+    'utility_payroll',
+    'allowances',
+    'deductions',
+    'leave',
+    'loans',
+    'resignations',
+    'reports',
+    'assign_payroll',
+    'settings'
+];
+$page = $_GET['page'] ?? 'dashboard';
+if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -51,61 +71,61 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
             </div>
             <nav class="sidebar-nav">
                 <!-- Shared Dashboard -->
-                <button class="nav-btn active" onclick="showPage('dashboard')">
+                <button class="nav-btn <?php echo $page === 'dashboard' ? 'active' : ''; ?>" data-page="dashboard" onclick="window.location.href='index.php?page=dashboard'">
                     <i class="fas fa-th-large"></i> <span>Dashboard</span>
                 </button>
                 
                 <!-- Shared Role-Based Access -->
                 <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
-                <button class="nav-btn" onclick="showPage('employees')">
+                <button class="nav-btn <?php echo $page === 'employees' ? 'active' : ''; ?>" data-page="employees" onclick="window.location.href='index.php?page=employees'">
                     <i class="fas fa-users"></i> <span>Employees</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('subject_loads')">
+                <button class="nav-btn <?php echo $page === 'subject_loads' ? 'active' : ''; ?>" data-page="subject_loads" onclick="window.location.href='index.php?page=subject_loads'">
                     <i class="fas fa-book"></i> <span>Subject Loads</span>
                 </button>
                 <?php endif; ?>
 
                 <!-- Role: Admin / HR / Payroll Officer -->
                 <?php if (in_array($role, ['HR', 'Admin', 'Payroll Officer'])): ?>
-                <button class="nav-btn" onclick="showPage('biometrics')">
+                <button class="nav-btn <?php echo $page === 'biometrics' ? 'active' : ''; ?>" data-page="biometrics" onclick="window.location.href='index.php?page=biometrics'">
                     <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
                 </button>
                 <?php endif; ?>
 
                 <!-- Role: Payroll Officer specific or Admin -->
                 <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
-                <button class="nav-btn" onclick="showPage('attendance')">
+                <button class="nav-btn <?php echo $page === 'attendance' ? 'active' : ''; ?>" data-page="attendance" onclick="window.location.href='index.php?page=attendance'">
                     <i class="fas fa-calendar-alt"></i> <span>Attendance Logs</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('payroll')">
+                <button class="nav-btn <?php echo $page === 'payroll' ? 'active' : ''; ?>" data-page="payroll" onclick="window.location.href='index.php?page=payroll'">
                     <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('faculty_payroll')">
+                <button class="nav-btn <?php echo $page === 'faculty_payroll' ? 'active' : ''; ?>" data-page="faculty_payroll" onclick="window.location.href='index.php?page=faculty_payroll'">
                     <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('utility_payroll')">
+                <button class="nav-btn <?php echo $page === 'utility_payroll' ? 'active' : ''; ?>" data-page="utility_payroll" onclick="window.location.href='index.php?page=utility_payroll'">
                     <i class="fas fa-tools"></i> <span>Utility Payroll</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('allowances')">
+                <button class="nav-btn <?php echo $page === 'allowances' ? 'active' : ''; ?>" data-page="allowances" onclick="window.location.href='index.php?page=allowances'">
                     <i class="fas fa-coins"></i> <span>Allowances</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('deductions')">
+                <button class="nav-btn <?php echo $page === 'deductions' ? 'active' : ''; ?>" data-page="deductions" onclick="window.location.href='index.php?page=deductions'">
                     <i class="fas fa-calculator"></i> <span>Deductions</span>
                 </button>
                 <?php endif; ?>
 
                 <!-- Management Shared -->
-                <button class="nav-btn" onclick="showPage('leave')">
+                <button class="nav-btn <?php echo $page === 'leave' ? 'active' : ''; ?>" data-page="leave" onclick="window.location.href='index.php?page=leave'">
                     <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
                 </button>
                 <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
-                <button class="nav-btn" onclick="showPage('loans')">
+                <button class="nav-btn <?php echo $page === 'loans' ? 'active' : ''; ?>" data-page="loans" onclick="window.location.href='index.php?page=loans'">
                     <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('reports')">
+                <button class="nav-btn <?php echo $page === 'reports' ? 'active' : ''; ?>" data-page="reports" onclick="window.location.href='index.php?page=reports'">
                     <i class="fas fa-chart-bar"></i> <span>Reports</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('settings')">
+                <button class="nav-btn <?php echo $page === 'settings' ? 'active' : ''; ?>" data-page="settings" onclick="window.location.href='index.php?page=settings'">
                     <i class="fas fa-cog"></i> <span>Settings</span>
                 </button>
                 <?php endif; ?>
@@ -138,7 +158,13 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
             <div id="content-pages">
                 <!-- Sections for Dashboard, Employees, etc. (re-used from index.html) -->
                 <!-- The existing sections will be injected or kept based on PHP logic -->
-                <?php include 'backend/sections.php'; ?>
+                <?php include __DIR__ . '/pages/admin_hr/pages/' . $page . '.php'; ?>
+                <script>
+                    (function() {
+                        const el = document.getElementById('<?php echo $page; ?>');
+                        if (el) el.classList.add('active');
+                    })();
+                </script>
             </div>
         </main>
     </div>
