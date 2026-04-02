@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-02
+
+### Added
+- **Kiosk Enhancements**:
+    - Added Lunch Out and Lunch In support with configurable time windows.
+    - Added late detection using company grace period with persisted late minutes.
+    - Added server-time sync for kiosk UI clock/action window decisions.
+- **Specialized Payroll**:
+    - Implemented Faculty Payroll (17-column format) and Utility Payroll (15-column format) with backend calculations and UI rendering.
+    - Added Print and Export (PDF) options matching the table formats.
+    - Added Payroll Processing filter to run payroll per category/position or all employees.
+- **Allowances & Deductions**:
+    - Implemented Allowances and Deductions pages with bulk “Apply to All” assignment.
+    - Added Leave Balances bulk “Apply to All” action.
+- **Role-Based Access**:
+    - Added Payroll Officer role with dedicated dashboard and parity access to required admin/payroll features.
+- **UI Pages Refactor**:
+    - Split Admin/HR and Payroll Officer sections into separate PHP page files organized by role folders.
+
+### Changed
+- **Attendance Logs UI**:
+    - Rebuilt attendance logs table layout and ensured Lunch Out/In and Late minutes display correctly and consistently.
+- **Employee Enrollment**:
+    - Reworked “Add Employee” into a multi-step wizard with stronger input validation.
+- **Employee Portal (ESS)**:
+    - Updated Employee Dashboard layout to a card-based design with recent payroll activity table.
+
+### Fixed
+- **Kiosk Reliability**:
+    - Fixed kiosk console errors and undefined UI fields (Attendance/Absences/Employee ID).
+    - Improved face recognition stability and prevented duplicate face enrollment.
+    - Improved match ambiguity handling using a ratio-based approach.
+- **Exports**:
+    - Fixed empty exported payroll tables by aligning backend queries and ensuring latest payroll data is loaded before export/print.
+- **RBAC & Navigation**:
+    - Fixed Payroll Officer redirection issues and ensured correct role navigation.
+
 ## [1.1.0] - 2026-03-28
 
 ### Added
