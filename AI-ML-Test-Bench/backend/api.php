@@ -37,7 +37,7 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ?");
+            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
@@ -46,6 +46,8 @@ try {
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
@@ -87,7 +89,7 @@ try {
             $period = $_GET['period'] ?? '';
             
             if ($period === 'latest' || $period === 'current' || empty($period)) {
-                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND e.position = 'Faculty' ORDER BY p.created_at DESC LIMIT 1");
+                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND p.payroll_type = 'Faculty' AND e.position = 'Faculty' ORDER BY p.created_at DESC LIMIT 1");
                 $stmt_latest->execute([$_SESSION['company_id']]);
                 $period = $stmt_latest->fetchColumn() ?: '';
             }
@@ -95,7 +97,7 @@ try {
             $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.basic_salary 
                                  FROM payroll p 
                                  JOIN employees e ON p.employee_id = e.id 
-                                 WHERE p.company_id = ? AND e.position = 'Faculty' 
+                                 WHERE p.company_id = ? AND p.payroll_type = 'Faculty' AND e.position = 'Faculty' 
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
@@ -107,7 +109,7 @@ try {
             $period = $_GET['period'] ?? '';
 
             if ($period === 'latest' || $period === 'current' || empty($period)) {
-                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND e.position = 'Utility' ORDER BY p.created_at DESC LIMIT 1");
+                $stmt_latest = $pdo->prepare("SELECT period FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND p.payroll_type = 'Utility' AND e.position = 'Utility' ORDER BY p.created_at DESC LIMIT 1");
                 $stmt_latest->execute([$_SESSION['company_id']]);
                 $period = $stmt_latest->fetchColumn() ?: '';
             }
@@ -115,7 +117,7 @@ try {
             $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.basic_salary 
                                  FROM payroll p 
                                  JOIN employees e ON p.employee_id = e.id 
-                                 WHERE p.company_id = ? AND e.position = 'Utility' 
+                                 WHERE p.company_id = ? AND p.payroll_type = 'Utility' AND e.position = 'Utility' 
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
@@ -132,6 +134,11 @@ try {
             $company_id = $_SESSION['company_id'];
 
             $position = ($type === 'faculty') ? 'Faculty' : 'Utility';
+
+            $stmt_company = $pdo->prepare("SELECT deduction_per_min FROM companies WHERE id = ?");
+            $stmt_company->execute([$company_id]);
+            $company = $stmt_company->fetch();
+            $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
             
             $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
             $stmt_employees->execute([$company_id, $position]);
@@ -145,56 +152,92 @@ try {
                     $stmt_att->execute([$emp['id'], $start_date, $end_date]);
                     $logs = $stmt_att->fetchAll();
                     
-                    $total_absent = 0; // Simplified for now
+                    $total_absent = 0;
                     $total_late_min = 0;
+                    $days_present = 0;
                     foreach ($logs as $l) {
                         if ($l['status'] === 'Late') $total_late_min += $l['late_minutes'];
                         if ($l['status'] === 'Absent') $total_absent++;
+                        if (!empty($l['check_in'])) $days_present++;
                     }
 
-                    $basic_pay = $emp['basic_salary'] / 2; // Semi-monthly
-                    $deductions = ($total_late_min * 0.5); // Example late deduction
-                    
                     if ($type === 'faculty') {
                         // Faculty specific calculations (17 columns)
-                        $load_pay = 5000; // Placeholder for load calculation
+                        $basic_pay = (float)$emp['basic_salary'] / 2;
+                        $load_pay = 0;
                         $overtime = 0;
                         $differential = 0;
                         $substitution = 0;
                         $adj_plus = 0;
-                        $absences_deduction = $total_absent * ( ($emp['basic_salary']/22) );
-                        $late_ut = $total_late_min * 2; // Example rate
-                        $hdmf_cont = 100;
+                        $absences_deduction = $total_absent * (((float)$emp['basic_salary']) / 22);
+                        $late_ut = $total_late_min * $deduction_per_min;
+                        $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                         $hdmf_loans = 0;
                         $hdmf_mp2 = 0;
                         $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2;
                         $honorarium = 0;
                         $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium) - $total_deduction;
 
-                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid')");
-                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay]);
+                        $breakdown = [
+                            'load_pay' => $load_pay,
+                            'overtime' => $overtime,
+                            'differential' => $differential,
+                            'substitution' => $substitution,
+                            'adj_plus' => $adj_plus,
+                            'absences' => $absences_deduction,
+                            'late_ut' => $late_ut,
+                            'hdmf_cont' => $hdmf_cont,
+                            'hdmf_loans' => $hdmf_loans,
+                            'hdmf_mp2' => $hdmf_mp2,
+                            'total_deduction' => $total_deduction,
+                            'honorarium' => $honorarium,
+                            'days_present' => $days_present,
+                            'absent_days' => $total_absent,
+                            'late_minutes' => $total_late_min
+                        ];
+
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE payroll_type = 'Faculty', basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), breakdown = VALUES(breakdown), status = 'Paid'");
+                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
                     } else {
                         // Utility specific calculations (15 columns)
                         $rate_per_day = $emp['basic_salary'] / 22;
-                        $earned = $rate_per_day * (count($logs)); 
+                        $earned = $rate_per_day * $days_present; 
                         $ot_holiday = 0;
                         $adj_plus = 0;
-                        $late_ut = $total_late_min * 1.5;
+                        $late_ut = $total_late_min * $deduction_per_min;
                         $adj_minus = 0;
-                        $hdmf_cont = 100;
+                        $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                         $hdmf_loans = 0;
                         $cash_advance = 0;
                         $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance;
                         $net_pay = ($earned + $ot_holiday + $adj_plus) - $total_deduction;
-                        $atm = $net_pay; // Placeholder
+                        $atm = $net_pay;
                         $non_atm = 0;
 
-                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid')");
-                        $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay]);
+                        $breakdown = [
+                            'rate_per_day' => $rate_per_day,
+                            'earned' => $earned,
+                            'ot_holiday' => $ot_holiday,
+                            'adj_plus' => $adj_plus,
+                            'late_ut' => $late_ut,
+                            'adj_minus' => $adj_minus,
+                            'hdmf_cont' => $hdmf_cont,
+                            'hdmf_loans' => $hdmf_loans,
+                            'cash_advance' => $cash_advance,
+                            'total_deduction' => $total_deduction,
+                            'atm' => $atm,
+                            'non_atm' => $non_atm,
+                            'days_present' => $days_present,
+                            'absent_days' => $total_absent,
+                            'late_minutes' => $total_late_min
+                        ];
+
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE payroll_type = 'Utility', basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), breakdown = VALUES(breakdown), status = 'Paid'");
+                        $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown)]);
                     }
                 }
                 $pdo->commit();
-                echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully']);
+                echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully', 'period' => $period]);
             } catch (Exception $e) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
@@ -328,28 +371,6 @@ try {
             }
             break;
 
-        case 'get_subjects':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $stmt = $pdo->prepare("SELECT * FROM subjects WHERE company_id = ?");
-            $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
-            break;
-
-        case 'get_subject_loads':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $stmt = $pdo->prepare("SELECT * FROM subject_loads WHERE company_id = ?");
-            $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
-            break;
-
-        case 'delete_subject_load':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
-            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
-            break;
-
         case 'revoke_payroll_access':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'];
@@ -367,43 +388,6 @@ try {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => $e->getMessage()]);
             }
-            break;
-
-        case 'get_loan_requests':
-            if (!isPayrollOrHigher()) exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT l.*, e.full_name FROM loans l JOIN employees e ON l.employee_id = e.id WHERE e.company_id = ? ORDER BY l.id DESC");
-            $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
-            break;
-
-        case 'update_loan_status':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("UPDATE loans SET status = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
-            break;
-
-        case 'get_resignation_requests':
-            if (!isPayrollOrHigher()) exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT r.*, e.full_name FROM resignations r JOIN employees e ON r.employee_id = e.id WHERE e.company_id = ? ORDER BY r.id DESC");
-            $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
-            break;
-
-        case 'update_resignation_status':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("UPDATE resignations SET status = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
-            break;
-
-        case 'get_leave_requests':
-            if (!isPayrollOrHigher()) exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT lr.*, e.full_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.company_id = ? ORDER BY lr.id DESC");
-            $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
             break;
 
         case 'get_deduction_categories':
@@ -456,6 +440,8 @@ try {
                 exit(json_encode(['success' => false, 'message' => 'Salary cannot be negative']));
             }
 
+            $status = (isset($data['status']) && is_string($data['status']) && trim($data['status']) !== '') ? trim($data['status']) : 'Active';
+
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
                 $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ? WHERE id = ? AND company_id = ?");
@@ -470,7 +456,7 @@ try {
                     trim($data['philhealth'] ?? ''), 
                     trim($data['tin'] ?? ''), 
                     trim($data['pagibig'] ?? ''), 
-                    $data['status'], 
+                    $status, 
                     $data['id'], 
                     $_SESSION['company_id']
                 ]);
@@ -514,7 +500,7 @@ try {
                         trim($data['tin'] ?? ''), 
                         trim($data['pagibig'] ?? ''), 
                         $user_id, 
-                        $data['status']
+                        $status
                     ]);
                     $new_emp_id = $pdo->lastInsertId();
 

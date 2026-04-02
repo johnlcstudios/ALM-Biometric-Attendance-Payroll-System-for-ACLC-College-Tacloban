@@ -32,6 +32,11 @@ try {
         echo "'dob' column already exists in 'employees' table.\n";
     }
 
+    // 1.1 Update status ENUM in 'employees' table
+    echo "Updating status ENUM in 'employees' table... ";
+    $pdo->exec("ALTER TABLE employees MODIFY COLUMN status ENUM('Active', 'Inactive', 'On Leave', 'Probationary', 'Contractual', 'Resigned') DEFAULT 'Active'");
+    echo "DONE\n";
+
     // 4. Check for 'loans' table
     $stmt = $pdo->query("SHOW TABLES LIKE 'loans'");
     if (!$stmt->fetch()) {
@@ -158,6 +163,28 @@ try {
     if (!$stmt->fetch()) {
         echo "Adding 'late_minutes' to 'attendance' table... ";
         $pdo->exec("ALTER TABLE attendance ADD COLUMN late_minutes INT DEFAULT 0");
+        echo "DONE\n";
+    }
+
+    // 12.1 Add payroll breakdown support
+    $stmt = $pdo->query("SHOW COLUMNS FROM payroll LIKE 'payroll_type'");
+    if (!$stmt->fetch()) {
+        echo "Adding 'payroll_type' to 'payroll' table... ";
+        $pdo->exec("ALTER TABLE payroll ADD COLUMN payroll_type ENUM('General','Faculty','Utility') DEFAULT 'General' AFTER employee_id");
+        echo "DONE\n";
+    }
+
+    $stmt = $pdo->query("SHOW COLUMNS FROM payroll LIKE 'breakdown'");
+    if (!$stmt->fetch()) {
+        echo "Adding 'breakdown' to 'payroll' table... ";
+        $pdo->exec("ALTER TABLE payroll ADD COLUMN breakdown JSON NULL AFTER net_pay");
+        echo "DONE\n";
+    }
+
+    $stmt = $pdo->query("SHOW INDEX FROM payroll WHERE Key_name = 'uq_payroll_company_emp_period'");
+    if (!$stmt->fetch()) {
+        echo "Adding unique key uq_payroll_company_emp_period to 'payroll'... ";
+        $pdo->exec("ALTER TABLE payroll ADD UNIQUE KEY uq_payroll_company_emp_period (company_id, employee_id, period)");
         echo "DONE\n";
     }
 
