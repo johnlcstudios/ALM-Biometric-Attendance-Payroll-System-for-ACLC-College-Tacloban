@@ -44,16 +44,31 @@
 
         #video-container {
             position: relative;
-            width: 100%;
-            max-width: 400px;
+            width: 300px;
+            height: 300px;
             margin: 20px auto;
-            border-radius: 12px;
+            border-radius: 50%;
             overflow: hidden;
             background: #000;
+            border: 5px solid var(--blue);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        #video-container.registered {
+            border-color: var(--red) !important;
+            box-shadow: 0 0 20px rgba(219, 38, 31, 0.4);
+        }
+
+        #video-container.success {
+            border-color: #28a745 !important;
+            box-shadow: 0 0 20px rgba(40, 167, 69, 0.4);
         }
 
         video {
             width: 100%;
+            height: 100%;
+            object-fit: cover;
             display: block;
         }
 
@@ -61,6 +76,8 @@
             position: absolute;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
         }
 
         .input-group {
@@ -145,8 +162,10 @@
         const enrollBtn = document.getElementById('enrollBtn');
         const status = document.getElementById('status');
         const empNameInput = document.getElementById('empName');
+        const videoContainer = document.getElementById('video-container');
 
         const MODEL_URL = 'models/';
+        let faceMatcher = null;
 
         async function init() {
             try {
@@ -157,9 +176,21 @@
                     faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
                 ]);
                 status.textContent = "Models Loaded. Please allow camera access.";
+                loadEnrolledFaces();
                 startVideo();
             } catch (err) {
                 status.textContent = "Error loading models: " + err.message;
+            }
+        }
+
+        function loadEnrolledFaces() {
+            const enrolledData = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
+            if (enrolledData.length > 0) {
+                const labeledDescriptors = enrolledData.map(data => {
+                    const descriptors = data.descriptors.map(d => new Float32Array(d));
+                    return new faceapi.LabeledFaceDescriptors(data.label, descriptors);
+                });
+                faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
             }
         }
 
@@ -181,11 +212,43 @@
 
             setInterval(async () => {
                 const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-                    .withFaceLandmarks();
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
                 
                 const resizedDetections = faceapi.resizeResults(detections, displaySize);
                 overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
                 faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
+
+                videoContainer.classList.remove('registered', 'success');
+
+                if (detections.length > 0) {
+                    if (faceMatcher) {
+                        const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
+                        const isAlreadyRegistered = results.some(r => r.label !== 'unknown');
+                        
+                        if (isAlreadyRegistered) {
+                            const match = results.find(r => r.label !== 'unknown');
+                            const enteredName = empNameInput.value.trim();
+                            
+                            if (enteredName && match.label.toLowerCase() === enteredName.toLowerCase()) {
+                                status.textContent = `Confirmed: This is ${match.label}`;
+                                videoContainer.classList.remove('registered');
+                                videoContainer.classList.add('success');
+                            } else {
+                                status.textContent = `Already Registered: ${match.label}`;
+                                videoContainer.classList.add('registered');
+                            }
+                        } else {
+                            status.textContent = "Face detected. Ready to enroll.";
+                            videoContainer.classList.add('success');
+                        }
+                    } else {
+                        status.textContent = "Face detected. Ready to enroll.";
+                        videoContainer.classList.add('success');
+                    }
+                } else {
+                    status.textContent = "Camera active. Position your face.";
+                }
             }, 200);
         });
 
@@ -206,6 +269,7 @@
             if (detection) {
                 const descriptor = Array.from(detection.descriptor);
                 saveEnrollment(name, descriptor);
+                loadEnrolledFaces(); // Refresh the matcher with the new face
                 status.textContent = `Successfully enrolled ${name}!`;
                 empNameInput.value = '';
             } else {

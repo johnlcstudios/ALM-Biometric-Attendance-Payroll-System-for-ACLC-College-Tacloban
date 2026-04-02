@@ -139,6 +139,7 @@ function calcSubloadPay() {
 // ── Face Enrollment ─────────────────────────────────────────────
 let faceModelsLoaded = false;
 let enrollStream = null;
+let enrollFaceMatcher = null;
 const ENROLL_MODEL_URL = 'kiosk/models/';
 
 async function initFaceEnrollment() {
@@ -146,6 +147,7 @@ async function initFaceEnrollment() {
   const video = document.getElementById('enrollVideo');
   const overlay = document.getElementById('enrollOverlay');
   const enrollBtn = document.getElementById('startEnrollBtn');
+  const videoWrap = document.querySelector('.video-wrap');
 
   if (!faceModelsLoaded) {
     try {
@@ -165,6 +167,16 @@ async function initFaceEnrollment() {
       status.className = "enroll-status error";
       return;
     }
+  }
+
+  // Load enrolled faces from localStorage
+  const enrolledData = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
+  if (enrolledData.length > 0) {
+    const labeledDescriptors = enrolledData.map(data => {
+      const descriptors = data.descriptors.map(d => new Float32Array(d));
+      return new faceapi.LabeledFaceDescriptors(data.label, descriptors);
+    });
+    enrollFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
   }
 
   // Start Camera
@@ -191,10 +203,35 @@ async function initFaceEnrollment() {
         return;
       }
       const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks();
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+      
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
       overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
       faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
+
+      videoWrap.classList.remove('registered', 'success-border');
+
+      if (detections.length > 0) {
+        if (enrollFaceMatcher) {
+          const results = detections.map(d => enrollFaceMatcher.findBestMatch(d.descriptor));
+          const match = results.find(r => r.label !== 'unknown');
+          
+          if (match) {
+            status.textContent = `Already Registered: ${match.label}`;
+            status.className = "enroll-status error";
+            videoWrap.classList.add('registered');
+          } else {
+            status.textContent = "Face detected. Ready to enroll.";
+            status.className = "enroll-status success";
+            videoWrap.classList.add('success-border');
+          }
+        } else {
+          status.textContent = "Face detected. Ready to enroll.";
+          status.className = "enroll-status success";
+          videoWrap.classList.add('success-border');
+        }
+      }
     }, 200);
   };
 

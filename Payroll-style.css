@@ -318,20 +318,29 @@ select.filter-select:focus { border-color: var(--accent); }
 }
 .video-wrap {
   position: relative;
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 4/3;
+  width: 350px;
+  height: 350px;
   background: #000;
-  border-radius: 16px;
+  border-radius: 50%;
   overflow: hidden;
-  border: 4px solid var(--accent);
-  margin: 20px 0;
+  border: 5px solid var(--accent);
+  margin: 20px auto;
   box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  transition: all 0.3s ease;
+}
+.video-wrap.registered {
+  border-color: #c62828 !important;
+  box-shadow: 0 0 25px rgba(198, 40, 40, 0.4);
+}
+.video-wrap.success-border {
+  border-color: #2e7d32 !important;
+  box-shadow: 0 0 25px rgba(46, 125, 50, 0.4);
 }
 .video-wrap video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 .video-wrap canvas {
   position: absolute;
@@ -339,6 +348,7 @@ select.filter-select:focus { border-color: var(--accent); }
   left: 0;
   width: 100%;
   height: 100%;
+  border-radius: 50%;
 }
 .enroll-status {
   padding: 10px 20px;
