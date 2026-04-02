@@ -184,3 +184,6 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 - **P2** Compliance & privacy: biometric consent process, retention policy, who can view payroll amounts, incident response procedure.  
 - **P3** Training plan: onboarding for HR/Payroll Officer, quick guides for employees, refresher schedule, escalation contacts.
 
+Definitions
+**SOP: Standard Operating Procedure**
+
