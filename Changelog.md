@@ -121,14 +121,29 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 - ***P2*** Accessibility: keyboard navigation, contrast, ARIA labels, focus management in modals.
 - ***P3*** Observability: frontend error boundary/log capture for crashes, user-friendly error banners.
 
-### Testing
-- Face Model Testing
-- Face Model Training
-- ML Training
-- Console Errors
-- List Bugs
-- List Missing Features
-- List Missing Functions
+### Testing Team — Task Backlog (Priority-Ordered)  
+- **P0** Build regression test checklist (manual) for every core flow: login/roles, employee CRUD, face enrollment, kiosk scan sequence, attendance logs, payroll runs, exports, settings.  
+- **P0** Validate RBAC + company isolation: try to access other company data, test Payroll Officer parity, verify “employee” cannot access admin endpoints/pages.  
+- **P0** Kiosk accuracy test plan: lighting scenarios, distance, angle, glasses/mask, multiple faces, replay attempts, duplicate enrollment attempts; record FAR/FRR observations.  
+- **P0** Time-window testing: work start/end + lunch windows + grace period; verify allowed/blocked actions and correct statuses (Late minutes, Lunch Out/In columns).  
+- **P0** Payroll correctness test cases: fixed salary, absences, late deductions, OT %, allowances/deductions/loans; verify period grouping and “latest” retrieval.  
+- **P1** Export/print verification: ensure exported tables match UI columns exactly (Faculty 17 / Utility 15), test exporting without visiting pages first, test “latest” auto-load.  
+- **P1** Data integrity testing: bulk “Apply to All” (allowance/deduction/leave) with failures/retries; ensure no partial updates; verify transaction safety.  
+- **P1** Cross-browser testing: Chrome/Edge + at least one other browser; camera permissions; print layout; PDF generation.  
+- **P2** Performance testing: large employee list, large attendance logs, repeated kiosk scans; measure load times and UI responsiveness.  
+- **P2** Security testing (basic): input fuzzing (dates/amounts), unauthorized POSTs, session expiry behavior, CSRF-like actions, rate-limit attempts for kiosk_scan.  
+- **P3** Automation roadmap: identify top 10 stable flows to automate first (API tests for backend, UI smoke tests if feasible).
 
-### Administrative Team
-- Updated Gantt Chart (as of 3/28/26)
+### Administrative Team (HR/Admin/Payroll Operations) — Task Backlog (Priority-Ordered)  
+- **P0** Define official policies: work schedule, lunch windows, grace period rules, overtime policy, deduction rules, leave policies, loan policies.  
+- **P0** Master data setup: departments, positions/categories, subject loads list, allowance/deduction categories, default rates.  
+- **P0** Biometric enrollment SOP: enrollment station setup, lighting standard, distance guidance, duplicate-face procedure, re-enrollment triggers.  
+- **P0** Kiosk operations SOP: daily start-up checklist, camera checks, handling “Not Recognized/Ambiguous”, manual correction protocol.  
+- **P0** Payroll run SOP: cutoff periods, validation checklist before payout, approval workflow, who can run payroll, how to handle corrections and re-runs.  
+- **P1** Data governance: naming conventions, required employee fields, ID formats, handling of inactive/terminated employees, audit log review routine.  
+- **P1** Exception handling: late disputes, missed punches, lunch exceptions, leave approval rules, loan review criteria, resignations workflow.  
+- **P1** Reporting requirements: what reports are needed (attendance summaries, payroll history, deductions listing), frequency, and who receives them.  
+- **P2** Access management: assign/rotate Payroll Officer access, periodic permission reviews, password reset process.  
+- **P2** Compliance & privacy: biometric consent process, retention policy, who can view payroll amounts, incident response procedure.  
+- **P3** Training plan: onboarding for HR/Payroll Officer, quick guides for employees, refresher schedule, escalation contacts.
+
