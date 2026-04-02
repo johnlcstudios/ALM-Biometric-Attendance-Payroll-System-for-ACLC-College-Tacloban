@@ -1558,6 +1558,7 @@ async function initFaceEnrollment() {
         let stabilityCounter = 0;
         const STABILITY_REQUIRED = 5; // number of stable frames before scanning
         const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.6 });
 
         // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
@@ -1566,8 +1567,7 @@ async function initFaceEnrollment() {
             // Match dimensions and get dimensions for scaling
             const displaySize = faceapi.matchDimensions(canvas, video, true);
 
-            // Higher input size for better landmark precision
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+            const detection = await faceapi.detectSingleFace(video, detectorOptions)
                 .withFaceLandmarks();
             
             const ctx = canvas.getContext('2d');
@@ -1619,7 +1619,7 @@ async function initFaceEnrollment() {
                         isEnrolling = true;
                         
                         // Get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+                        const fullDetection = await faceapi.detectSingleFace(video, detectorOptions)
                             .withFaceLandmarks()
                             .withFaceDescriptor();
 
@@ -1671,22 +1671,52 @@ async function saveFaceEnrollment(manualDescriptor = null) {
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     
-    let descriptor = manualDescriptor;
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.6 });
+    const samples = [];
+    if (manualDescriptor && manualDescriptor.length === 128) {
+        samples.push(Array.from(manualDescriptor));
+    }
 
-    if (!descriptor) {
-        // Use the same detector options as the live preview
-        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-        const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
-        if (detection) {
-            descriptor = detection.descriptor;
+    for (let i = 0; i < 12 && samples.length < 5; i++) {
+        const det = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
+        if (det && det.descriptor && det.descriptor.length === 128 && det.detection?.score >= 0.85) {
+            samples.push(Array.from(det.descriptor));
         }
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    if (samples.length < 3) {
+        alert("Face capture not stable enough. Please hold still and ensure good lighting.");
+        return;
+    }
+
+    const averaged = new Array(128).fill(0);
+    for (const s of samples) {
+        for (let i = 0; i < 128; i++) averaged[i] += s[i];
+    }
+    for (let i = 0; i < 128; i++) averaged[i] /= samples.length;
+
+    let maxDeviation = 0;
+    for (const s of samples) {
+        let sum = 0;
+        for (let i = 0; i < 128; i++) {
+            const d = s[i] - averaged[i];
+            sum += d * d;
+        }
+        const dist = Math.sqrt(sum);
+        if (dist > maxDeviation) maxDeviation = dist;
+    }
+
+    if (maxDeviation > 0.35) {
+        alert("Face capture varies too much. Please hold still, face the camera, and try again.");
+        return;
     }
     
-    if (descriptor) {
+    if (averaged) {
         const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: employeeId, descriptor: Array.from(descriptor) })
+            body: JSON.stringify({ id: employeeId, descriptor: averaged })
         });
         const result = await response.json();
         if (result.success) {

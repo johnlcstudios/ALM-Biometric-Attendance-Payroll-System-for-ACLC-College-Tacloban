@@ -70,9 +70,6 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
                 <button class="nav-btn" onclick="showPage('biometrics')">
                     <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
                 </button>
-                <button class="nav-btn" onclick="showPage('assign_payroll')">
-                    <i class="fas fa-user-shield"></i> <span>Assign Payroll Officer</span>
-                </button>
                 <?php endif; ?>
 
                 <!-- Role: Payroll Officer specific or Admin -->

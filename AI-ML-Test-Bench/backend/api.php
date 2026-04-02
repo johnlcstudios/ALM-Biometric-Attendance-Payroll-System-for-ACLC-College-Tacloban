@@ -558,21 +558,24 @@ try {
                 break;
             }
 
+            $face_duplicate_threshold = 0.38;
+
             // Check for duplicate face within the same company
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND id != ?");
             $stmt_faces->execute([$_SESSION['company_id'], $data['id']]);
             $existing_faces = $stmt_faces->fetchAll();
 
-            $new_descriptor = $data['descriptor'];
+            $new_descriptor = array_map('floatval', $data['descriptor']);
             foreach ($existing_faces as $face) {
                 $enrolled_descriptor = json_decode($face['face_descriptor'], true);
                 if (is_array($enrolled_descriptor) && count($enrolled_descriptor) === 128) {
                     $sum = 0;
                     for ($i = 0; $i < 128; $i++) {
-                        $sum += pow((float)$new_descriptor[$i] - (float)$enrolled_descriptor[$i], 2);
+                        $diff = $new_descriptor[$i] - (float)$enrolled_descriptor[$i];
+                        $sum += $diff * $diff;
                     }
                     $distance = sqrt($sum);
-                    if ($distance < 0.45) { // Strict threshold for duplicates (approx 90% match)
+                    if ($distance < $face_duplicate_threshold) {
                         echo json_encode(['success' => false, 'message' => "This face is already registered to " . $face['full_name']]);
                         return;
                     }
@@ -580,7 +583,7 @@ try {
             }
 
             $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([json_encode($data['descriptor']), $data['id'], $_SESSION['company_id']]);
+            $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
             echo json_encode(['success' => true]);
             break;
 
@@ -624,7 +627,10 @@ try {
             $enrolled_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
-            $best_distance = 0.5; // Slightly stricter threshold for better accuracy (approx 87.5% match)
+            $scan_threshold = 0.40;
+            $ambiguity_ratio_threshold = 1.10;
+            $best_distance = 999;
+            $second_best_distance = 999;
             
             $input_desc = array_map('floatval', $descriptor);
 
@@ -639,15 +645,35 @@ try {
                     
                     $distance = sqrt($sum);
                     if ($distance < $best_distance) {
+                        $second_best_distance = $best_distance;
                         $best_distance = $distance;
                         $best_match = $face;
+                    } elseif ($distance < $second_best_distance) {
+                        $second_best_distance = $distance;
                     }
                 }
+            }
+
+            if (!$best_match || $best_distance > $scan_threshold) {
+                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => 0]);
+                break;
             }
 
             // Accuracy calculation: 0.6 distance is approx 85% match. 0.4 distance is approx 90% match.
             // Using a linear mapping for display purposes: distance 0.6 -> 85%, 0 -> 100%
             $match_percentage = max(0, round(100 - ($best_distance * 25), 2));
+
+            if ($second_best_distance < 999) {
+                $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
+                if ($ratio <= $ambiguity_ratio_threshold) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Ambiguous match, please try again',
+                        'match_percentage' => $match_percentage
+                    ]);
+                    break;
+                }
+            }
 
             if ($best_match) {
                 $employee_id = $best_match['id'];
