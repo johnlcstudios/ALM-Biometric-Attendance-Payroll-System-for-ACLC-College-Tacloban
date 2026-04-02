@@ -16,6 +16,14 @@ if (in_array($session_role, ['Admin', 'HR'])) {
     header('Location: index.php');
     exit;
 }
+
+// Fetch employee profile on server-side
+$user_id = $_SESSION['user_id'];
+$stmt = $pdo->prepare("SELECT e.*, u.username FROM employees e JOIN users u ON e.user_id = u.id WHERE u.id = ?");
+$stmt->execute([$user_id]);
+$emp = $stmt->fetch();
+$full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
+$emp_id = $emp['employee_id'] ?? '---';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,7 +66,7 @@ if (in_array($session_role, ['Admin', 'HR'])) {
         <div class="emp-topbar">
             <div class="emp-welcome">
                 <h1>Welcome back!</h1>
-                <div class="meta"><span id="emp-welcome-meta">Employee ID | Employee Name</span></div>
+                <div class="meta"><span id="emp-welcome-meta"><?php echo $emp_id; ?> | <?php echo $full_name; ?></span></div>
             </div>
             <div class="emp-actions">
                 <button class="btn btn-danger btn-sm" onclick="logout()">Logout <i class="fas fa-sign-out-alt"></i></button>

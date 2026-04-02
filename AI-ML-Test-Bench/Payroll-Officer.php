@@ -21,6 +21,7 @@ if (!in_array($session_role, ['Payroll', 'Payroll Officer'])) {
 
 $role = $session_role;
 $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+$full_name = $_SESSION['full_name'] ?? 'Payroll Officer';
 $allowed_pages = [
     'dashboard',
     'employees',
@@ -145,7 +146,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <div class="user-profile">
                     <div class="profile-info">
                         <div class="profile-text">
-                            <span class="name">Payroll Officer</span>
+                            <span class="name"><?php echo $full_name; ?></span>
                             <span class="role"><?php echo $role; ?> Portal</span>
                         </div>
                     </div>

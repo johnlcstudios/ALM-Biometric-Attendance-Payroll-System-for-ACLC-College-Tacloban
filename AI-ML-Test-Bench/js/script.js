@@ -4,99 +4,195 @@
 
 // --- Dashboard Charts ---
 let attendanceChart = null;
-function initCharts() {
-    const ctx = document.getElementById('attendanceChart');
-    if (!ctx) return;
+let pChart, aChart;
 
-    if (attendanceChart) attendanceChart.destroy();
+// --- Data Stores ---
+let employees = [];
+let attendanceLogs = [];
+let payrollHistory = [];
+let leaveRequests = [];
+let loanRequests = [];
+let resignationRequests = [];
+let masterSubjects = [];
+let subjectLoads = [];
+let currentPage = 'dashboard';
 
-    const data = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-        datasets: [{
-            label: 'Present Employees',
-            data: [12, 19, 15, 17, 14],
-            backgroundColor: 'rgba(30, 1, 120, 0.2)',
-            borderColor: 'rgba(30, 1, 120, 1)',
-            borderWidth: 2,
-            tension: 0.4
-        }]
-    };
-
-    attendanceChart = new Chart(ctx, {
-        type: 'line',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
+// --- Helper Functions ---
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'block';
 }
 
-// --- Subject Loads ---
-function renderSubjectLoadTable() {
-    const tbody = document.getElementById('subjectLoadTableBody');
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = (event) => {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+};
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
+}
+
+function filterTable(input, tableId) {
+    const filter = input.value.toLowerCase();
+    const rows = document.getElementById(tableId).getElementsByTagName('tr');
+    for (let i = 1; i < rows.length; i++) {
+        const text = rows[i].textContent.toLowerCase();
+        rows[i].style.display = text.includes(filter) ? '' : 'none';
+    }
+}
+
+// --- Data Fetching ---
+async function fetchData() {
+    try {
+        const fetchJSON = async (url) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error("Malformed JSON from " + url + ":", text);
+                return null;
+            }
+        };
+
+        employees = await fetchJSON('backend/api.php?action=get_employees') || [];
+        attendanceLogs = await fetchJSON('backend/api.php?action=get_attendance') || [];
+        payrollHistory = await fetchJSON('backend/api.php?action=get_payroll') || [];
+        leaveRequests = await fetchJSON('backend/api.php?action=get_leave_requests') || [];
+        loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
+        resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
+        masterSubjects = await fetchJSON('backend/api.php?action=get_subjects') || [];
+        subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
+
+        const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
+        if (dashboardStats) {
+            const totalEl = document.getElementById('stat-total-emp');
+            const presentEl = document.getElementById('stat-present');
+            const absentEl = document.getElementById('stat-absent');
+            const leaveEl = document.getElementById('stat-leave');
+            if (totalEl) totalEl.innerText = dashboardStats.total_employees;
+            if (presentEl) presentEl.innerText = dashboardStats.present_today;
+            if (absentEl) absentEl.innerText = dashboardStats.absent_today;
+            if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialPage = urlParams.get('page') || 'dashboard';
+        showPage(initialPage);
+
+    } catch (error) {
+        console.error("Error fetching data:", error);
+    }
+}
+
+// --- Navigation ---
+function showPage(pageId) {
+    currentPage = pageId;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+    const activePage = document.getElementById(pageId);
+    if (activePage) activePage.classList.add('active');
+
+    const activeLink = document.querySelector(`.nav-link[onclick*="${pageId}"]`);
+    if (activeLink) activeLink.classList.add('active');
+
+    // Update Page Title
+    const titles = {
+        'dashboard': 'Dashboard Overview',
+        'employees': 'Employee Directory',
+        'attendance': 'Attendance Tracking',
+        'payroll': 'Payroll Processing',
+        'leave': 'Leave Management',
+        'loans': 'Loan Management',
+        'reports': 'System Reports',
+        'subject_loads': 'Subject Load Management',
+        'settings': 'Company Settings'
+    };
+    const titleEl = document.getElementById('current-page-title');
+    if (titleEl) titleEl.innerText = titles[pageId] || 'Admin Hub';
+
+    // Render respective tables
+    if (pageId === 'employees') renderEmployeeTable();
+    if (pageId === 'attendance') renderAttendanceTable();
+    if (pageId === 'payroll') renderPayrollTable();
+    if (pageId === 'leave') renderLeaveTable();
+    if (pageId === 'loans') renderLoanTable();
+    if (pageId === 'subject_loads') renderMasterSubjects();
+    if (pageId === 'dashboard') initCharts();
+}
+
+// --- Render Functions ---
+function renderEmployeeTable() {
+    const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
-    
-    tbody.innerHTML = subjectLoads.map(load => {
-        const faculty = employees.find(e => e.id == load.faculty_id);
+
+    tbody.innerHTML = employees.map(emp => {
+        const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
+        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        
+        const actionHtml = isFaculty ? `
+            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
+                <i class="fas fa-book"></i> View (${loadCount})
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="addSubjectLoadModal('${emp.id}')">
+                <i class="fas fa-plus"></i> Add Load
+            </button>
+        ` : '---';
+
         return `
             <tr>
-                <td>${load.code}</td>
-                <td>${load.description}</td>
-                <td>${load.units}</td>
-                <td>${faculty ? faculty.full_name : 'Unassigned'}</td>
+                <td><strong>${emp.employee_id}</strong></td>
                 <td>
-                    <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad(${load.id})"><i class="fas fa-trash"></i></button>
+                    <div class="user-info">
+                        <div class="user-details">
+                            <span class="name">${emp.full_name}</span>
+                            <span class="email">${emp.email}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>${emp.position}</td>
+                <td>${emp.department}</td>
+                <td>${actionHtml}</td>
+                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${emp.status || 'Active'}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
                 </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="5" class="text-center">No subject loads assigned.</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
 }
 
-async function deleteSubjectLoad(id) {
-    if (confirm("Remove this subject load assignment?")) {
-        const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
-        const result = await response.json();
-        if (result.success) fetchData();
+function renderMasterSubjects() {
+    const subjectTbody = document.getElementById('subjectsTableBody');
+    if (subjectTbody) {
+        subjectTbody.innerHTML = masterSubjects.map(s => `
+            <tr>
+                <td><strong>${s.code}</strong></td>
+                <td>${s.description}</td>
+                <td>${s.units}</td>
+                <td>${s.hours}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editMasterSubject('${s.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMasterSubject('${s.id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" class="text-center">No subjects created yet.</td></tr>';
     }
 }
 
-// --- Biometrics ---
-function populateEmployeeDropdown() {
-    const select = document.getElementById('enrollEmployeeSelect');
-    if (!select) return;
-    select.innerHTML = '<option value="">-- Select Employee --</option>' + 
-        employees.map(e => `<option value="${e.id}">${e.full_name} (${e.employee_id})</option>`).join('');
-}
-
-// --- Admin / Payroll Access Management ---
-function renderPayrollOfficerAssignment() {
-    const tbody = document.getElementById('payrollOfficerTableBody');
-    if (!tbody) return;
-    
-    const officers = employees.filter(e => e.position === 'Payroll Officer');
-    tbody.innerHTML = officers.map(o => `
-        <tr>
-            <td>${o.full_name}</td>
-            <td>${o.department}</td>
-            <td><span class="status-badge status-active">Active Access</span></td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="revokePayrollAccess(${o.id})">Revoke Access</button>
-            </td>
-        </tr>
-    `).join('') || '<tr><td colspan="4" class="text-center">No Payroll Officers assigned.</td></tr>';
-}
-
-async function revokePayrollAccess(empId) {
-    if (confirm("Are you sure you want to revoke payroll officer access for this employee?")) {
-        const response = await fetch(`backend/api.php?action=revoke_payroll_access&id=${empId}`);
-        const result = await response.json();
-        if (result.success) fetchData();
-    }
-}
-
+// --- Reports & Export ---
 async function exportFacultyPayroll() {
     const { jsPDF } = window.jspdf;
     
@@ -232,147 +328,6 @@ async function printSpecializedPayroll(tableId, title) {
     };
 }
 
-// --- Initial Data Fetching ---
-let employees = [];
-let payrollHistory = [];
-let attendanceLogs = [];
-let leaveRequests = [];
-let loanRequests = [];
-let resignationRequests = [];
-let allowanceCategories = [];
-let employeeAllowances = [];
-let deductionCategories = [];
-let employeeDeductions = [];
-let deductionsConfig = {
-    gov: [],
-    company: []
-};
-let masterSubjects = [];
-let currentPage = 'dashboard';
-
-async function fetchData() {
-    const loadingOverlay = document.getElementById('loading-overlay');
-    if (loadingOverlay) loadingOverlay.style.display = 'flex';
-
-    try {
-        const fetchJSON = async (url) => {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const text = await res.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                console.error("Malformed JSON from " + url + ":", text);
-                return null;
-            }
-        };
-
-        employees = await fetchJSON('backend/api.php?action=get_employees') || [];
-        attendanceLogs = await fetchJSON('backend/api.php?action=get_attendance') || [];
-        payrollHistory = await fetchJSON('backend/api.php?action=get_payroll') || [];
-        leaveRequests = await fetchJSON('backend/api.php?action=get_leave_requests') || [];
-        loanRequests = await fetchJSON('backend/api.php?action=get_loan_requests') || [];
-        resignationRequests = await fetchJSON('backend/api.php?action=get_resignation_requests') || [];
-        deductionsConfig = await fetchJSON('backend/api.php?action=get_deductions') || [];
-        allowanceCategories = await fetchJSON('backend/api.php?action=get_allowance_categories') || [];
-        employeeAllowances = await fetchJSON('backend/api.php?action=get_employee_allowances') || [];
-        deductionCategories = await fetchJSON('backend/api.php?action=get_deduction_categories') || [];
-        employeeDeductions = await fetchJSON('backend/api.php?action=get_employee_deductions') || [];
-        masterSubjects = await fetchJSON('backend/api.php?action=get_subjects') || [];
-        subjectLoads = await fetchJSON('backend/api.php?action=get_subject_loads') || [];
-        const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
-        if (dashboardStats) {
-            const totalEl = document.getElementById('stat-total-emp');
-            const presentEl = document.getElementById('stat-present');
-            const absentEl = document.getElementById('stat-absent');
-            const leaveEl = document.getElementById('stat-leave');
-            if (totalEl) totalEl.innerText = dashboardStats.total_employees;
-            if (presentEl) presentEl.innerText = dashboardStats.present_today;
-            if (absentEl) absentEl.innerText = dashboardStats.absent_today;
-            if (leaveEl) leaveEl.innerText = dashboardStats.pending_leave;
-        }
-        
-        // Determine initial page based on role
-        let initialPage = 'dashboard';
-        if (typeof USER_ROLE !== 'undefined' && USER_ROLE === 'Payroll') {
-            initialPage = 'payroll';
-        } else {
-            initialPage = document.querySelector('.page.active')?.id || 'dashboard';
-        }
-        
-        showPage(initialPage);
-    } catch (err) {
-        console.error("Error fetching data:", err);
-    } finally {
-        if (loadingOverlay) loadingOverlay.style.display = 'none';
-    }
-}
-
-// --- Navigation Logic ---
-function showPage(pageId) {
-    currentPage = pageId;
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.page === pageId || btn.getAttribute('onclick')?.includes(`'${pageId}'`)) {
-            btn.classList.add('active');
-        }
-    });
-
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
-    const targetPage = document.getElementById(pageId);
-    if (targetPage) targetPage.classList.add('active');
-
-    const titles = {
-        'dashboard': 'Dashboard Overview',
-        'employees': 'Employee Directory',
-        'biometrics': 'Face Biometrics Enrollment',
-        'attendance': 'Daily Attendance Logs',
-        'payroll': 'Payroll Processing',
-        'faculty_payroll': 'Faculty Payroll System',
-        'utility_payroll': 'Utility Payroll System',
-        'subject_loads': 'Subject Load Management',
-        'assign_payroll': 'Assign Payroll Officer',
-        'allowances': 'Allowances and Earnings',
-        'leave': 'Leave Management',
-        'deductions': 'Deductions & Allowances',
-        'reports': 'System Reports',
-        'settings': 'System Settings'
-    };
-    const titleEl = document.getElementById('current-page-title');
-    if (titleEl) titleEl.innerText = titles[pageId] || 'Admin Hub';
-
-    if (pageId === 'dashboard') initCharts();
-    if (pageId === 'employees') renderEmployeeTable();
-    if (pageId === 'biometrics') populateEmployeeDropdown();
-    if (pageId === 'attendance') renderAttendanceTable();
-    if (pageId === 'payroll') renderPayrollTable();
-    if (pageId === 'faculty_payroll') loadFacultyPayroll('latest');
-    if (pageId === 'utility_payroll') loadUtilityPayroll('latest');
-    if (pageId === 'subject_loads') {
-        renderSubjectLoadTable();
-    }
-    if (pageId === 'assign_payroll') renderPayrollOfficerAssignment();
-    if (pageId === 'allowances') renderAllowances();
-    if (pageId === 'leave') renderLeaveTable();
-    if (pageId === 'loans') renderLoanTable();
-    if (pageId === 'resignations') renderResignationTable();
-    if (pageId === 'deductions') renderDeductions();
-}
-
-// --- UI Controls (Modals) ---
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'block';
-    if (modalId === 'employeeModal') resetEmpModal();
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) modal.style.display = 'none';
-}
-
 // --- Employee Management ---
 function renderEmployeeTable() {
     const tbody = document.getElementById('employeeTableBody');
@@ -380,6 +335,8 @@ function renderEmployeeTable() {
     tbody.innerHTML = employees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'education';
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
+        const statusClass = statusLabel.toLowerCase().replace(' ', '-');
         
         return `
         <tr id="row-${emp.id}">
@@ -397,7 +354,7 @@ function renderEmployeeTable() {
                     </span>
                 ` : '<span class="text-muted">---</span>'}
             </td>
-            <td><span class="status-badge status-${emp.status.toLowerCase().replace(' ', '-')}">${emp.status}</span></td>
+            <td><span class="status-badge status-${statusClass}">${statusLabel}</span></td>
             <td>
                 <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
@@ -1762,575 +1719,7 @@ async function saveFaceEnrollment(manualDescriptor = null) {
     }
 }
 
-function populateEmployeeDropdown() {
-    const enrollSelect = document.getElementById('enrollEmployeeSelect');
-    if (enrollSelect) {
-        enrollSelect.innerHTML = '<option value="">Select Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
-    }
-
-    const assignSelect = document.getElementById('assignEmployeeSelect');
-    if (assignSelect) {
-        assignSelect.innerHTML = '<option value="">Select Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
-    }
-
-    const assignDeductionSelect = document.getElementById('assignDeductionEmployeeSelect');
-    if (assignDeductionSelect) {
-        assignDeductionSelect.innerHTML = '<option value="">Select Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.full_name}">${emp.full_name} (${emp.employee_id})</option>`).join('');
-    }
-
-    const leaveBalanceSelect = document.getElementById('leaveBalanceEmployeeSelect');
-    if (leaveBalanceSelect) {
-        leaveBalanceSelect.innerHTML = '<option value="">Select Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.id}">${emp.full_name}</option>`).join('');
-    }
-}
-
-// --- Allowances ---
-function renderAllowances() {
-    renderAllowanceCategories();
-    renderAllowanceBreakdown();
-    populateEmployeeDropdown();
-    
-    // Populate allowance types list for assignment
-    const typesList = document.getElementById('allowanceTypesList');
-    if (typesList) {
-        typesList.innerHTML = allowanceCategories.map(cat => `
-            <div style="margin-bottom: 5px;">
-                <input type="checkbox" name="assignAllowanceType" value="${cat.name}"> ${cat.name}
-            </div>
-        `).join('');
-    }
-}
-
-function renderAllowanceCategories() {
-    const tbody = document.getElementById('allowanceCategoriesBody');
-    if (!tbody) return;
-    tbody.innerHTML = allowanceCategories.map(cat => `
-        <tr>
-            <td>${cat.name}</td>
-            <td>₱${cat.rate.toLocaleString()}</td>
-            <td>${cat.type}</td>
-            <td>${cat.recurring}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteAllowanceCategory('${cat.name}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function renderAllowanceBreakdown() {
-    const tbody = document.getElementById('allowanceBreakdownBody');
-    if (!tbody) return;
-    tbody.innerHTML = employeeAllowances.map(item => `
-        <tr>
-            <td>${item.employee}</td>
-            <td>${item.benefit}</td>
-            <td>₱${item.amount.toLocaleString()}</td>
-            <td>${item.date}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployeeAllowance('${item.employee}', '${item.benefit}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function addAllowanceCategory() {
-    const name = document.getElementById('allowanceName').value;
-    const type = document.getElementById('allowanceType').value;
-    const rate = document.getElementById('allowanceRate').value;
-    const desc = document.getElementById('allowanceDesc').value;
-
-    if (!name || !rate) return alert("Please fill in all required fields.");
-
-    allowanceCategories.push({
-        name,
-        rate: parseFloat(rate),
-        type,
-        recurring: 'Yes'
-    });
-
-    renderAllowances();
-    document.getElementById('allowanceName').value = '';
-    document.getElementById('allowanceRate').value = '';
-    document.getElementById('allowanceDesc').value = '';
-}
-
-function assignAllowance() {
-    const employee = document.getElementById('assignEmployeeSelect').value;
-    const overrideAmount = document.getElementById('overrideAmount').value;
-    const date = document.getElementById('effectiveDate').value;
-    
-    const selectedTypes = Array.from(document.querySelectorAll('input[name="assignAllowanceType"]:checked'))
-        .map(cb => cb.value);
-
-    if (!employee || selectedTypes.length === 0 || !date) {
-        return alert("Please select an employee, at least one allowance type, and an effective date.");
-    }
-
-    selectedTypes.forEach(type => {
-        const category = allowanceCategories.find(c => c.name === type);
-        employeeAllowances.push({
-            employee,
-            benefit: type,
-            amount: overrideAmount ? parseFloat(overrideAmount) : category.rate,
-            date
-        });
-    });
-
-    renderAllowances();
-    document.getElementById('overrideAmount').value = '';
-    document.getElementById('effectiveDate').value = '';
-    document.querySelectorAll('input[name="assignAllowanceType"]:checked').forEach(cb => cb.checked = false);
-}
-
-function deleteAllowanceCategory(name) {
-    if (confirm(`Are you sure you want to delete the ${name} category?`)) {
-        allowanceCategories = allowanceCategories.filter(c => c.name !== name);
-        renderAllowances();
-    }
-}
-
-function deleteEmployeeAllowance(employee, benefit) {
-    if (confirm(`Are you sure you want to remove ${benefit} for ${employee}?`)) {
-        employeeAllowances = employeeAllowances.filter(a => !(a.employee === employee && a.benefit === benefit));
-        renderAllowances();
-    }
-}
-
-// --- Deductions ---
-function renderDeductions() {
-    renderDeductionCategories();
-    renderDeductionBreakdown();
-    populateEmployeeDropdown();
-    
-    // Populate deduction types list for assignment
-    const typesList = document.getElementById('deductionTypesList');
-    if (typesList) {
-        typesList.innerHTML = deductionCategories.map(cat => `
-            <div style="margin-bottom: 5px;">
-                <input type="checkbox" name="assignDeductionType" value="${cat.name}"> ${cat.name}
-            </div>
-        `).join('');
-    }
-}
-
-function renderDeductionCategories() {
-    const tbody = document.getElementById('deductionCategoriesBody');
-    if (!tbody) return;
-    tbody.innerHTML = deductionCategories.map(cat => `
-        <tr>
-            <td>${cat.name}</td>
-            <td>${cat.type === 'Percentage' ? cat.rate + '%' : '₱' + cat.rate.toLocaleString()}</td>
-            <td>${cat.type}</td>
-            <td>${cat.recurring}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteDeductionCategory('${cat.name}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function renderDeductionBreakdown() {
-    const tbody = document.getElementById('deductionBreakdownBody');
-    if (!tbody) return;
-    tbody.innerHTML = employeeDeductions.map(item => `
-        <tr>
-            <td>${item.employee}</td>
-            <td>${item.deduction}</td>
-            <td>₱${item.amount.toLocaleString()}</td>
-            <td>${item.date}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployeeDeduction('${item.employee}', '${item.deduction}')"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
-}
-
-function addDeductionCategory() {
-    const name = document.getElementById('deductionName').value;
-    const type = document.getElementById('deductionType').value;
-    const rate = document.getElementById('deductionRate').value;
-    const desc = document.getElementById('deductionDesc').value;
-
-    if (!name || !rate) return alert("Please fill in all required fields.");
-
-    deductionCategories.push({
-        name,
-        rate: parseFloat(rate),
-        type,
-        recurring: 'Yes'
-    });
-
-    renderDeductions();
-    document.getElementById('deductionName').value = '';
-    document.getElementById('deductionRate').value = '';
-    document.getElementById('deductionDesc').value = '';
-}
-
-function assignDeduction() {
-    const employee = document.getElementById('assignDeductionEmployeeSelect').value;
-    const overrideAmount = document.getElementById('deductionOverrideAmount').value;
-    const date = document.getElementById('deductionEffectiveDate').value;
-    
-    const selectedTypes = Array.from(document.querySelectorAll('input[name="assignDeductionType"]:checked'))
-        .map(cb => cb.value);
-
-    if (!employee || selectedTypes.length === 0 || !date) {
-        return alert("Please select an employee, at least one deduction type, and an effective date.");
-    }
-
-    selectedTypes.forEach(type => {
-        const category = deductionCategories.find(c => c.name === type);
-        let amount = overrideAmount ? parseFloat(overrideAmount) : 0;
-        
-        if (!overrideAmount) {
-            if (category.type === 'Fixed') {
-                amount = category.rate;
-            } else {
-                // Simplified percentage calculation for preview
-                const emp = employees.find(e => e.full_name === employee);
-                const salary = emp ? parseFloat(emp.basic_salary) : 20000;
-                amount = salary * (category.rate / 100);
-            }
-        }
-
-        employeeDeductions.push({
-            employee,
-            deduction: type,
-            amount: amount,
-            date
-        });
-    });
-
-    renderDeductions();
-    document.getElementById('deductionOverrideAmount').value = '';
-    document.getElementById('deductionEffectiveDate').value = '';
-    document.querySelectorAll('input[name="assignDeductionType"]:checked').forEach(cb => cb.checked = false);
-}
-
-function deleteDeductionCategory(name) {
-    if (confirm(`Are you sure you want to delete the ${name} category?`)) {
-        deductionCategories = deductionCategories.filter(c => c.name !== name);
-        renderDeductions();
-    }
-}
-
-function deleteEmployeeDeduction(employee, deduction) {
-    if (confirm(`Are you sure you want to remove ${deduction} for ${employee}?`)) {
-        employeeDeductions = employeeDeductions.filter(a => !(a.employee === employee && a.deduction === deduction));
-        renderDeductions();
-    }
-}
-
-// --- Faculty Payroll ---
-function renderFacultyPayroll() {
-    const tbody = document.getElementById('facultyPayrollTableBody');
-    if (!tbody) return;
-
-    // Filter faculty only
-    const faculty = employees.filter(emp => emp.position === 'Faculty' || emp.department === 'Faculty');
-    
-    if (faculty.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="17" class="text-center">No faculty records found.</td></tr>';
-        return;
-    }
-
-    // Update Header Info
-    const today = new Date();
-    document.getElementById('faculty-payroll-period').innerText = today.toLocaleString('default', { month: 'long', year: 'numeric' });
-    document.getElementById('faculty-cutoff-period').innerText = `${today.getMonth() + 1}/01 - ${today.getMonth() + 1}/15`;
-
-    tbody.innerHTML = faculty.map((emp, index) => {
-        const basicPay = parseFloat(emp.basic_salary) || 0;
-        const earned = basicPay / 2; // Semi-monthly
-        const hdmfCont = emp.pagibig ? 100 : 0; // Check if Pag-IBIG exists
-        const totalDeduction = hdmfCont;
-        const honorarium = 0;
-        const netPay = earned - totalDeduction + honorarium;
-
-        return `
-            <tr>
-                <td>${index + 1}</td>
-                <td style="text-align: left; padding-left: 10px;"><strong>${emp.full_name}</strong></td>
-                <td>₱${basicPay.toLocaleString()}</td>
-                <td>₱${earned.toLocaleString()}</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>₱${hdmfCont.toLocaleString()}</td>
-                <td>0</td>
-                <td>0</td>
-                <td>₱${totalDeduction.toLocaleString()}</td>
-                <td>₱${honorarium.toLocaleString()}</td>
-                <td><strong>₱${netPay.toLocaleString()}</strong></td>
-            </tr>
-        `;
-    }).join('');
-}
-
-function showRunFacultyPayroll() {
-    const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!start) return;
-    const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!end) return;
-    
-    if (confirm(`Run Faculty Payroll for ${start} to ${end}?`)) {
-        runPayrollDirect(start, end);
-    }
-}
-
-function showRunUtilityPayroll() {
-    const start = prompt("Enter Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!start) return;
-    const end = prompt("Enter End Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!end) return;
-    
-    if (confirm(`Run Utility Payroll for ${start} to ${end}?`)) {
-        runPayrollDirect(start, end);
-    }
-}
-
-function renderUtilityPayroll() {
-    const tbody = document.getElementById('utilityPayrollTableBody');
-    if (!tbody) return;
-
-    const utility = employees.filter(emp => ['Maintenance', 'Security', 'Janitorial'].includes(emp.department) || emp.position === 'Utility');
-    
-    if (utility.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="15" class="text-center">No utility records found.</td></tr>';
-        return;
-    }
-
-    const today = new Date();
-    document.getElementById('utility-payroll-period').innerText = today.toLocaleString('default', { month: 'long', year: 'numeric' });
-    document.getElementById('utility-cutoff-period').innerText = `${today.getMonth() + 1}/01 - ${today.getMonth() + 1}/15`;
-
-    tbody.innerHTML = utility.map((emp, index) => {
-        const basicPay = parseFloat(emp.basic_salary) || 0;
-        const ratePerDay = basicPay / 22;
-        const earned = ratePerDay * 11;
-        const hdmfCont = emp.pagibig ? 100 : 0; // Check if Pag-IBIG exists
-        const totalDeduction = hdmfCont;
-        const netPay = earned - totalDeduction;
-
-        return `
-            <tr>
-                <td>${index + 1}</td>
-                <td style="text-align: left; padding-left: 10px;"><strong>${emp.full_name}</strong></td>
-                <td>₱${ratePerDay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                <td>₱${earned.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>0</td>
-                <td>₱${hdmfCont.toLocaleString()}</td>
-                <td>0</td>
-                <td>0</td>
-                <td>₱${totalDeduction.toLocaleString()}</td>
-                <td><strong>₱${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
-                <td>₱${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                <td>0</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// --- Subject Loads ---
-let subjectLoads = [];
-async function fetchSubjectLoads() {
-    const response = await fetch('backend/api.php?action=get_subject_loads');
-    const result = await response.json();
-    subjectLoads = Array.isArray(result) ? result : [];
-    if (currentPage === 'subject_loads') renderSubjectLoads();
-    if (currentPage === 'employees') renderEmployeeTable();
-}
-
-async function fetchMasterSubjects() {
-    const response = await fetch('backend/api.php?action=get_subjects');
-    const result = await response.json();
-    masterSubjects = Array.isArray(result) ? result : [];
-    if (currentPage === 'subject_loads') renderSubjectLoads();
-}
-
-function renderSubjectLoads() {
-    // Render current loads
-    const loadTbody = document.getElementById('subjectLoadsTableBody');
-    if (loadTbody) {
-        loadTbody.innerHTML = subjectLoads.map(load => `
-            <tr>
-                <td>${load.faculty_name}</td>
-                <td>${load.code}</td>
-                <td>${load.description}</td>
-                <td>${load.units}</td>
-                <td>${load.hours}</td>
-                <td>
-                    <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('') || '<tr><td colspan="6" class="text-center">No subject loads assigned.</td></tr>';
-    }
-
-    // Render master subjects
-    const subjectTbody = document.getElementById('subjectsTableBody');
-    if (subjectTbody) {
-        subjectTbody.innerHTML = masterSubjects.map(s => `
-            <tr>
-                <td><strong>${s.code}</strong></td>
-                <td>${s.description}</td>
-                <td>${s.units}</td>
-                <td>${s.hours}</td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="editMasterSubject('${s.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteMasterSubject('${s.id}')"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No subjects created yet.</td></tr>';
-    }
-}
-
-async function saveSubjectLoad() {
-    const facultyId = document.getElementById('loadFacultyId').value;
-    const code = document.getElementById('loadSubjectCode').value;
-    const description = document.getElementById('loadDescription').value;
-    const units = document.getElementById('loadUnits').value;
-    const hours = document.getElementById('loadHours').value;
-
-    if (!facultyId || !code || !units || !hours) return alert("Please fill in all required fields.");
-
-    const response = await fetch('backend/api.php?action=save_subject_load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faculty_id: facultyId, code, description, units, hours })
-    });
-
-    const result = await response.json();
-    if (result.success) {
-        closeModal('addLoadModal');
-        document.getElementById('subjectLoadForm').reset();
-        fetchSubjectLoads(); // Refresh loads
-    } else {
-        alert("Error: " + (result.message || "Failed to save."));
-    }
-}
-
-async function deleteSubjectLoad(id) {
-    if (confirm("Are you sure you want to delete this subject load?")) {
-        const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
-        const result = await response.json();
-        if (result.success) {
-            fetchSubjectLoads();
-        } else {
-            alert("Error: " + (result.message || "Failed to delete."));
-        }
-    }
-}
-
-// --- Master Subject CRUD ---
-function editMasterSubject(id) {
-    const subject = masterSubjects.find(s => s.id == id);
-    if (!subject) return;
-    
-    document.getElementById('subjectId').value = subject.id;
-    document.getElementById('subjectCode').value = subject.code;
-    document.getElementById('subjectDescription').value = subject.description;
-    document.getElementById('subjectUnits').value = subject.units;
-    document.getElementById('subjectHours').value = subject.hours;
-    
-    document.getElementById('subjectModalTitle').innerText = 'Edit Subject';
-    openModal('subjectModal');
-}
-
-async function saveMasterSubject() {
-    const id = document.getElementById('subjectId').value;
-    const code = document.getElementById('subjectCode').value;
-    const description = document.getElementById('subjectDescription').value;
-    const units = document.getElementById('subjectUnits').value;
-    const hours = document.getElementById('subjectHours').value;
-
-    if (!code || !description) return alert("Code and Description are required.");
-
-    const response = await fetch('backend/api.php?action=save_subject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, code, description, units, hours })
-    });
-
-    const result = await response.json();
-    if (result.success) {
-        closeModal('subjectModal');
-        document.getElementById('masterSubjectForm').reset();
-        document.getElementById('subjectId').value = '';
-        document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
-        fetchMasterSubjects();
-    } else {
-        alert("Error: " + (result.message || "Failed to save subject."));
-    }
-}
-
-async function deleteMasterSubject(id) {
-    if (confirm("Are you sure you want to delete this subject? It will not remove already assigned loads.")) {
-        const response = await fetch(`backend/api.php?action=delete_subject&id=${id}`);
-        const result = await response.json();
-        if (result.success) {
-            fetchMasterSubjects();
-        } else {
-            alert("Error: " + (result.message || "Failed to delete."));
-        }
-    }
-}
-
-// --- Payroll Officer Assignment ---
-function renderPayrollOfficerAssignment() {
-    const select = document.getElementById('payrollOfficerSelect');
-    if (select) {
-        select.innerHTML = '<option value="">Choose Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.position})</option>`).join('');
-    }
-    
-    const list = document.getElementById('payrollOfficersList');
-    if (list) {
-        const officers = employees.filter(emp => emp.role === 'Payroll');
-        list.innerHTML = officers.map(off => `
-            <li style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span>${off.full_name}</span>
-                <button class="btn btn-danger btn-sm" onclick="removePayrollOfficer('${off.id}')">Revoke</button>
-            </li>
-        `).join('') || 'No officers assigned.';
-    }
-}
-
-async function assignPayrollOfficerRole() {
-    const empId = document.getElementById('payrollOfficerSelect').value;
-    if (!empId) return alert("Please select an employee.");
-    
-    const response = await fetch(`backend/api.php?action=update_role&id=${empId}&role=Payroll`);
-    const result = await response.json();
-    if (result.success) {
-        alert("Payroll Officer assigned successfully.");
-        fetchData(); // Refresh local data
-    }
-}
-
-async function removePayrollOfficer(empId) {
-    if (confirm("Revoke payroll officer access?")) {
-        const response = await fetch(`backend/api.php?action=update_role&id=${empId}&role=Employee`);
-        const result = await response.json();
-        if (result.success) {
-            alert("Access revoked.");
-            fetchData();
-        }
-    }
-}
-
 // --- Charts ---
-let pChart, aChart;
 function initCharts() {
     const ctxP = document.getElementById('payrollChart')?.getContext('2d');
     const ctxA = document.getElementById('attendanceChart')?.getContext('2d');
@@ -2339,18 +1728,54 @@ function initCharts() {
     if (pChart) pChart.destroy();
     if (aChart) aChart.destroy();
 
-    // Stats counting
-    document.getElementById('stat-total-emp').innerText = employees.length;
-    document.getElementById('stat-present').innerText = attendanceLogs.filter(l => l.log_date === new Date().toISOString().split('T')[0] && l.check_in).length;
-    document.getElementById('stat-leave').innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+    const parseMySqlDateTime = (value) => {
+        if (!value) return null;
+        const iso = String(value).includes('T') ? String(value) : String(value).replace(' ', 'T');
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return null;
+        return d;
+    };
+
+    const monthLabel = (d) => d.toLocaleString('default', { month: 'short' });
+    const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const now = new Date();
+    const last6 = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        last6.push({ key: monthKey(d), label: monthLabel(d) });
+    }
+
+    const sums = Object.fromEntries(last6.map(m => [m.key, 0]));
+    for (const p of payrollHistory) {
+        const d = parseMySqlDateTime(p.created_at);
+        if (!d) continue;
+        const key = monthKey(d);
+        if (key in sums) sums[key] += parseFloat(p.net_pay || 0);
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const presentIds = new Set(attendanceLogs.filter(l => l.log_date === todayStr && l.check_in).map(l => String(l.employee_id)));
+    const onLeaveCount = employees.filter(e => (e.status || '').toLowerCase() === 'on leave').length;
+    const activeCount = employees.filter(e => (e.status || '').toLowerCase() !== 'inactive').length;
+    const presentCount = presentIds.size;
+    const absentCount = Math.max(activeCount - onLeaveCount - presentCount, 0);
+
+    const totalEl = document.getElementById('stat-total-emp');
+    const presentEl = document.getElementById('stat-present');
+    const absentEl = document.getElementById('stat-absent');
+    const leaveEl = document.getElementById('stat-leave');
+    if (totalEl) totalEl.innerText = String(employees.length);
+    if (presentEl) presentEl.innerText = String(presentCount);
+    if (absentEl) absentEl.innerText = String(absentCount);
+    if (leaveEl) leaveEl.innerText = String(leaveRequests.filter(r => r.status === 'Pending').length);
 
     pChart = new Chart(ctxP, {
         type: 'line',
         data: {
-            labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+            labels: last6.map(m => m.label),
             datasets: [{
                 label: 'Expenditure (₱)',
-                data: [450000, 465000, 480000, 470000, 490000, 510000],
+                data: last6.map(m => Math.round(sums[m.key])),
                 borderColor: '#3b4fc9',
                 backgroundColor: 'rgba(59, 79, 201, 0.1)',
                 fill: true,
@@ -2364,7 +1789,7 @@ function initCharts() {
         data: {
             labels: ['Present', 'Absent', 'On Leave'],
             datasets: [{
-                data: [employees.length * 0.9, employees.length * 0.05, employees.length * 0.05],
+                data: [presentCount, absentCount, onLeaveCount],
                 backgroundColor: ['#27ae60', '#c0392b', '#f39c12']
             }]
         }
@@ -2382,8 +1807,6 @@ async function logout() {
 // Initialize on Load
 window.onload = () => {
     fetchData();
-        fetchMasterSubjects();
-        fetchSubjectLoads();
-        const dateFilter = document.getElementById('attendanceDateFilter');
+    const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
 };

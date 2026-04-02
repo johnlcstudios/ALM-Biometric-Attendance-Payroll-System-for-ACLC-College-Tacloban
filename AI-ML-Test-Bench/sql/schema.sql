@@ -5,7 +5,7 @@ CREATE DATABASE IF NOT EXISTS alm_biometrics;
 USE alm_biometrics;
 
 -- Companies Table
-CREATE TABLE companies (
+CREATE TABLE IF NOT EXISTS companies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     admin_email VARCHAR(255) UNIQUE NOT NULL,
@@ -26,19 +26,19 @@ CREATE TABLE companies (
 );
 
 -- Users Table (Roles: HR, Payroll, Employee)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     username VARCHAR(100) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('HR', 'Payroll', 'Employee') NOT NULL,
+    role ENUM('HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee') DEFAULT 'Employee',
     email VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 );
 
 -- Employees Table
-CREATE TABLE employees (
+CREATE TABLE IF NOT EXISTS employees (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     employee_id VARCHAR(50) NOT NULL, -- e.g. EMP001
@@ -47,7 +47,7 @@ CREATE TABLE employees (
     position VARCHAR(100),
     department VARCHAR(100),
     basic_salary DECIMAL(10, 2),
-    status ENUM('Active', 'Inactive', 'On Leave') DEFAULT 'Active',
+    status ENUM('Active', 'Inactive', 'On Leave', 'Probationary', 'Contractual', 'Resigned') DEFAULT 'Active',
     email VARCHAR(255),
     sss VARCHAR(50),
     tin VARCHAR(50),
@@ -63,7 +63,7 @@ CREATE TABLE employees (
 );
 
 -- Attendance Logs
-CREATE TABLE attendance (
+CREATE TABLE IF NOT EXISTS attendance (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     employee_id INT NOT NULL,
@@ -73,27 +73,31 @@ CREATE TABLE attendance (
     lunch_in TIME,
     check_out TIME,
     status VARCHAR(50), -- e.g. On-Time, Late, Absent
+    late_minutes INT DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
 -- Payroll History
-CREATE TABLE payroll (
+CREATE TABLE IF NOT EXISTS payroll (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     employee_id INT NOT NULL,
+    payroll_type ENUM('General', 'Faculty', 'Utility') DEFAULT 'General',
     period VARCHAR(50), -- e.g. 03/2026
     basic_pay DECIMAL(10, 2),
     deductions DECIMAL(10, 2),
     net_pay DECIMAL(10, 2),
+    breakdown JSON,
     status ENUM('Pending', 'Paid') DEFAULT 'Pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_payroll_company_emp_period (company_id, employee_id, period),
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
 -- Leave Requests
-CREATE TABLE leave_requests (
+CREATE TABLE IF NOT EXISTS leave_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     employee_id INT NOT NULL,
@@ -105,8 +109,32 @@ CREATE TABLE leave_requests (
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS loans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    reason TEXT,
+    status ENUM('Pending', 'Approved', 'Rejected', 'Paid') DEFAULT 'Pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS resignations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    reason TEXT,
+    effective_date DATE,
+    status ENUM('Pending', 'Processing', 'Completed') DEFAULT 'Pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+);
+
 -- Deductions Table
-CREATE TABLE deductions (
+CREATE TABLE IF NOT EXISTS deductions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -117,8 +145,45 @@ CREATE TABLE deductions (
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS allowance_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type ENUM('Fixed', 'Percentage') NOT NULL,
+    rate DECIMAL(10, 2) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS employee_allowances (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    category_id INT NOT NULL,
+    override_amount DECIMAL(10, 2),
+    effective_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES allowance_categories(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS employee_deductions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    deduction_id INT NOT NULL,
+    override_amount DECIMAL(10, 2),
+    effective_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    FOREIGN KEY (deduction_id) REFERENCES deductions(id) ON DELETE CASCADE
+);
+
 -- Subjects Master Table
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     code VARCHAR(50) NOT NULL,
@@ -130,7 +195,7 @@ CREATE TABLE subjects (
 );
 
 -- Subject Loads Table (Assigned to Faculty)
-CREATE TABLE subject_loads (
+CREATE TABLE IF NOT EXISTS subject_loads (
     id INT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     faculty_id INT NOT NULL,
@@ -144,9 +209,9 @@ CREATE TABLE subject_loads (
 );
 
 -- Insert Demo Company
-INSERT INTO companies (name, admin_email) VALUES ('ALM Tech Solutions', 'hr@almtech.com');
+INSERT IGNORE INTO companies (id, name, admin_email) VALUES (1, 'ALM Tech Solutions', 'hr@almtech.com');
 
--- Insert Demo Users (Passwords are 'admin123')
-INSERT INTO users (company_id, username, password, role, email) VALUES 
+INSERT IGNORE INTO users (company_id, username, password, role, email) VALUES
+(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'admin@almtech.com'),
 (1, 'hr_admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'HR', 'hr@almtech.com'),
-(1, 'payroll_officer', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Payroll', 'payroll@almtech.com');
+(1, 'payroll_officer', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Payroll Officer', 'payroll@almtech.com');
