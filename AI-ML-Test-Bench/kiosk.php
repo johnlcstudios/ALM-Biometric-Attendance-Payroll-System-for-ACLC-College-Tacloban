@@ -585,8 +585,8 @@
 
         let stabilityCounter = 0;
         let lastBox = null;
-        const STABILITY_REQUIRED = 3; // Reduced for faster reaction
-        const MOVEMENT_THRESHOLD = 30; // Slightly more relaxed for UX
+        const STABILITY_REQUIRED = 4;
+        const MOVEMENT_THRESHOLD = 20;
         
         let mouthOpenDetected = false;
         let smileDetected = false;
@@ -600,7 +600,7 @@
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
             // SSD Mobilenet is more accurate than TinyFaceDetector for landmarks
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.6 });
 
             async function loop() {
                 if (isProcessing || !currentCompanyId) {
@@ -617,6 +617,21 @@
                 ctx.clearRect(0, 0, overlay.width, overlay.height);
 
                 if (detection) {
+                    if ((detection.detection?.score || 0) < 0.85) {
+                        stabilityCounter = 0;
+                        lastBox = null;
+                        resetLiveness();
+                        ctx.save();
+                        ctx.scale(-1, 1);
+                        ctx.translate(-overlay.width, 0);
+                        ctx.font = "bold 20px Inter";
+                        ctx.textAlign = "center";
+                        ctx.fillStyle = "#f39c12";
+                        ctx.fillText("MOVE CLOSER / BETTER LIGHTING", overlay.width / 2, overlay.height - 30);
+                        ctx.restore();
+                        requestAnimationFrame(loop);
+                        return;
+                    }
                     const dims = faceapi.matchDimensions(overlay, video, true);
                     const resizedDetection = faceapi.resizeResults(detection, dims);
                     const landmarks = resizedDetection.landmarks;
