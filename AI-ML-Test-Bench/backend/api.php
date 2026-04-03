@@ -615,6 +615,9 @@ try {
                  break;
             }
 
+            // Log incoming descriptor for debugging
+            error_log("Kiosk Scan: Incoming descriptor for company_id {$company_id}: " . json_encode($descriptor));
+
             // Fetch enrolled faces
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
             $stmt_faces->execute([$company_id]);
@@ -638,6 +641,7 @@ try {
                     }
                     
                     $distance = sqrt($sum);
+                    error_log("Kiosk Scan: Employee {$face['full_name']} (ID: {$face['id']}) - Distance: {$distance}");
                     if ($distance < $best_distance) {
                         $second_best_distance = $best_distance;
                         $best_distance = $distance;
@@ -651,6 +655,7 @@ try {
             if (!$best_match || $best_distance > $scan_threshold) {
                 // Return a more helpful message for debugging
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
+                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$scan_threshold}");
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
                 break;
             }
@@ -661,6 +666,7 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
                 if ($ratio <= $ambiguity_ratio_threshold) {
+                    error_log("Kiosk Scan: Ambiguous match detected. Best distance: {$best_distance}, Second best: {$second_best_distance}, Ratio: {$ratio}");
                     echo json_encode([
                         'success' => false,
                         'message' => 'Ambiguous match, please try again',
@@ -669,6 +675,7 @@ try {
                     break;
                 }
             }
+            error_log("Kiosk Scan: Match found for {$best_match['full_name']} (ID: {$best_match['id']}). Distance: {$best_distance}, Match %: {$match_percentage}");
 
             if ($best_match) {
                 $employee_id = $best_match['id'];
@@ -922,6 +929,13 @@ try {
 
             $pdo->beginTransaction();
             try {
+                // Check if table exists before updating
+                $checkTable = $pdo->prepare("SHOW TABLES LIKE ?");
+                $checkTable->execute([$table]);
+                if (!$checkTable->fetch()) {
+                    throw new Exception("Table $table does not exist");
+                }
+
                 $stmt = $pdo->prepare("UPDATE $table SET status = ? WHERE id = ? AND company_id = ?");
                 $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
 
@@ -940,6 +954,40 @@ try {
             } catch (Exception $e) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Failed to update status: ' . $e->getMessage()]);
+            }
+            break;
+
+        case 'apply_leave':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp = $stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+
+            $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, duration, reason, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+            $stmt->execute([$emp['company_id'], $emp['id'], $data['type'], $data['duration'], $data['reason']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'apply_loan':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp = $stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+
+            // Check if loans table exists, if not create it or fail gracefully
+            try {
+                $stmt = $pdo->prepare("INSERT INTO loans (company_id, employee_id, amount, reason, status) VALUES (?, ?, ?, ?, 'Pending')");
+                $stmt->execute([$emp['company_id'], $emp['id'], $data['amount'], $data['reason']]);
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                // If table doesn't exist, we might need to create it. For now, return error.
+                echo json_encode(['success' => false, 'message' => 'Loans feature not fully initialized: ' . $e->getMessage()]);
             }
             break;
 
@@ -1037,13 +1085,73 @@ try {
             $stmt_leave = $pdo->prepare("SELECT * FROM leave_requests WHERE employee_id = ? ORDER BY id DESC");
             $stmt_leave->execute([$eid]);
             $leave = $stmt_leave->fetchAll();
+
+            $stmt_loans = $pdo->prepare("SELECT * FROM loans WHERE employee_id = ? ORDER BY id DESC");
+            try {
+                $stmt_loans->execute([$eid]);
+                $loans = $stmt_loans->fetchAll();
+            } catch (Exception $e) {
+                $loans = [];
+            }
+
+            $stmt_subjects = $pdo->prepare("SELECT * FROM subject_loads WHERE faculty_id = ? ORDER BY created_at DESC");
+            $stmt_subjects->execute([$eid]);
+            $subjects = $stmt_subjects->fetchAll();
+
+            $stmt_resignation = $pdo->prepare("SELECT * FROM resignations WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_resignation->execute([$eid]);
+            $resignation = $stmt_resignation->fetchAll();
             
             echo json_encode([
                 'profile' => $emp,
                 'attendance' => $attendance,
                 'payroll' => $payroll,
-                'leave' => $leave
+                'leave' => $leave,
+                'loans' => $loans,
+                'subjects' => $subjects,
+                'resignation' => $resignation
             ]);
+            break;
+
+        case 'update_profile':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
+            
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid email format']));
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Update User Email
+                $stmt_user = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
+                $stmt_user->execute([$email, $_SESSION['user_id']]);
+
+                // Update Employee Details (only certain fields allowed for self-update)
+                $stmt_emp = $pdo->prepare("UPDATE employees SET email = ?, dob = ? WHERE user_id = ?");
+                $stmt_emp->execute([$email, $data['dob'], $_SESSION['user_id']]);
+
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'apply_resignation':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp = $stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+
+            $stmt = $pdo->prepare("INSERT INTO resignations (company_id, employee_id, reason, effective_date, status) VALUES (?, ?, ?, ?, 'Pending')");
+            $stmt->execute([$emp['company_id'], $emp['id'], $data['reason'], $data['effective_date']]);
+            echo json_encode(['success' => true]);
             break;
 
         case 'get_subject_loads':
