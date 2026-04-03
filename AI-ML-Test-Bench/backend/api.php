@@ -1037,13 +1037,76 @@ try {
             $stmt_leave = $pdo->prepare("SELECT * FROM leave_requests WHERE employee_id = ? ORDER BY id DESC");
             $stmt_leave->execute([$eid]);
             $leave = $stmt_leave->fetchAll();
+
+            $stmt_loans = $pdo->prepare("SELECT * FROM loans WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_loans->execute([$eid]);
+            $loans = $stmt_loans->fetchAll();
+
+            $stmt_resignation = $pdo->prepare("SELECT * FROM resignations WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_resignation->execute([$eid]);
+            $resignation = $stmt_resignation->fetchAll();
             
             echo json_encode([
                 'profile' => $emp,
                 'attendance' => $attendance,
                 'payroll' => $payroll,
-                'leave' => $leave
+                'leave' => $leave,
+                'loans' => $loans,
+                'resignation' => $resignation
             ]);
+            break;
+
+        case 'request_resignation':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            // Get employee ID
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $eid = $stmt->fetchColumn();
+            
+            if (!$eid) exit(json_encode(['success' => false, 'message' => 'Employee record not found']));
+
+            $stmt = $pdo->prepare("INSERT INTO resignations (company_id, employee_id, reason, effective_date, status) VALUES (?, ?, ?, ?, 'Pending')");
+            $stmt->execute([$_SESSION['company_id'], $eid, $data['reason'], $data['effective_date']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'apply_leave':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            // Get employee ID
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $eid = $stmt->fetchColumn();
+            
+            $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, duration, reason, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
+            $stmt->execute([$_SESSION['company_id'], $eid, $data['type'], $data['duration'], $data['reason']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'apply_loan':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            // Get employee ID
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $eid = $stmt->fetchColumn();
+            
+            $stmt = $pdo->prepare("INSERT INTO loans (company_id, employee_id, amount, reason, status) VALUES (?, ?, ?, ?, 'Pending')");
+            $stmt->execute([$_SESSION['company_id'], $eid, $data['amount'], $data['reason']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'update_ess_profile':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            $stmt = $pdo->prepare("UPDATE employees SET email = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE user_id = ? AND company_id = ?");
+            $stmt->execute([$data['email'], $data['sss'], $data['philhealth'], $data['tin'], $data['pagibig'], $_SESSION['user_id'], $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
             break;
 
         case 'get_subject_loads':
