@@ -650,6 +650,11 @@
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
             
+            // Wait for video metadata to be loaded
+            if (video.readyState < 2) {
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+            }
+
             // Standardized detection options
             const getOptions = () => {
                 if (faceapi.nets.ssdMobilenetv1.params) {
@@ -658,8 +663,12 @@
                 return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
             };
 
-            // Initialize dimensions once
-            faceapi.matchDimensions(overlay, video, true);
+            // Initialize dimensions
+            let displaySize = faceapi.matchDimensions(overlay, video, true);
+            if (displaySize.width === 0 || displaySize.height === 0) {
+                // Fallback if metadata wasn't ready despite readyState check
+                displaySize = { width: 640, height: 480 };
+            }
 
             async function loop() {
                 if (!currentCompanyId) {
@@ -669,23 +678,29 @@
                 }
 
                 if (isProcessing) {
-                    // Keep the frame updated but don't detect
-                    ctx.clearRect(0, 0, overlay.width, overlay.height);
                     requestAnimationFrame(loop);
                     return;
                 }
 
                 try {
                     const options = getOptions();
-                    const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceExpressions();
+                    // Conditional detection based on loaded models
+                    let task = faceapi.detectSingleFace(video, options).withFaceLandmarks();
+                    if (faceapi.nets.faceExpressionNet.params) {
+                        task = task.withFaceExpressions();
+                    }
                     
+                    const detection = await task;
                     ctx.clearRect(0, 0, overlay.width, overlay.height);
 
                     if (detection) {
-                        const resizedDetection = faceapi.resizeResults(detection, { width: video.videoWidth, height: video.videoHeight });
+                        const resizedDetection = faceapi.resizeResults(detection, displaySize);
                         const landmarks = resizedDetection.landmarks;
                         const expressions = resizedDetection.expressions;
                         const box = resizedDetection.detection.box;
+
+                        // Reset smile detected for this frame
+                        smileDetected = false;
 
                         // Smile Detection
                         if (expressions && expressions.happy > 0.6) {
@@ -694,7 +709,7 @@
                             const mouth = landmarks.getMouth();
                             const width = Math.hypot(mouth[0].x - mouth[6].x, mouth[0].y - mouth[6].y);
                             const height = Math.hypot(mouth[2].x - mouth[10].x, mouth[2].y - mouth[10].y);
-                            if (width / height > 2.5) smileDetected = true; // Slightly more relaxed
+                            if (width / height > 2.5) smileDetected = true; 
                         }
 
                         // Stability Check
@@ -735,10 +750,9 @@
                             instruction = "VERIFIED! SCANNING...";
                             instructionColor = "#27ae60";
                             
-                            // Immediately stop processing next frames
                             isProcessing = true;
                             
-                            // Capture descriptor from the current detection results to avoid a second slow detection
+                            // Re-detect with descriptor for final processing
                             const fullDetection = await faceapi.detectSingleFace(video, options)
                                 .withFaceLandmarks()
                                 .withFaceDescriptor();
