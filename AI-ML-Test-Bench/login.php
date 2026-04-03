@@ -26,40 +26,55 @@ if (isset($_SESSION['user_id'])) {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* BODY */
 body {
     height: 100vh;
-    background: #f0f2f5 url('assets/bg.jpg') no-repeat center center/cover;
+    background: url('assets/bg.jpg') no-repeat center center/cover;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-/* CARD */
+/* GLASS CARD */
 .login-card {
     width: 450px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 15px;
     padding: 40px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+
+    /* GLASS EFFECT */
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+
+    border-radius: 20px;
+
+    /* SOFT BORDER + INNER LIGHT */
+    border: 1px solid rgba(255, 255, 255, 0.25);
+
+    /* DEPTH SHADOW */
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        inset 0 1px 1px rgba(255, 255, 255, 0.4);
 }
 
 /* LOGO */
 .logo {
     display: block;
-    margin: 0 auto 10px auto;
-    width: 100px;
-    height: 100px;
-    radius: 75%;
+    margin: 0 auto 15px auto;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
 }
 
 /* TITLE */
 .login-left h2 {
-    margin-bottom: 20px;
-    color: #333;
+    margin-bottom: 25px;
+    color: #ffffff;
     text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 /* INPUT */
@@ -71,61 +86,85 @@ body {
     position: relative;
 }
 
+/* GLASS INPUT */
 .input-wrapper input {
     width: 100%;
     padding: 12px 40px 12px 15px;
-    border-radius: 25px;
-    border: 1px solid #ccc;
+
+    border-radius: 20px;
+
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+
+    color: #fff;
     outline: none;
+
+    backdrop-filter: blur(10px);
 }
 
+.input-wrapper input::placeholder {
+    color: rgba(255,255,255,0.7);
+}
+
+/* FOCUS GLOW */
 .input-wrapper input:focus {
-    border-color: #2400b3;
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 0 10px rgba(255,255,255,0.4);
 }
 
+/* ICON */
 .input-wrapper i {
     position: absolute;
     right: 15px;
     top: 50%;
     transform: translateY(-50%);
-    color: #999;
+    color: rgba(255,255,255,0.7);
 }
 
-/* LOGIN BUTTON */
+/* LOGIN BUTTON (macOS style gradient) */
 .login-btn {
     width: 100%;
     padding: 12px;
     border: none;
-    border-radius: 25px;
-    background: #4800b3;
+    border-radius: 20px;
+
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
     color: #fff;
-    font-weight: bold;
+
+    font-weight: 600;
     cursor: pointer;
-    margin-bottom: 10px;
+
+    transition: all 0.3s ease;
 }
 
+/* BUTTON HOVER */
 .login-btn:hover {
-    background: #1633c6;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
-/* KIOSK BUTTON */
+/* KIOSK BUTTON (secondary glass button) */
 .kiosk-btn {
     display: block;
     width: 100%;
     padding: 12px;
-    border-radius: 25px;
-    background: #ffffff;
-    border: 1px solid #190691; 
-    color: #031b57;
-    font-weight: bold;
+
+    border-radius: 20px;
+
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+
+    color: #fff;
+    font-weight: 600;
     text-align: center;
     text-decoration: none;
+
+    backdrop-filter: blur(10px);
     transition: 0.3s;
 }
 
 .kiosk-btn:hover {
-    background: #4800b3;
-    color: #fff;
+    background: rgba(255,255,255,0.3);
 }
 
 /* SIGNUP */
@@ -133,12 +172,13 @@ body {
     margin: 15px 0;
     font-size: 14px;
     text-align: center;
+    color: rgba(255,255,255,0.8);
 }
 
 .signup-text a {
-    color: #0600b3;
-    text-decoration: none;
-    font-weight: bold;
+    color: #ffffff;
+    font-weight: 600;
+    text-decoration: underline;
 }
 </style>
 

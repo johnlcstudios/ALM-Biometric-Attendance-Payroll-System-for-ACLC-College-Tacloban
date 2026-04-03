@@ -1544,23 +1544,15 @@ async function initFaceEnrollment() {
         video.srcObject = stream;
         
         console.log("Loading face-api models...");
-        // Prefer local models if available
-        const MODEL_URL = '../kiosk/models/';
+        // Use CDN models directly to avoid shard-loading errors from local filesystem
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).catch(err => {
-            console.warn("Local models failed, falling back to CDN", err);
-            const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-            return Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(CDN_URL),
-                faceapi.nets.ssdMobilenetv1.loadFromUri(CDN_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL)
-            ]);
-        });
+        ]);
         console.log("Models loaded successfully");
 
         // Fetch existing faces to check for duplicates
