@@ -26,6 +26,65 @@ function isPayrollOrHigher() {
     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
 }
 
+// Centralized validation functions
+function validateRequired($data, $fields) {
+    $errors = [];
+    foreach ($fields as $field) {
+        if (!isset($data[$field]) || $data[$field] === '' || $data[$field] === null) {
+            $errors[] = "Field '$field' is required";
+        }
+    }
+    return $errors;
+}
+
+function validateDate($date, $fieldName) {
+    if (empty($date)) return [];
+    $d = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$d || $d->format('Y-m-d') !== $date) {
+        return ["Invalid date format for '$fieldName'. Expected YYYY-MM-DD"];
+    }
+    return [];
+}
+
+function validateAmount($amount, $fieldName, $min = 0) {
+    if (!is_numeric($amount)) {
+        return ["'$fieldName' must be a valid number"];
+    }
+    $num = (float)$amount;
+    if ($num < $min) {
+        return ["'$fieldName' must be at least $min"];
+    }
+    return [];
+}
+
+function validateId($id, $fieldName) {
+    if (!is_numeric($id) || (int)$id <= 0) {
+        return ["'$fieldName' must be a positive integer"];
+    }
+    return [];
+}
+
+function validateDateRange($startDate, $endDate) {
+    $errors = [];
+    $errors = array_merge($errors, validateDate($startDate, 'start_date'));
+    $errors = array_merge($errors, validateDate($endDate, 'end_date'));
+    if (empty($errors) && strtotime($startDate) > strtotime($endDate)) {
+        $errors[] = 'Start date cannot be after end date';
+    }
+    return $errors;
+}
+
+function rejectInvalidPayload($errors) {
+    if (!empty($errors)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $errors
+        ]);
+        exit;
+    }
+}
+
 try {
     switch ($action) {
         case 'login':
@@ -129,24 +188,27 @@ try {
         case 'run_specialized_payroll':
             if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
+            $type = $data['type'] ?? '';
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
 
-            if (empty($type) || empty($start_date) || empty($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
-            }
+            // Centralized validation
+            $errors = validateRequired($data, ['type', 'start_date', 'end_date']);
             if (!in_array($type, ['faculty', 'utility'])) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
+                $errors[] = 'Invalid payroll type. Must be faculty or utility';
             }
+            $errors = array_merge($errors, validateDateRange($start_date, $end_date));
+            rejectInvalidPayload($errors);
 
-            // Basic Date Validation
-            if (!strtotime($start_date) || !strtotime($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
-            }
-            if (strtotime($start_date) > strtotime($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
-            }
+            $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
+            $company_id = $_SESSION['company_id'];
+
+            $position = ($type === 'faculty') ? 'Faculty' : 'Utility';
+
+            $stmt_company = $pdo->prepare("SELECT deduction_per_min FROM companies WHERE id = ?");
+            $stmt_company->execute([$company_id]);
+            $company = $stmt_company->fetch();
+            $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
 
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
@@ -445,26 +507,19 @@ try {
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             
-            // Server-side Bulletproofing: Validation
-            $required = ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary'];
-            foreach ($required as $field) {
-                if (!isset($data[$field]) || empty($data[$field])) {
-                    exit(json_encode(['success' => false, 'message' => "Missing required field: $field"]));
-                }
+            // Centralized validation
+            $errors = validateRequired($data, ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary']);
+            $errors = array_merge($errors, validateDate($data['dob'], 'dob'));
+            $errors = array_merge($errors, validateAmount($data['basicSalary'], 'basicSalary', 0));
+            if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Invalid email format';
             }
+            rejectInvalidPayload($errors);
 
             // Sanitize Email
             $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid email format']));
-            }
 
-            // Ensure Numeric Salary
             $basic_salary = (float)$data['basicSalary'];
-            if ($basic_salary < 0) {
-                exit(json_encode(['success' => false, 'message' => 'Salary cannot be negative']));
-            }
-
             $status = (isset($data['status']) && is_string($data['status']) && trim($data['status']) !== '') ? trim($data['status']) : 'Active';
 
             if (isset($data['id']) && !empty($data['id'])) {
@@ -556,6 +611,8 @@ try {
         case 'delete_employee':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? '';
+            $errors = validateId($id, 'id');
+            rejectInvalidPayload($errors);
             $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true]);
@@ -861,9 +918,15 @@ try {
         case 'run_payroll':
             if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $start_date = $data['start_date'];
-            $end_date = $data['end_date'];
+            $start_date = $data['start_date'] ?? '';
+            $end_date = $data['end_date'] ?? '';
             $category = $data['category'] ?? 'all';
+
+            // Centralized validation
+            $errors = validateRequired($data, ['start_date', 'end_date']);
+            $errors = array_merge($errors, validateDateRange($start_date, $end_date));
+            rejectInvalidPayload($errors);
+
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
 
             $work_days_in_period = 0;
@@ -1041,6 +1104,11 @@ try {
         case 'apply_loan':
             if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
+            
+            // Centralized validation
+            $errors = validateRequired($data, ['amount', 'reason']);
+            $errors = array_merge($errors, validateAmount($data['amount'], 'amount', 0.01));
+            rejectInvalidPayload($errors);
             
             $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
             $stmt->execute([$_SESSION['user_id']]);
