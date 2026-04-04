@@ -2,6 +2,11 @@
 // api.php - Core Backend Logic
 header('Content-Type: application/json');
 
+// Biometric Constants
+define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
+define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -127,9 +132,25 @@ try {
         case 'run_specialized_payroll':
             if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $type = $data['type']; // 'faculty' or 'utility'
-            $start_date = $data['start_date'];
-            $end_date = $data['end_date'];
+            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
+            $start_date = $data['start_date'] ?? '';
+            $end_date = $data['end_date'] ?? '';
+
+            if (empty($type) || empty($start_date) || empty($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
+            }
+            if (!in_array($type, ['faculty', 'utility'])) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
+            }
+
+            // Basic Date Validation
+            if (!strtotime($start_date) || !strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
+            }
+            if (strtotime($start_date) > strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
+            }
+
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
 
@@ -143,20 +164,29 @@ try {
             $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
             $stmt_employees->execute([$company_id, $position]);
             $employees = $stmt_employees->fetchAll();
+            $employee_ids = array_column($employees, 'id');
+
+            // Pre-fetch all attendance logs to avoid N+1 query problem
+            $logs_by_emp = [];
+            if (!empty($employee_ids)) {
+                $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
+                $stmt_all_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ?");
+                $stmt_all_att->execute(array_merge($employee_ids, [$start_date, $end_date]));
+                while ($row = $stmt_all_att->fetch()) {
+                    $logs_by_emp[$row['employee_id']][] = $row;
+                }
+            }
 
             $pdo->beginTransaction();
             try {
                 foreach ($employees as $emp) {
-                    // Basic Attendance Stats for calculations
-                    $stmt_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ?");
-                    $stmt_att->execute([$emp['id'], $start_date, $end_date]);
-                    $logs = $stmt_att->fetchAll();
+                    $logs = $logs_by_emp[$emp['id']] ?? [];
                     
                     $total_absent = 0;
                     $total_late_min = 0;
                     $days_present = 0;
                     foreach ($logs as $l) {
-                        if ($l['status'] === 'Late') $total_late_min += $l['late_minutes'];
+                        if ($l['status'] === 'Late') $total_late_min += (int)$l['late_minutes'];
                         if ($l['status'] === 'Absent') $total_absent++;
                         if (!empty($l['check_in'])) $days_present++;
                     }
@@ -552,8 +582,6 @@ try {
                 break;
             }
 
-            $face_duplicate_threshold = 0.38;
-
             // Check for duplicate face within the same company
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND id != ?");
             $stmt_faces->execute([$_SESSION['company_id'], $data['id']]);
@@ -569,7 +597,7 @@ try {
                         $sum += $diff * $diff;
                     }
                     $distance = sqrt($sum);
-                    if ($distance < $face_duplicate_threshold) {
+                    if ($distance < BIOMETRIC_DUPLICATE_THRESHOLD) {
                         echo json_encode(['success' => false, 'message' => "This face is already registered to " . $face['full_name']]);
                         return;
                     }
@@ -621,8 +649,6 @@ try {
             $enrolled_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
-            $scan_threshold = 0.60; // Standard threshold for Euclidean distance in Face-api.js
-            $ambiguity_ratio_threshold = 1.05; // Less aggressive ambiguity check
             $best_distance = 999;
             $second_best_distance = 999;
             
@@ -648,7 +674,7 @@ try {
                 }
             }
 
-            if (!$best_match || $best_distance > $scan_threshold) {
+            if (!$best_match || $best_distance > BIOMETRIC_MATCH_THRESHOLD) {
                 // Return a more helpful message for debugging
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
@@ -660,7 +686,7 @@ try {
 
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
-                if ($ratio <= $ambiguity_ratio_threshold) {
+                if ($ratio <= BIOMETRIC_AMBIGUITY_RATIO) {
                     echo json_encode([
                         'success' => false,
                         'message' => 'Ambiguous match, please try again',
@@ -820,6 +846,18 @@ try {
             $stmt_employees = $pdo->prepare($query);
             $stmt_employees->execute($params);
             $employees = $stmt_employees->fetchAll();
+            $employee_ids = array_column($employees, 'id');
+
+            // Pre-fetch all attendance counts for the period
+            $attendance_counts = [];
+            if (!empty($employee_ids)) {
+                $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
+                $stmt_all_att = $pdo->prepare("SELECT employee_id, COUNT(*) as count FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL GROUP BY employee_id");
+                $stmt_all_att->execute(array_merge($employee_ids, [$start_date, $end_date]));
+                while ($row = $stmt_all_att->fetch()) {
+                    $attendance_counts[$row['employee_id']] = (int)$row['count'];
+                }
+            }
 
             $stmt_deductions = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ? AND is_active = true");
             $stmt_deductions->execute([$_SESSION['company_id']]);
@@ -828,11 +866,9 @@ try {
             $pdo->beginTransaction();
             try {
                 foreach ($employees as $emp) {
-                    $stmt_attendance = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
-                    $stmt_attendance->execute([$emp['id'], $start_date, $end_date]);
-                    $days_present = $stmt_attendance->fetchColumn();
+                    $days_present = $attendance_counts[$emp['id']] ?? 0;
 
-                    $monthly_salary = $emp['basic_salary'];
+                    $monthly_salary = (float)$emp['basic_salary'];
                     $earned_pay = ($work_days_in_period > 0) ? ($days_present / $work_days_in_period) * $monthly_salary : 0;
                     
                     $total_deductions = 0;
