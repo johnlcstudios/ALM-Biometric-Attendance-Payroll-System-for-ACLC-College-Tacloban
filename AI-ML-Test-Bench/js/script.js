@@ -48,6 +48,49 @@ window.onclick = (event) => {
     }
 };
 
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 500;
+        min-width: 250px;
+    `;
+    
+    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> <span>${escapeHTML(message)}</span>`;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// Add keyframes for animations if not in CSS
+if (!document.getElementById('toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.innerHTML = `
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    `;
+    document.head.appendChild(style);
+}
+
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
@@ -62,9 +105,12 @@ function filterTable(input, tableId) {
 }
 
 // --- Data Fetching ---
-async function fetchData() {
+async function fetchData(specificPage = null) {
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = specificPage || urlParams.get('page') || 'dashboard';
 
     try {
         const fetchJSON = async (url) => {
@@ -81,30 +127,43 @@ async function fetchData() {
 
         const getArray = (data) => Array.isArray(data) ? data : [];
         
-        employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
-        attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
-        payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
-        leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
-        loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
-        resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
-        masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
-        subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
-
-        const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
-        if (dashboardStats) {
-            const totalEl = document.getElementById('stat-total-emp');
-            const presentEl = document.getElementById('stat-present');
-            const absentEl = document.getElementById('stat-absent');
-            const leaveEl = document.getElementById('stat-leave');
-            if (totalEl) totalEl.innerText = dashboardStats.total_employees;
-            if (presentEl) presentEl.innerText = dashboardStats.present_today;
-            if (absentEl) absentEl.innerText = dashboardStats.absent_today;
-            if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+        // Always fetch employees as they are used globally
+        if (employees.length === 0 || page === 'employees') {
+            employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
         }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialPage = urlParams.get('page') || 'dashboard';
-        showPage(initialPage);
+        // Conditional fetching based on page
+        if (page === 'dashboard') {
+            const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
+            if (dashboardStats) {
+                const totalEl = document.getElementById('stat-total-emp');
+                const presentEl = document.getElementById('stat-present');
+                const absentEl = document.getElementById('stat-absent');
+                const leaveEl = document.getElementById('stat-leave');
+                if (totalEl) totalEl.innerText = dashboardStats.total_employees;
+                if (presentEl) presentEl.innerText = dashboardStats.present_today;
+                if (absentEl) absentEl.innerText = dashboardStats.absent_today;
+                
+                // Still need leave requests for the count
+                leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
+                if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+            }
+        } else if (page === 'attendance') {
+            attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
+        } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
+            payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
+        } else if (page === 'leave') {
+            leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
+        } else if (page === 'loans') {
+            loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
+        } else if (page === 'resignations') {
+            resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
+        } else if (page === 'subject_loads' || page === 'employees') {
+            masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
+            subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
+        }
+
+        showPage(page);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -239,7 +298,7 @@ async function exportFacultyPayroll() {
     }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
-        return alert("No payroll data available to export.");
+        return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3'); // Using A3 for 17 columns
@@ -281,7 +340,7 @@ async function exportUtilityPayroll() {
     }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
-        return alert("No payroll data available to export.");
+        return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3');
@@ -434,14 +493,14 @@ function onLoadSubjectChange(subjectId) {
 }
 
 async function resetPassword(userId) {
-    if (!userId) return alert('This employee does not have a user account.');
+    if (!userId) return showToast('This employee does not have a user account.', 'error');
     if (confirm("Are you sure you want to reset this employee's password to 'welcome123'?")) {
         const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
-            alert(result.message);
+            showToast(result.message || 'Password reset successful!', 'success');
         } else {
-            alert('Error: ' + (result.message || 'Failed to reset password.'));
+            showToast('Error: ' + (result.message || 'Failed to reset password.'), 'error');
         }
     }
 }
@@ -518,25 +577,39 @@ async function saveEmployee() {
         data.subjects = subDescs.map((desc, i) => ({ description: desc, units: subUnits[i] }));
     }
 
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+
     try {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
             body: JSON.stringify(data)
         });
         
         const result = await response.json();
         if (result.success) {
             closeModal('employeeModal');
-            fetchData();
+            await fetchData();
             resetEmpModal();
-            alert('Employee saved successfully!');
+            showToast('Employee saved successfully!', 'success');
         } else {
-            alert('Error: ' + result.message);
+            showToast('Error: ' + result.message, 'error');
         }
     } catch (err) {
         console.error("Save error:", err);
-        alert("Failed to connect to the server.");
+        showToast("Failed to connect to the server.", 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Employee';
+        }
     }
 }
 
@@ -885,24 +958,44 @@ async function runPayroll() {
     const category = document.getElementById('payrollCategorySelect').value;
     
     if (!start_date || !end_date) {
-        return alert('Please select both a start and end date.');
+        return showToast('Please select both a start and end date.', 'error');
     }
 
+    const runBtn = document.querySelector('button[onclick="runPayroll()"]');
     const categoryText = category === 'all' ? 'all employees' : `${category} staff`;
+
     if (confirm(`Run payroll for ${categoryText} from ${start_date} to ${end_date}?`)) {
-        const response = await fetch('backend/api.php?action=run_payroll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ start_date, end_date, category })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            alert(result.message || `Payroll processed for ${start_date} to ${end_date}`);
-            closeModal('runPayrollModal');
-            fetchData();
-        } else {
-            alert("Error: " + (result.message || "Failed to process payroll."));
+        if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
+
+        try {
+            const response = await fetch('backend/api.php?action=run_payroll', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ start_date, end_date, category })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message || `Payroll processed for ${start_date} to ${end_date}`, 'success');
+                closeModal('runPayrollModal');
+                await fetchData();
+            } else {
+                showToast("Error: " + (result.message || "Failed to process payroll."), 'error');
+            }
+        } catch (err) {
+            console.error("Payroll error:", err);
+            showToast("Failed to connect to the server.", 'error');
+        } finally {
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="fas fa-play"></i> Run Payroll';
+            }
         }
     }
 }

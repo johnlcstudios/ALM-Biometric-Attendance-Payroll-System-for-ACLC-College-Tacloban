@@ -7,10 +7,6 @@ define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
 define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 try {
     require_once 'db.php';
 } catch (Exception $e) {
@@ -19,6 +15,16 @@ try {
 }
 
 $action = $_GET['action'] ?? '';
+
+// CSRF Protection for sensitive actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, ['login', 'signup', 'kiosk_scan'])) {
+    $headers = getallheaders();
+    $token = $headers['X-CSRF-TOKEN'] ?? '';
+    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+        http_response_code(403);
+        exit(json_encode(['success' => false, 'message' => 'Invalid CSRF token']));
+    }
+}
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
@@ -47,13 +53,16 @@ try {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                session_regenerate_id(true); // Prevent session fixation
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+                // Ensure CSRF token is refreshed after login
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name'], 'csrf_token' => $_SESSION['csrf_token']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -331,16 +340,14 @@ try {
             $override_amount = $data['override_amount'] ?: null;
             $effective_date = $data['effective_date'] ?: date('Y-m-d');
             
-            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
-            $stmt->execute([$_SESSION['company_id']]);
-            $employees = $stmt->fetchAll();
-            
             $pdo->beginTransaction();
             try {
-                foreach ($employees as $emp) {
-                    $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $category_id, $override_amount, $effective_date, $override_amount, $effective_date]);
-                }
+                // Efficient Batch Insert/Update
+                $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) 
+                                     SELECT ?, id, ?, ?, ? FROM employees WHERE company_id = ? AND status = 'Active'
+                                     ON DUPLICATE KEY UPDATE override_amount = VALUES(override_amount), effective_date = VALUES(effective_date)");
+                $stmt->execute([$_SESSION['company_id'], $category_id, $override_amount, $effective_date, $_SESSION['company_id']]);
+                
                 $pdo->commit();
                 echo json_encode(['success' => true, 'message' => 'Allowance applied to all active employees']);
             } catch (Exception $e) {
@@ -383,16 +390,14 @@ try {
             $override_amount = $data['override_amount'] ?: null;
             $effective_date = $data['effective_date'] ?: date('Y-m-d');
             
-            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
-            $stmt->execute([$_SESSION['company_id']]);
-            $employees = $stmt->fetchAll();
-            
             $pdo->beginTransaction();
             try {
-                foreach ($employees as $emp) {
-                    $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $deduction_id, $override_amount, $effective_date, $override_amount, $effective_date]);
-                }
+                // Efficient Batch Insert/Update
+                $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) 
+                                     SELECT ?, id, ?, ?, ? FROM employees WHERE company_id = ? AND status = 'Active'
+                                     ON DUPLICATE KEY UPDATE override_amount = VALUES(override_amount), effective_date = VALUES(effective_date)");
+                $stmt->execute([$_SESSION['company_id'], $deduction_id, $override_amount, $effective_date, $_SESSION['company_id']]);
+                
                 $pdo->commit();
                 echo json_encode(['success' => true, 'message' => 'Deduction applied to all active employees']);
             } catch (Exception $e) {
@@ -635,7 +640,11 @@ try {
 
         case 'kiosk_scan':
             $data = json_decode(file_get_contents('php://input'), true);
-            $company_id = $data['company_id'] ?? 1;
+            $company_id = $data['company_id'] ?? null;
+            if (!$company_id) {
+                echo json_encode(['success' => false, 'message' => 'Company ID is required for kiosk scan']);
+                break;
+            }
             $descriptor = $data['descriptor'] ?? [];
 
             if (empty($descriptor) || count($descriptor) !== 128) {
@@ -643,8 +652,12 @@ try {
                  break;
             }
 
-            // Log incoming descriptor for debugging
-            error_log("Kiosk Scan: Incoming descriptor for company_id {$company_id}: " . json_encode($descriptor));
+            // Fetch company-specific biometric thresholds
+            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
+            $stmt_config->execute([$company_id]);
+            $config = $stmt_config->fetch();
+            $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
+            $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
 
             // Fetch enrolled faces
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
@@ -678,10 +691,10 @@ try {
                 }
             }
 
-            if (!$best_match || $best_distance > BIOMETRIC_MATCH_THRESHOLD) {
+            if (!$best_match || $best_distance > $match_threshold) {
                 // Return a more helpful message for debugging
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
-                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$scan_threshold}");
+                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
                 break;
             }
