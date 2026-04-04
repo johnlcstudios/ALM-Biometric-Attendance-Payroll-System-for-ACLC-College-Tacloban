@@ -169,14 +169,19 @@ async function initFaceEnrollment() {
     }
   }
 
-  // Load enrolled faces from localStorage
-  const enrolledData = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
-  if (enrolledData.length > 0) {
-    const labeledDescriptors = enrolledData.map(data => {
-      const descriptors = data.descriptors.map(d => new Float32Array(d));
-      return new faceapi.LabeledFaceDescriptors(data.label, descriptors);
-    });
-    enrollFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
+  // Load enrolled faces from backend
+  try {
+    const res = await fetch('AI-ML-Test-Bench/backend/api.php?action=get_enrolled_faces');
+    const result = await res.json();
+    if (result.success && result.faces.length > 0) {
+      const labeledDescriptors = result.faces.map(face => {
+        const descriptor = new Float32Array(JSON.parse(face.face_descriptor));
+        return new faceapi.LabeledFaceDescriptors(face.full_name, [descriptor]);
+      });
+      enrollFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
+    }
+  } catch (err) {
+    console.error("Error loading enrolled faces:", err);
   }
 
   // Start Camera

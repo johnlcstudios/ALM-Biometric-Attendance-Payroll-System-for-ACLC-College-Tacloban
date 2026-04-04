@@ -139,8 +139,10 @@
 
     <div class="container">
         <div class="input-group">
-            <label for="empName">Employee Full Name:</label>
-            <input type="text" id="empName" placeholder="e.g. John Doe">
+            <label for="empSelect">Select Employee:</label>
+            <select id="empSelect" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px;">
+                <option value="">Loading employees...</option>
+            </select>
         </div>
 
         <div id="video-container">
@@ -161,41 +163,71 @@
         const overlay = document.getElementById('overlay');
         const enrollBtn = document.getElementById('enrollBtn');
         const status = document.getElementById('status');
-        const empNameInput = document.getElementById('empName');
+        const empSelect = document.getElementById('empSelect');
         const videoContainer = document.getElementById('video-container');
 
-        const MODEL_URL = 'models/';
+        const MODEL_URL = '../AI-ML-Test-Bench/models/';
         let faceMatcher = null;
+        let employees = [];
 
         async function init() {
             try {
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
-                ]);
+                const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                try {
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+                    ]);
+                } catch (e) {
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.ssdMobilenetv1.loadFromUri(CDN_MODEL_URL)
+                    ]);
+                }
                 status.textContent = "Models Loaded. Please allow camera access.";
-                loadEnrolledFaces();
+                loadEmployees();
                 startVideo();
             } catch (err) {
                 status.textContent = "Error loading models: " + err.message;
             }
         }
 
-        function loadEnrolledFaces() {
-            const enrolledData = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
-            if (enrolledData.length > 0) {
-                const labeledDescriptors = enrolledData.map(data => {
-                    const descriptors = data.descriptors.map(d => new Float32Array(d));
-                    return new faceapi.LabeledFaceDescriptors(data.label, descriptors);
-                });
-                faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
+        async function loadEmployees() {
+            try {
+                const res = await fetch('../AI-ML-Test-Bench/backend/api.php?action=get_employees');
+                employees = await res.json();
+                
+                empSelect.innerHTML = '<option value="">-- Select Employee --</option>' + 
+                    employees.map(e => `<option value="${e.id}">${e.full_name} (${e.employee_id})</option>`).join('');
+                
+                loadEnrolledFaces();
+            } catch (err) {
+                empSelect.innerHTML = '<option value="">Error loading employees</option>';
+            }
+        }
+
+        async function loadEnrolledFaces() {
+            try {
+                const res = await fetch('../AI-ML-Test-Bench/backend/api.php?action=get_enrolled_faces');
+                const result = await res.json();
+                if (result.success && result.faces.length > 0) {
+                    const labeledDescriptors = result.faces.map(face => {
+                        const descriptor = new Float32Array(JSON.parse(face.face_descriptor));
+                        return new faceapi.LabeledFaceDescriptors(face.full_name, [descriptor]);
+                    });
+                    faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
+                }
+            } catch (err) {
+                console.error("Error loading enrolled faces:", err);
             }
         }
 
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: {} })
+            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
                 .then(stream => {
                     video.srcObject = stream;
                     status.textContent = "Camera active. Position your face.";
@@ -217,22 +249,21 @@
                 
                 const resizedDetections = faceapi.resizeResults(detections, displaySize);
                 overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-                faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
-
-                videoContainer.classList.remove('registered', 'success');
-
+                
                 if (detections.length > 0) {
+                    faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
+                    videoContainer.classList.remove('registered', 'success');
+
                     if (faceMatcher) {
                         const results = detections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                        const isAlreadyRegistered = results.some(r => r.label !== 'unknown');
+                        const match = results.find(r => r.label !== 'unknown');
                         
-                        if (isAlreadyRegistered) {
-                            const match = results.find(r => r.label !== 'unknown');
-                            const enteredName = empNameInput.value.trim();
+                        if (match) {
+                            const selectedId = empSelect.value;
+                            const selectedEmp = employees.find(e => e.id == selectedId);
                             
-                            if (enteredName && match.label.toLowerCase() === enteredName.toLowerCase()) {
+                            if (selectedEmp && match.label.toLowerCase() === selectedEmp.full_name.toLowerCase()) {
                                 status.textContent = `Confirmed: This is ${match.label}`;
-                                videoContainer.classList.remove('registered');
                                 videoContainer.classList.add('success');
                             } else {
                                 status.textContent = `Already Registered: ${match.label}`;
@@ -248,14 +279,15 @@
                     }
                 } else {
                     status.textContent = "Camera active. Position your face.";
+                    videoContainer.classList.remove('registered', 'success');
                 }
-            }, 200);
+            }, 500);
         });
 
         enrollBtn.addEventListener('click', async () => {
-            const name = empNameInput.value.trim();
-            if (!name) {
-                alert("Please enter employee name");
+            const employeeId = empSelect.value;
+            if (!employeeId) {
+                alert("Please select an employee");
                 return;
             }
 
@@ -268,32 +300,33 @@
 
             if (detection) {
                 const descriptor = Array.from(detection.descriptor);
-                saveEnrollment(name, descriptor);
-                loadEnrolledFaces(); // Refresh the matcher with the new face
-                status.textContent = `Successfully enrolled ${name}!`;
-                empNameInput.value = '';
+                
+                try {
+                    const response = await fetch('../AI-ML-Test-Bench/backend/api.php?action=save_face_descriptor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            id: employeeId, 
+                            descriptor: descriptor 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        status.textContent = "Successfully enrolled!";
+                        loadEnrolledFaces();
+                        empSelect.value = '';
+                    } else {
+                        status.textContent = "Enrollment error: " + result.message;
+                    }
+                } catch (err) {
+                    status.textContent = "Network error occurred.";
+                }
             } else {
                 status.textContent = "Face not detected. Try again.";
             }
             enrollBtn.disabled = false;
         });
-
-        function saveEnrollment(label, descriptor) {
-            let enrolled = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
-            
-            // Check if label already exists
-            const index = enrolled.findIndex(e => e.label === label);
-            if (index !== -1) {
-                enrolled[index].descriptors.push(descriptor);
-            } else {
-                enrolled.push({
-                    label: label,
-                    descriptors: [descriptor]
-                });
-            }
-            
-            localStorage.setItem('enrolledFaces', JSON.stringify(enrolled));
-        }
 
         init();
     </script>
