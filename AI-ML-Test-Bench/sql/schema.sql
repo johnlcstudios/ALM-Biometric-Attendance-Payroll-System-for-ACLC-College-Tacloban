@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE INDEX idx_attendance_date ON attendance(log_date);
 CREATE INDEX idx_attendance_emp_date ON attendance(employee_id, log_date);
 CREATE INDEX idx_attendance_company ON attendance(company_id);
+CREATE INDEX idx_attendance_company_emp_date ON attendance(company_id, employee_id, log_date);
 
 -- Payroll History
 CREATE TABLE IF NOT EXISTS payroll (
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS payroll (
 );
 CREATE INDEX idx_payroll_period ON payroll(period);
 CREATE INDEX idx_payroll_company_period ON payroll(company_id, period);
+CREATE INDEX idx_payroll_company_type_period ON payroll(company_id, payroll_type, period);
 
 -- Leave Requests
 CREATE TABLE IF NOT EXISTS leave_requests (
