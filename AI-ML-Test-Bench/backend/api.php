@@ -763,14 +763,19 @@ try {
                 $column = 'check_out';
             }
 
-            // Fallback Logic: If the determined slot is already filled, try the next one
-            // This handles cases where a person scans twice in a window or near boundaries
-            if ($log && !empty($log[$column])) {
-                if ($column === 'check_in' && $time > date('H:i:s', strtotime($work_start . ' + 1 hour'))) {
-                    // If already checked in and it's been a while, maybe they want to lunch out early?
-                    if (empty($log['lunch_out'])) $column = 'lunch_out';
+            // SMART FALLBACK LOGIC: 
+            // If the determined slot is already filled, move to the next available slot in sequence.
+            if ($log) {
+                if ($column === 'check_in' && !empty($log['check_in'])) {
+                    // Already checked in. If it's been at least 15 mins, allow moving to lunch_out
+                    if ($time >= $lunch_out_start || $time > date('H:i:s', strtotime($log['check_in'] . ' + 15 minutes'))) {
+                        if (empty($log['lunch_out'])) $column = 'lunch_out';
+                        elseif (empty($log['lunch_in'])) $column = 'lunch_in';
+                        elseif (empty($log['check_out'])) $column = 'check_out';
+                    }
                 } elseif ($column === 'lunch_out' && !empty($log['lunch_out'])) {
                     if (empty($log['lunch_in'])) $column = 'lunch_in';
+                    elseif (empty($log['check_out'])) $column = 'check_out';
                 } elseif ($column === 'lunch_in' && !empty($log['lunch_in'])) {
                     if (empty($log['check_out'])) $column = 'check_out';
                 }
