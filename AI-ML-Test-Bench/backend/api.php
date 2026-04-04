@@ -744,37 +744,45 @@ try {
             $status = $log ? ($log['status'] ?? 'On-Time') : 'On-Time';
             $late_minutes = $log ? ($log['late_minutes'] ?? 0) : 0;
 
-            $work_start = $config['work_start'];
-            $work_end = $config['work_end'];
-            $lunch_out_start = $config['lunch_out_start'];
-            $lunch_out_end = $config['lunch_out_end'];
-            $lunch_in_start = $config['lunch_in_start'];
-            $lunch_in_end = $config['lunch_in_end'];
+            $work_start = $config['work_start'] ?: '08:00:00';
+            $work_end = $config['work_end'] ?: '17:00:00';
+            $lunch_out_start = $config['lunch_out_start'] ?: '11:30:00';
+            $lunch_out_end = $config['lunch_out_end'] ?: '12:30:00';
+            $lunch_in_start = $config['lunch_in_start'] ?: '12:30:00';
+            $lunch_in_end = $config['lunch_in_end'] ?: '13:30:00';
             $grace_period = $config['grace_period'] ?? 15;
 
             // Strict Time Window Logic for Auto-Detection
-            $column = '';
-            
-            // 1. Morning Check-In: From midnight until lunch out start
             if ($time < $lunch_out_start) {
                 $column = 'check_in';
+            } elseif ($time >= $lunch_out_start && $time < $lunch_out_end) {
+                $column = 'lunch_out';
+            } elseif ($time >= $lunch_in_start && $time < $lunch_in_end) {
+                $column = 'lunch_in';
+            } else {
+                $column = 'check_out';
+            }
+
+            // Fallback Logic: If the determined slot is already filled, try the next one
+            // This handles cases where a person scans twice in a window or near boundaries
+            if ($log && !empty($log[$column])) {
+                if ($column === 'check_in' && $time > date('H:i:s', strtotime($work_start . ' + 1 hour'))) {
+                    // If already checked in and it's been a while, maybe they want to lunch out early?
+                    if (empty($log['lunch_out'])) $column = 'lunch_out';
+                } elseif ($column === 'lunch_out' && !empty($log['lunch_out'])) {
+                    if (empty($log['lunch_in'])) $column = 'lunch_in';
+                } elseif ($column === 'lunch_in' && !empty($log['lunch_in'])) {
+                    if (empty($log['check_out'])) $column = 'check_out';
+                }
+            }
+
+            // Late status calculation (only for check_in)
+            if ($column === 'check_in') {
                 $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
                 if ($time > $late_time) {
                     $status = 'Late';
                     $late_minutes = max(0, floor((strtotime($time) - strtotime($work_start)) / 60));
                 }
-            } 
-            // 2. Lunch Out: During set lunch out window
-            elseif ($time >= $lunch_out_start && $time < $lunch_out_end) {
-                $column = 'lunch_out';
-            } 
-            // 3. Lunch In: During set lunch in window
-            elseif ($time >= $lunch_in_start && $time < $lunch_in_end) {
-                $column = 'lunch_in';
-            } 
-            // 4. Check Out: From lunch in end until midnight
-            else {
-                $column = 'check_out';
             }
 
             // Validation: Prevent duplicate logs for the same action today
@@ -783,7 +791,8 @@ try {
                 echo json_encode(array_merge([
                     'success' => false, 
                     'message' => "ALREADY $action_label FOR TODAY", 
-                    'action' => $column
+                    'action' => $column,
+                    'server_time' => $time
                 ], $common_data));
                 break;
             }
