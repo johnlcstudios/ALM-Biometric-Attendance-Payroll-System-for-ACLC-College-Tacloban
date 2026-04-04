@@ -198,6 +198,7 @@ function showPage(pageId) {
         'payroll': 'Payroll Processing',
         'leave': 'Leave Management',
         'loans': 'Loan Management',
+        'resignations': 'Resignations',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
         'settings': 'Company Settings'
@@ -211,6 +212,7 @@ function showPage(pageId) {
     if (pageId === 'payroll') renderPayrollTable();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
+    if (pageId === 'resignations') renderResignationTable();
     if (pageId === 'subject_loads') renderMasterSubjects();
     if (pageId === 'biometrics') populateEnrollmentSelect();
     if (pageId === 'dashboard') initCharts();
@@ -1082,9 +1084,8 @@ function renderLeaveTable() {
     tbody.innerHTML = leaveRequests.map(req => `
         <tr>
             <td>${escapeHTML(req.full_name)}</td>
-            <td>${escapeHTML(req.leave_type || req.type)}</td>
-            <td>${escapeHTML(req.start_date || '-')}</td>
-            <td>${escapeHTML(req.end_date || '-')}</td>
+            <td>${escapeHTML(req.type)}</td>
+            <td>${escapeHTML(req.duration || '-')}</td>
             <td>${escapeHTML(req.reason)}</td>
             <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
@@ -1094,7 +1095,7 @@ function renderLeaveTable() {
                 ` : '<span class="text-muted">Processed</span>'}
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="7" class="text-center">No leave requests found.</td></tr>';
+    `).join('') || '<tr><td colspan="6" class="text-center">No leave requests found.</td></tr>';
 }
 
 async function applyLeaveBalanceToAll() {
@@ -1104,7 +1105,10 @@ async function applyLeaveBalanceToAll() {
 
     const response = await fetch('backend/api.php?action=bulk_update_leave_balance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
         body: JSON.stringify({ balance })
     });
     const result = await response.json();
@@ -1136,12 +1140,17 @@ async function updateLeaveBalance() {
 async function updateLeaveStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_leave_status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
@@ -1167,12 +1176,17 @@ function renderLoanTable() {
 async function updateLoanStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_loan_status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
@@ -1197,12 +1211,17 @@ function renderResignationTable() {
 async function updateResignationStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_resignation_status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
