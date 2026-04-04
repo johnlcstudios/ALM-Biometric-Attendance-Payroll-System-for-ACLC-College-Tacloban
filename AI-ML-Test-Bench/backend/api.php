@@ -223,8 +223,9 @@ try {
                             'late_minutes' => $total_late_min
                         ];
 
-                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE payroll_type = 'Faculty', basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), breakdown = VALUES(breakdown), status = 'Paid'");
-                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
+                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
+                                         VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid')");
+                    $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
                     } else {
                         // Utility specific calculations (15 columns)
                         $rate_per_day = $emp['basic_salary'] / 22;
@@ -259,7 +260,8 @@ try {
                             'late_minutes' => $total_late_min
                         ];
 
-                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE payroll_type = 'Utility', basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), breakdown = VALUES(breakdown), status = 'Paid'");
+                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
+                                         VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid')");
                         $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown)]);
                     }
                 }
@@ -935,8 +937,9 @@ try {
 
                     $net_pay = $earned_pay - $total_deductions;
 
-                    $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, 'Paid') ON DUPLICATE KEY UPDATE basic_pay = ?, deductions = ?, net_pay = ?, status = 'Paid'");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $earned_pay, $total_deductions, $net_pay]);
+                    $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
