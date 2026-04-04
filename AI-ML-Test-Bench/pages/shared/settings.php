@@ -42,10 +42,6 @@ $company = $stmt_company->fetch();
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Late Grace Period (Minutes)</label>
-                        <input type="number" name="gracePeriod" value="<?php echo $company['grace_period'] ?? '15'; ?>" min="0">
-                    </div>
-                    <div class="form-group">
                         <label>Overtime Percentage (%)</label>
                         <input type="number" name="otPercentage" value="<?php echo $company['ot_percentage'] ?? '25'; ?>" min="0">
                     </div>

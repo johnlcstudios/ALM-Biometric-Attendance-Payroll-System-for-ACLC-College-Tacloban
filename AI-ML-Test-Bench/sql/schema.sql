@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS companies (
     lunch_out_end TIME DEFAULT '12:30:00',
     lunch_in_start TIME DEFAULT '12:30:00',
     lunch_in_end TIME DEFAULT '13:30:00',
-    grace_period INT DEFAULT 15,
     ot_percentage INT DEFAULT 25,
     deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
     deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
