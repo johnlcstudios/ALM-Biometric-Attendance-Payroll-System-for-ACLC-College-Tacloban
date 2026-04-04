@@ -484,15 +484,23 @@
             document.getElementById('companySelectionOverlay').style.display = 'none';
             const newUrl = window.location.pathname + '?company_id=' + id;
             window.history.pushState({path:newUrl},'',newUrl);
-            fetch(`backend/api.php?action=get_company_info&company_id=${id}`)
+            refreshConfig();
+            if (!video.srcObject) startKiosk();
+        }
+
+        function refreshConfig() {
+            if (!currentCompanyId) return;
+            fetch(`backend/api.php?action=get_company_info&company_id=${currentCompanyId}`)
                 .then(res => res.json())
                 .then(data => {
                     document.getElementById('company-name').innerText = data.name.toUpperCase();
                     companyConfig = data;
                     syncServerTime().then(() => updateCurrentAction());
                 });
-            if (!video.srcObject) startKiosk();
         }
+
+        // Periodically refresh config (every 5 minutes) to sync with system settings
+        setInterval(refreshConfig, 300000);
 
         setInterval(() => {
             const now = getNow();
@@ -501,7 +509,12 @@
         }, 1000);
 
         function updateCurrentAction() {
-            if (!companyConfig) return;
+            if (!companyConfig) {
+                actionBadge.innerText = "INITIALIZING...";
+                actionBadge.style.background = "#7f8c8d";
+                return;
+            }
+            
             const now = getNow();
             const timeStr = now.toTimeString().split(' ')[0];
             let action = "CHECK OUT", color = "var(--primary-blue)";
@@ -510,20 +523,36 @@
             const lOutE = companyConfig.lunch_out_end || '12:30:00';
             const lInS = companyConfig.lunch_in_start || '12:30:00';
             const lInE = companyConfig.lunch_in_end || '13:30:00';
+            const workEnd = companyConfig.work_end || '17:00:00';
 
             // Sync with api.php logic
             if (timeStr < lOutS) {
-                action = "CHECK IN"; color = "var(--primary-blue)";
+                action = "CHECK IN"; 
+                color = "var(--primary-blue)";
             } else if (timeStr >= lOutS && timeStr < lOutE) {
-                action = "LUNCH OUT"; color = "#f39c12";
+                action = "LUNCH OUT"; 
+                color = "#f39c12"; // Orange
             } else if (timeStr >= lInS && timeStr < lInE) {
-                action = "LUNCH IN"; color = "#27ae60";
+                action = "LUNCH IN"; 
+                color = "#27ae60"; // Green
             } else {
-                action = "CHECK OUT"; color = "var(--accent-red)";
+                if (timeStr < workEnd) {
+                    action = "CHECK OUT (EARLY)";
+                    color = "#e67e22"; // Darker Orange
+                } else {
+                    action = "CHECK OUT"; 
+                    color = "var(--accent-red)"; // Red
+                }
             }
             
-            actionBadge.innerText = action;
-            actionBadge.style.background = color;
+            // If processing a scan, show that status instead
+            if (isProcessing) {
+                actionBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESSING...';
+                actionBadge.style.background = "#34495e";
+            } else {
+                actionBadge.innerText = action;
+                actionBadge.style.background = color;
+            }
         }
 
         async function startKiosk() {
