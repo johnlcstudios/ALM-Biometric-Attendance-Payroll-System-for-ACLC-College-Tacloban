@@ -41,10 +41,10 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 // Database Configuration - IMPORTANT: Change these in production!
-$host = 'localhost';
-$db   = 'alm_biometrics';
-$user = 'root';
-$pass = ''; // Default XAMPP password is empty
+$host = 'sql301.infinityfree.com';
+$db   = 'if0_41515464_alm_biometrics';
+$user = 'if0_41515464';
+$pass = 'BSIT3Aay2027'; 
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";

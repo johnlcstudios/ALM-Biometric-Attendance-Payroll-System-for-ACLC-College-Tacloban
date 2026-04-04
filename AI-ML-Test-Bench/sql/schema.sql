@@ -1,8 +1,8 @@
 -- Biometric Attendance & Payroll System - Database Schema
 -- Multi-tenant Architecture
 
-CREATE DATABASE IF NOT EXISTS alm_biometrics;
-USE alm_biometrics;
+CREATE DATABASE IF NOT EXISTS if0_41515464_alm_biometrics;
+USE if0_41515464_alm_biometrics;
 
 -- Companies Table
 CREATE TABLE IF NOT EXISTS companies (
