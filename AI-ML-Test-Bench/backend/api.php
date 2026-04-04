@@ -1086,22 +1086,44 @@ try {
         case 'save_settings':
             if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("UPDATE companies SET name = ?, work_start = ?, work_end = ?, lunch_out_start = ?, lunch_out_end = ?, lunch_in_start = ?, lunch_in_end = ?, grace_period = ?, ot_percentage = ?, deduction_per_sec = ?, deduction_per_min = ?, deduction_per_hour = ? WHERE id = ?");
+            
+            // Basic validation
+            if (empty($data['companyName'])) {
+                echo json_encode(['success' => false, 'message' => 'Company Name is required']);
+                break;
+            }
+
+            $stmt = $pdo->prepare("UPDATE companies SET 
+                name = ?, 
+                work_start = ?, 
+                work_end = ?, 
+                lunch_out_start = ?, 
+                lunch_out_end = ?, 
+                lunch_in_start = ?, 
+                lunch_in_end = ?, 
+                grace_period = ?, 
+                ot_percentage = ?, 
+                deduction_per_sec = ?, 
+                deduction_per_min = ?, 
+                deduction_per_hour = ? 
+                WHERE id = ?");
+            
             $stmt->execute([
                 $data['companyName'], 
-                $data['workStart'], 
-                $data['workEnd'], 
-                $data['lunchOutStart'], 
-                $data['lunchOutEnd'], 
-                $data['lunchInStart'], 
-                $data['lunchInEnd'], 
-                $data['gracePeriod'], 
-                $data['otPercentage'], 
-                $data['deductionPerSec'], 
-                $data['deductionPerMin'], 
-                $data['deductionPerHour'], 
+                $data['workStart'] ?: '08:00:00', 
+                $data['workEnd'] ?: '17:00:00', 
+                $data['lunchOutStart'] ?: '11:30:00', 
+                $data['lunchOutEnd'] ?: '12:30:00', 
+                $data['lunchInStart'] ?: '12:30:00', 
+                $data['lunchInEnd'] ?: '13:30:00', 
+                (int)($data['gracePeriod'] ?? 15), 
+                (int)($data['otPercentage'] ?? 25), 
+                (float)($data['deductionPerSec'] ?? 0.0083), 
+                (float)($data['deductionPerMin'] ?? 0.50), 
+                (float)($data['deductionPerHour'] ?? 30.00), 
                 $_SESSION['company_id']
             ]);
+            
             $_SESSION['company_name'] = $data['companyName'];
             echo json_encode(['success' => true]);
             break;

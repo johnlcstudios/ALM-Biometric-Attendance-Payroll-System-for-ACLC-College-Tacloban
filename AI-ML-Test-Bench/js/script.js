@@ -1539,17 +1539,45 @@ async function saveSettings() {
     const form = document.getElementById('settingsForm');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
+    const btn = document.getElementById('saveSettingsBtn');
+    const msg = document.getElementById('settings-msg');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
     
-    const response = await fetch('backend/api.php?action=save_settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-        alert('Settings updated!');
-        window.location.reload();
+    try {
+        const response = await fetch('backend/api.php?action=save_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+            if (msg) {
+                msg.style.display = 'block';
+                msg.innerHTML = '<div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Settings saved successfully! Updating UI...</div>';
+            }
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            if (msg) {
+                msg.style.display = 'block';
+                msg.innerHTML = `<div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Error: ${result.message}</div>`;
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
+        }
     }
 }
 
