@@ -452,63 +452,38 @@
 
         async function syncServerTime() {
             try {
-                const startedAt = Date.now();
-                const res = await fetch('backend/api.php?action=get_server_time', { cache: 'no-store' });
+                const res = await fetch('backend/api.php?action=get_server_time');
                 const data = await res.json();
-                const endedAt = Date.now();
-                const rtt = endedAt - startedAt;
-                const approxNow = startedAt + Math.floor(rtt / 2);
-                if (typeof data.server_ms === 'number') {
-                    serverTimeOffsetMs = data.server_ms - approxNow;
-                }
-            } catch (e) {
-                serverTimeOffsetMs = 0;
-            }
+                if (data.server_ms) serverTimeOffsetMs = data.server_ms - Date.now();
+            } catch (e) { console.error("Time sync error:", e); }
         }
 
-        function getNow() {
-            return new Date(Date.now() + serverTimeOffsetMs);
-        }
+        function getNow() { return new Date(Date.now() + serverTimeOffsetMs); }
 
-        // Initialize Kiosk
         async function init() {
             const urlParams = new URLSearchParams(window.location.search);
             const companyIdFromUrl = urlParams.get('company_id');
-
-            if (companyIdFromUrl) {
-                setCompany(companyIdFromUrl);
-            } else {
-                showCompanySelection();
-            }
+            if (companyIdFromUrl) setCompany(companyIdFromUrl);
+            else showCompanySelection();
         }
 
         async function showCompanySelection() {
             const overlay = document.getElementById('companySelectionOverlay');
             const list = document.getElementById('companyList');
             overlay.style.display = 'flex';
-            
             try {
                 const response = await fetch('backend/api.php?action=get_companies');
                 const companies = await response.json();
-                
-                list.innerHTML = companies.map(c => `
-                    <div class="company-item" onclick="setCompany(${c.id})">${c.name}</div>
-                `).join('');
-            } catch (err) {
-                list.innerHTML = '<p class="text-danger">Failed to load companies.</p>';
-            }
+                list.innerHTML = companies.map(c => `<div class="company-item" onclick="setCompany(${c.id})">${c.name}</div>`).join('');
+            } catch (err) { list.innerHTML = '<p class="text-danger">Failed to load companies.</p>'; }
         }
 
         function setCompany(id) {
             currentCompanyId = id;
             document.getElementById('debug-company-id').innerText = id;
             document.getElementById('companySelectionOverlay').style.display = 'none';
-            
-            // Update URL without reload
-            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?company_id=' + id;
+            const newUrl = window.location.pathname + '?company_id=' + id;
             window.history.pushState({path:newUrl},'',newUrl);
-
-            // Fetch Company Info & Config
             fetch(`backend/api.php?action=get_company_info&company_id=${id}`)
                 .then(res => res.json())
                 .then(data => {
@@ -516,423 +491,148 @@
                     companyConfig = data;
                     syncServerTime().then(() => updateCurrentAction());
                 });
-
-            // If video is not started, start it
-            if (!video.srcObject) {
-                startKiosk();
-            }
+            if (!video.srcObject) startKiosk();
         }
 
-        // Update Clock & Action Badge
         setInterval(() => {
             const now = getNow();
             clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             updateCurrentAction();
         }, 1000);
 
-        setInterval(() => {
-            if (currentCompanyId) syncServerTime();
-        }, 60000);
-
         function updateCurrentAction() {
             if (!companyConfig) return;
-
             const now = getNow();
-            const timeString = now.toTimeString().split(' ')[0]; // HH:MM:SS
+            const timeStr = now.toTimeString().split(' ')[0];
+            let action = "CHECK OUT", color = "var(--primary-blue)";
             
-            let action = "CHECK OUT";
-            let color = "var(--primary-blue)";
-
-            const workStart = companyConfig.work_start;
-            const workEnd = companyConfig.work_end;
-            const lunchOutStart = companyConfig.lunch_out_start;
-            const lunchOutEnd = companyConfig.lunch_out_end;
-            const lunchInStart = companyConfig.lunch_in_start;
-            const lunchInEnd = companyConfig.lunch_in_end;
-
-            if (timeString >= lunchOutStart && timeString <= lunchOutEnd) {
-                action = "LUNCH OUT";
-                color = "#f39c12"; // Orange
-            } else if (timeString >= lunchInStart && timeString <= lunchInEnd) {
-                action = "LUNCH IN";
-                color = "#27ae60"; // Green
+            // Sync with api.php logic
+            if (timeStr < companyConfig.lunch_out_start) {
+                action = "CHECK IN"; color = "var(--primary-blue)";
+            } else if (timeStr >= companyConfig.lunch_out_start && timeStr < companyConfig.lunch_out_end) {
+                action = "LUNCH OUT"; color = "#f39c12";
+            } else if (timeStr >= companyConfig.lunch_in_start && timeStr < companyConfig.lunch_in_end) {
+                action = "LUNCH IN"; color = "#27ae60";
             } else {
-                // Morning check-in up to 4 hours after start
-                const checkInLimit = getNow();
-                const [h, m, s] = workStart.split(':');
-                checkInLimit.setHours(parseInt(h) + 4, parseInt(m), parseInt(s));
-                const checkInLimitStr = checkInLimit.toTimeString().split(' ')[0];
-
-                if (timeString <= checkInLimitStr) {
-                    action = "CHECK IN";
-                    color = "var(--primary-blue)";
-                } else if (timeString >= workEnd) {
-                    action = "CHECK OUT";
-                    color = "var(--accent-red)";
-                } else {
-                    action = "CHECK OUT (EARLY)";
-                    color = "#7f8c8d"; // Grey
-                }
+                action = "CHECK OUT"; color = "var(--accent-red)";
             }
-
+            
             actionBadge.innerText = action;
             actionBadge.style.background = color;
         }
 
         async function startKiosk() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
                 video.srcObject = stream;
-                
-                const statusLabel = document.getElementById('loading-status');
-                statusLabel.innerText = "Loading AI Models...";
-
-                const CDN_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-                const LOCAL_URL = '../kiosk/models/';
-                
-                // Helper to try loading a model from multiple locations
-                const loadModel = async (net, modelName) => {
-                    try {
-                        await net.loadFromUri(CDN_URL);
-                        console.log(`Loaded ${modelName} from CDN`);
-                    } catch (e) {
-                        console.warn(`Failed to load ${modelName} from CDN, trying local...`);
-                        try {
-                            await net.loadFromUri(LOCAL_URL);
-                            console.log(`Loaded ${modelName} from LOCAL`);
-                        } catch (ee) {
-                            console.error(`CRITICAL: Failed to load ${modelName} everywhere.`, ee);
-                            throw ee;
-                        }
-                    }
-                };
-
-                // Load essential models
+                document.getElementById('loading-status').innerText = "Loading AI Models...";
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
                 await Promise.all([
-                    loadModel(faceapi.nets.tinyFaceDetector, 'TinyFaceDetector'),
-                    loadModel(faceapi.nets.ssdMobilenetv1, 'SsdMobilenetv1'),
-                    loadModel(faceapi.nets.faceLandmark68Net, 'FaceLandmark68'),
-                    loadModel(faceapi.nets.faceRecognitionNet, 'FaceRecognition')
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
                 ]);
-
-                // Try to load expression model (optional)
-                try {
-                    await loadModel(faceapi.nets.faceExpressionNet, 'FaceExpression');
-                    console.log("Expression model ready.");
-                } catch (e) {
-                    console.warn("Liveness SMILE might be less accurate (fallback to landmarks).");
-                }
-                
-                statusLabel.innerText = "Ready!";
-                
-                setTimeout(() => {
-                    document.getElementById('placeholder').style.display = 'none';
-                }, 1000);
-
+                document.getElementById('placeholder').style.display = 'none';
                 detectFace();
-            } catch (err) {
-                console.error("StartKiosk Error:", err);
-                statusEl.innerHTML = `<p class="text-danger">Failed to initialize: ${err.message}</p>`;
-            }
+            } catch (err) { console.error(err); statusEl.innerHTML = `<p class="text-danger">Failed: ${err.message}</p>`; }
         }
-
-        let stabilityCounter = 0;
-        let lastBox = null;
-        const STABILITY_REQUIRED = 4;
-        const MOVEMENT_THRESHOLD = 20;
-        
-        let smileDetected = false;
-        
-        const LIVENESS_MODES = ['SMILE'];
-        let currentLivenessMode = 'SMILE';
 
         async function detectFace() {
             const overlay = document.getElementById('overlay');
             const ctx = overlay.getContext('2d');
+            const displaySize = faceapi.matchDimensions(overlay, video, true);
+            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+            const highAccOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
             
-            // Wait for video metadata to be loaded
-            if (video.readyState < 2) {
-                await new Promise(resolve => video.onloadedmetadata = resolve);
-            }
-
-            // Standardized detection options
-            const getOptions = () => {
-                if (faceapi.nets.ssdMobilenetv1.params) {
-                    return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-                }
-                return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-            };
-
-            // Initialize dimensions
-            let displaySize = faceapi.matchDimensions(overlay, video, true);
-            if (displaySize.width === 0 || displaySize.height === 0) {
-                // Fallback if metadata wasn't ready despite readyState check
-                displaySize = { width: 640, height: 480 };
-            }
+            let stabilityCounter = 0;
+            let lastBox = null;
+            const STABILITY_REQUIRED = 5;
+            const MOVEMENT_THRESHOLD = 15;
 
             async function loop() {
-                if (!currentCompanyId) {
-                    ctx.clearRect(0, 0, overlay.width, overlay.height);
-                    requestAnimationFrame(loop);
-                    return;
-                }
+                if (!currentCompanyId || isProcessing) { requestAnimationFrame(loop); return; }
+                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-                if (isProcessing) {
-                    requestAnimationFrame(loop);
-                    return;
-                }
+                if (detection) {
+                    const resized = faceapi.resizeResults(detection, displaySize);
+                    const box = resized.detection.box;
+                    faceapi.draw.drawFaceLandmarks(overlay, resized);
 
-                try {
-                    const options = getOptions();
-                    // Conditional detection based on loaded models
-                    let task = faceapi.detectSingleFace(video, options).withFaceLandmarks();
-                    if (faceapi.nets.faceExpressionNet.params) {
-                        task = task.withFaceExpressions();
+                    if (lastBox) {
+                        const dx = Math.abs(box.x - lastBox.x), dy = Math.abs(box.y - lastBox.y);
+                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
+                        else stabilityCounter = 0;
                     }
+                    lastBox = box;
+
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.translate(-overlay.width, 0);
+                    ctx.font = "bold 20px Inter"; ctx.textAlign = "center";
                     
-                    const detection = await task;
-                    ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-                    if (detection) {
-                        const resizedDetection = faceapi.resizeResults(detection, displaySize);
-                        const landmarks = resizedDetection.landmarks;
-                        const expressions = resizedDetection.expressions;
-                        const box = resizedDetection.detection.box;
-
-                        // Reset smile detected for this frame
-                        smileDetected = false;
-
-                        // Smile Detection
-                        if (expressions && expressions.happy > 0.6) {
-                            smileDetected = true;
-                        } else if (landmarks) {
-                            const mouth = landmarks.getMouth();
-                            const width = Math.hypot(mouth[0].x - mouth[6].x, mouth[0].y - mouth[6].y);
-                            const height = Math.hypot(mouth[2].x - mouth[10].x, mouth[2].y - mouth[10].y);
-                            if (width / height > 2.5) smileDetected = true; 
-                        }
-
-                        // Stability Check
-                        if (lastBox) {
-                            const dx = Math.abs(box.x - lastBox.x);
-                            const dy = Math.abs(box.y - lastBox.y);
-                            if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
-                            else stabilityCounter = 0;
-                        }
-                        lastBox = box;
-
-                        // Draw UI
-                        faceapi.draw.drawFaceLandmarks(overlay, resizedDetection);
-                        
-                        ctx.save();
-                        ctx.scale(-1, 1);
-                        ctx.translate(-overlay.width, 0);
-                        
-                        const textX = overlay.width - (box.x + box.width / 2);
-                        const textY = box.y + box.height + 30;
-                        ctx.font = "bold 20px Inter";
-                        ctx.textAlign = "center";
-                        
-                        let livenessVerified = false;
-                        let instruction = "";
-                        let instructionColor = "#f39c12";
-
-                        if (stabilityCounter < STABILITY_REQUIRED) {
-                            instruction = "HOLD STILL...";
-                            cameraCircle.classList.remove('scanning');
-                        } else {
-                            cameraCircle.classList.add('scanning');
-                            instruction = "SMILE BIG! 😊";
-                            if (smileDetected) livenessVerified = true;
-                        }
-
-                        if (livenessVerified) {
-                            instruction = "VERIFIED! SCANNING...";
-                            instructionColor = "#27ae60";
-                            
-                            isProcessing = true;
-                            
-                            // Re-detect with descriptor for final processing
-                            const fullDetection = await faceapi.detectSingleFace(video, options)
-                                .withFaceLandmarks()
-                                .withFaceDescriptor();
-                            
-                            if (fullDetection) {
-                                await processLog(fullDetection.descriptor);
-                            } else {
-                                isProcessing = false;
-                                cameraCircle.classList.remove('scanning');
-                            }
-                        }
-
-                        ctx.fillStyle = instructionColor;
-                        ctx.fillText(instruction, textX, textY);
-                        ctx.restore();
+                    if (stabilityCounter >= STABILITY_REQUIRED) {
+                        ctx.fillStyle = "#27ae60"; ctx.fillText("VERIFIED! SCANNING...", overlay.width - (box.x + box.width/2), box.y + box.height + 30);
+                        isProcessing = true;
+                        cameraCircle.classList.add('scanning');
+                        collectAndScan(highAccOptions);
                     } else {
-                        stabilityCounter = 0;
-                        lastBox = null;
-                        cameraCircle.classList.remove('scanning');
-                        
-                        ctx.save();
-                        ctx.scale(-1, 1);
-                        ctx.translate(-overlay.width, 0);
-                        ctx.font = "bold 20px Inter";
-                        ctx.textAlign = "center";
-                        ctx.fillStyle = "var(--primary-blue)";
-                        ctx.fillText("POSITION FACE IN CIRCLE", overlay.width / 2, overlay.height - 30);
-                        ctx.restore();
+                        ctx.fillStyle = "#f39c12"; ctx.fillText("HOLD STILL...", overlay.width - (box.x + box.width/2), box.y + box.height + 30);
                     }
-                } catch (err) {
-                    console.error("Loop Error:", err);
-                }
-                
+                    ctx.restore();
+                } else { stabilityCounter = 0; lastBox = null; cameraCircle.classList.remove('scanning'); }
                 requestAnimationFrame(loop);
             }
             loop();
         }
 
-        function resetLiveness() {
-            smileDetected = false;
-            stabilityCounter = 0;
+        async function collectAndScan(options) {
+            const samples = [];
+            for (let i = 0; i < 5; i++) {
+                const det = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
+                if (det && det.descriptor) samples.push(Array.from(det.descriptor));
+                await new Promise(r => setTimeout(r, 100));
+            }
+            if (samples.length >= 3) {
+                const averaged = new Array(128).fill(0);
+                for (const s of samples) s.forEach((v, i) => averaged[i] += v);
+                averaged.forEach((v, i) => averaged[i] /= samples.length);
+                await processLog(averaged);
+            } else { isProcessing = false; cameraCircle.classList.remove('scanning'); }
         }
 
         async function processLog(descriptor) {
-            if (!descriptor || descriptor.length !== 128) {
-                isProcessing = false;
-                cameraCircle.classList.remove('scanning');
-                return;
-            }
-            isProcessing = true;
-            statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying Identity...</p>';
-            
+            statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying...</p>';
             try {
                 const response = await fetch('backend/api.php?action=kiosk_scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        descriptor: Array.from(descriptor), 
-                        company_id: currentCompanyId
-                    })
+                    body: JSON.stringify({ descriptor, company_id: currentCompanyId })
                 });
                 const result = await response.json();
-                
                 cameraCircle.classList.remove('scanning');
-                
                 if (result.success) {
-                    displayName.innerText = result.name;
-                    displayRole.innerText = result.position || "Employee Verified";
-                    
-                    let morningWarning = result.missed_morning ? '<br><small style="color: var(--accent-red)">⚠️ MISSED MORNING CHECK-IN</small>' : '';
-
-                    if (result.status === 'Absent') {
-                        cameraCircle.className = 'camera-circle border-danger';
-                        statusEl.innerHTML = `
-                            <h3 class="text-danger">CHECK-OUT (ABSENT)</h3>
-                            <p style="color: var(--accent-red); font-size: 0.8rem;">No Check-in Found!</p>
-                            ${morningWarning}
-                        `;
-                    } else if (result.status === 'Half-Day') {
-                        cameraCircle.className = 'camera-circle border-warning';
-                        statusEl.innerHTML = `
-                            <h3 style="color: #f39c12">HALF-DAY SUCCESS!</h3>
-                            <p style="color: #f39c12; font-size: 0.8rem;">Partial Log Recorded.</p>
-                            ${morningWarning}
-                        `;
-                    } else if (result.status === 'Late') {
-                        cameraCircle.className = 'camera-circle border-warning';
-                        statusEl.innerHTML = `
-                            <h3 style="color: #f39c12">LATE CHECKED IN!</h3>
-                            <p style="color: #f39c12; font-size: 0.8rem;">Logged at ${result.time}.</p>
-                            ${morningWarning}
-                        `;
-                    } else {
-                        cameraCircle.className = 'camera-circle border-success';
-                        let displayAction = "VERIFIED";
-                        if (result.action === 'lunch_out') displayAction = "LUNCHED OUT";
-                        else if (result.action === 'lunch_in') displayAction = "LUNCHED IN";
-                        else if (result.action === 'check_in') displayAction = "CHECKED IN";
-                        else if (result.action === 'check_out') displayAction = "CHECKED OUT";
-
-                        statusEl.innerHTML = `
-                            <h3 class="text-success">${displayAction} SUCCESS!</h3>
-                            <p style="color: #27ae60; font-size: 0.8rem;">Time: ${result.time || ''}</p>
-                            ${morningWarning}
-                        `;
-                    }
-                    
+                    displayName.innerText = result.name; displayRole.innerText = result.position;
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
                     statEmpId.innerText = result.employee_id;
-
-                    setTimeout(() => {
-                        resetUI();
-                        isProcessing = false;
-                    }, 5000);
-                } else if (result.message === 'ALREADY LOGGED') {
-                    // Show warning for already logged
-                    cameraCircle.className = 'camera-circle border-warning';
-                    displayName.innerText = result.name;
-                    displayRole.innerText = "Action Duplicate";
-                    
-                    let morningWarning = result.missed_morning ? '<br><small style="color: var(--accent-red)">⚠️ MISSED MORNING CHECK-IN</small>' : '';
-                    const actionName = (result.action || "LOGGED").replace('_', ' ').toUpperCase();
-
-                    statusEl.innerHTML = `
-                        <h3 class="text-danger">ALREADY ${actionName}!</h3>
-                        <p style="color: #f39c12; font-size: 0.8rem;">Match: ${result.match_percentage}%</p>
-                        ${morningWarning}
-                    `;
-                    
-                    statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
-                    statAbsent.innerText = String(result.absent_count).padStart(2, '0');
-                    statEmpId.innerText = result.employee_id;
-
-                    setTimeout(() => {
-                        resetUI();
-                        isProcessing = false;
-                    }, 5000);
-                } else if (result.message && result.message.startsWith('MUST')) {
-                    cameraCircle.className = 'camera-circle border-danger';
-                    displayName.innerText = result.name;
-                    displayRole.innerText = "Action Required";
-                    statusEl.innerHTML = `
-                        <h3 class="text-danger">${result.message}</h3>
-                        <p style="color: var(--accent-red); font-size: 0.8rem;">Sequence Error! Match: ${result.match_percentage}%</p>
-                    `;
-                    
-                    setTimeout(() => {
-                        resetUI();
-                        isProcessing = false;
-                    }, 5000);
+                    cameraCircle.className = `camera-circle border-${result.status === 'On-Time' ? 'success' : 'warning'}`;
+                    statusEl.innerHTML = `<h3 class="text-success">${(result.action || "SCAN").toUpperCase().replace('_', ' ')} SUCCESS!</h3><p>${result.time}</p>`;
                 } else {
                     cameraCircle.className = 'camera-circle border-danger';
-                    const matchText = result.match_percentage > 0 ? `<br><small>Match: ${result.match_percentage}%</small>` : '';
-                    statusEl.innerHTML = `
-                        <h3 class="text-danger">NOT RECOGNISED</h3>
-                        <p style="color: var(--accent-red); font-size: 0.8rem;">Face Not Matched! ${matchText}</p>
-                    `;
-                    setTimeout(() => {
-                        statusEl.innerHTML = '';
-                        cameraCircle.className = 'camera-circle';
-                        isProcessing = false;
-                    }, 3000);
+                    statusEl.innerHTML = `<h3 class="text-danger">${result.message}</h3>`;
                 }
-            } catch (err) {
-                console.error(err);
-                isProcessing = false;
-            }
+                setTimeout(() => { resetUI(); isProcessing = false; }, 4000);
+            } catch (err) { console.error(err); isProcessing = false; }
         }
 
         function resetUI() {
             cameraCircle.className = 'camera-circle';
-            displayName.innerText = "---";
-            displayRole.innerText = "---";
-            statAttendance.innerText = "00";
-            statAbsent.innerText = "00";
-            statEmpId.innerText = "---";
+            displayName.innerText = "---"; displayRole.innerText = "---";
+            statAttendance.innerText = "00"; statAbsent.innerText = "00"; statEmpId.innerText = "---";
             statusEl.innerHTML = '';
         }
-
         init();
     </script>
 </body>

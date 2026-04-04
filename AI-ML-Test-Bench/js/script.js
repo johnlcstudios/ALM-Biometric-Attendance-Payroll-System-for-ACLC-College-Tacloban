@@ -588,10 +588,7 @@ async function saveEmployee() {
     try {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         
@@ -975,10 +972,7 @@ async function runPayroll() {
         try {
             const response = await fetch('backend/api.php?action=run_payroll', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ start_date, end_date, category })
             });
             
@@ -1105,10 +1099,7 @@ async function applyLeaveBalanceToAll() {
 
     const response = await fetch('backend/api.php?action=bulk_update_leave_balance', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ balance })
     });
     const result = await response.json();
@@ -1140,10 +1131,7 @@ async function updateLeaveBalance() {
 async function updateLeaveStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_leave_status', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
@@ -1176,10 +1164,7 @@ function renderLoanTable() {
 async function updateLoanStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_loan_status', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
@@ -1211,10 +1196,7 @@ function renderResignationTable() {
 async function updateResignationStatus(id, status) {
     const response = await fetch('backend/api.php?action=update_resignation_status', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status })
     });
     const result = await response.json();
@@ -1661,26 +1643,26 @@ async function initFaceEnrollment() {
     const captureBtn = document.getElementById('captureBtn');
     const startBtn = document.getElementById('startEnrollBtn');
     const previewContainer = document.querySelector('.camera-preview');
+    const placeholder = document.getElementById('camera-placeholder');
+    const placeholderText = placeholder.querySelector('p');
     
-    document.getElementById('camera-placeholder').style.display = 'none';
+    placeholder.style.display = 'flex';
+    placeholderText.innerText = "Loading Face Models...";
     
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-        video.srcObject = stream;
-        
-        console.log("Loading face-api models...");
-        // Use CDN models directly to avoid shard-loading errors from local filesystem
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-        
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
-        console.log("Models loaded successfully");
+        placeholderText.innerText = "Face Models Loaded!";
 
-        // Fetch existing faces to check for duplicates
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        video.srcObject = stream;
+
+        // Fetch existing faces for duplicate check
         try {
             const res = await fetch('backend/api.php?action=get_enrolled_faces');
             const data = await res.json();
@@ -1689,215 +1671,101 @@ async function initFaceEnrollment() {
                     const desc = JSON.parse(f.face_descriptor);
                     return new faceapi.LabeledFaceDescriptors(f.full_name, [new Float32Array(desc)]);
                 });
-                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); // Using a strict threshold for duplicate check
+                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
             }
-        } catch (e) {
-            console.error("Error loading enrolled faces:", e);
-        }
+        } catch (e) { console.error("Error loading enrolled faces:", e); }
 
         captureBtn.style.display = 'inline-block';
-        captureBtn.disabled = true; // Disable until blink detected
+        captureBtn.disabled = true;
         startBtn.style.display = 'none';
         
         const canvas = document.getElementById('overlay');
-        
-        // Wait for video metadata to get actual resolution
         await new Promise((resolve) => {
             if (video.readyState >= 2) resolve();
             else video.onloadedmetadata = () => resolve();
         });
+        placeholder.style.display = 'none';
 
         isEnrollingBiometrics = false;
         let lastBox = null;
         let stabilityCounter = 0;
-        let scanLineY = 0;
-        let scanDirection = 1;
-        const STABILITY_REQUIRED = 5; // number of stable frames before scanning
-        const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
+        const STABILITY_REQUIRED = 6;
+        const MOVEMENT_THRESHOLD = 15;
         
-        const getDetectorOptions = () => {
-            if (faceapi.nets.ssdMobilenetv1.params) {
-                return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-            }
-            return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-        };
-        const detectorOptions = getDetectorOptions();
+        // Fast detector for preview
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        const displaySize = faceapi.matchDimensions(canvas, video, true);
 
-        // Preview loop using requestAnimationFrame for smoother performance
         async function onPlay() {
-            if (!video.srcObject) return;
+            if (!video.srcObject || isEnrollingBiometrics) {
+                if (isEnrollingBiometrics) requestAnimationFrame(onPlay);
+                return;
+            }
             
-            // Match dimensions and get dimensions for scaling
-            const displaySize = faceapi.matchDimensions(canvas, video, true);
-
-            // Draw scanning animation line
             const ctx = canvas.getContext('2d');
+            const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Scanning Line Animation
-            if (!isEnrollingBiometrics) {
-                scanLineY += 5 * scanDirection;
-                if (scanLineY >= canvas.height || scanLineY <= 0) scanDirection *= -1;
-                
-                ctx.beginPath();
-                ctx.moveTo(0, scanLineY);
-                ctx.lineTo(canvas.width, scanLineY);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = 'rgba(59, 79, 201, 0.5)';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#3b4fc9';
-                ctx.stroke();
-                ctx.shadowBlur = 0; // Reset shadow
-            }
-
-            // SKIP DETECTION IF CAPTURING
-            if (isEnrollingBiometrics) {
+            const drawText = (text, x, y, color, size = "18px") => {
                 ctx.save();
                 ctx.scale(-1, 1);
                 ctx.translate(-canvas.width, 0);
-                ctx.fillStyle = "#27ae60";
-                ctx.font = "bold 20px Inter";
+                ctx.fillStyle = color;
+                ctx.font = `bold ${size} Inter`;
                 ctx.textAlign = "center";
-                ctx.fillText("CAPTURING BIOMETRICS...", canvas.width/2, canvas.height/2);
+                ctx.fillText(text, canvas.width - x, y);
                 ctx.restore();
-                requestAnimationFrame(onPlay);
-                return;
-            }
-
-            const detection = await faceapi.detectSingleFace(video, detectorOptions)
-                .withFaceLandmarks();
-            
-            // Reset outline unless face detected and matched
-            previewContainer.classList.remove('registered', 'success');
+            };
 
             if (detection) {
-                const resizedDetection = faceapi.resizeResults(detection, displaySize);
-                const box = resizedDetection.detection.box;
+                const resized = faceapi.resizeResults(detection, displaySize);
+                const box = resized.detection.box;
+                
+                faceapi.draw.drawDetections(canvas, resized);
+                faceapi.draw.drawFaceLandmarks(canvas, resized);
 
-                // Check for already registered face
-                let matchedName = null;
-                if (enrolledFaceMatcher) {
-                    const fullD = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks().withFaceDescriptor();
-                    if (fullD) {
-                        const match = enrolledFaceMatcher.findBestMatch(fullD.descriptor);
-                        if (match.label !== 'unknown') {
-                            matchedName = match.label;
-                            previewContainer.classList.add('registered');
-                        }
-                    }
-                }
-
-                // Stability Check: Faster than waiting for a blink
                 if (lastBox) {
                     const dx = Math.abs(box.x - lastBox.x);
                     const dy = Math.abs(box.y - lastBox.y);
-                    if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) {
-                        stabilityCounter++;
-                    } else {
-                        stabilityCounter = 0;
-                    }
+                    if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
+                    else stabilityCounter = 0;
                 }
                 lastBox = box;
 
-                // Enable manual capture after a few stable frames
-                if (stabilityCounter >= 3 && captureBtn) captureBtn.disabled = false;
-
-                // Draw feedback
-                faceapi.draw.drawDetections(canvas, resizedDetection);
-                faceapi.draw.drawFaceLandmarks(canvas, resizedDetection);
-                
-                // Mirror text drawing so it's readable on mirrored canvas
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.translate(-canvas.width, 0);
-                
-                const textX = canvas.width - (box.x + box.width / 2);
+                const textX = box.x + box.width / 2;
                 const textY = box.y + box.height + 30;
 
-                ctx.font = "bold 18px Inter";
-                ctx.textAlign = "center";
-                
-                if (matchedName) {
-                    ctx.fillStyle = "#db261f";
-                    ctx.fillText(`ALREADY REGISTERED: ${matchedName}`, textX, textY);
-                    
-                    const selectedEmp = select.options[select.selectedIndex].text;
-                    if (matchedName === selectedEmp.split(' (')[0]) {
-                        ctx.fillStyle = "#27ae60";
-                        ctx.fillText(`This is ${matchedName}!`, textX, textY + 25);
-                    }
-                } else if (stabilityCounter < STABILITY_REQUIRED) {
-                    ctx.fillStyle = "#f20e0eff";
-                    ctx.fillText("SCANNING... HOLD STILL", textX, textY);
+                if (stabilityCounter >= STABILITY_REQUIRED) {
+                    drawText("STABILITY VERIFIED! AUTO-CAPTURING...", textX, textY, "#27ae60");
+                    isEnrollingBiometrics = true;
+                    setTimeout(() => saveFaceEnrollment(), 500);
                 } else {
-                    ctx.fillStyle = "#27ae60";
-                    ctx.fillText(`Stability Verified!`, textX, textY);
-                    previewContainer.classList.add('success');
-
-                    if (!isEnrollingBiometrics) {
-                        // Get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, detectorOptions)
-                            .withFaceLandmarks()
-                            .withFaceDescriptor();
-
-                        if (fullDetection) {
-                            const confidence = Math.round(fullDetection.detection.score * 100);
-                            
-                            if (confidence >= 90) {
-                                isEnrollingBiometrics = true; // Set immediately to prevent multiple triggers
-                                
-                                // Visual feedback
-                                ctx.strokeStyle = "#27ae60";
-                                ctx.lineWidth = 6;
-                                ctx.strokeRect(box.x, box.y, box.width, box.height); 
-                                ctx.fillText("Auto-Capturing...", textX, textY + 25);
-
-                                console.log(`Face detected and verified (${confidence}%). Auto-enrolling...`);
-                                
-                                setTimeout(() => {
-                                    saveFaceEnrollment(fullDetection.descriptor);
-                                }, 1000);
-                            }
-                        }
-                    }
+                    drawText("HOLD STILL...", textX, textY, "#f39c12");
+                    if (stabilityCounter > 2) captureBtn.disabled = false;
                 }
-                ctx.restore();
             } else {
-                 stabilityCounter = 0;
-                 lastBox = null;
-                 if (captureBtn) captureBtn.disabled = true;
-                 
-                 // Show "Scanning" status when no face
-                 ctx.save();
-                 ctx.scale(-1, 1);
-                 ctx.translate(-canvas.width, 0);
-                 ctx.fillStyle = "#3b4fc9";
-                 ctx.font = "16px Inter";
-                 ctx.textAlign = "center";
-                 ctx.fillText("POSITION FACE IN CIRCLE", canvas.width/2, canvas.height - 30);
-                 ctx.restore();
+                stabilityCounter = 0;
+                lastBox = null;
+                captureBtn.disabled = true;
+                drawText("POSITION FACE IN CENTER", canvas.width/2, canvas.height - 30, "#3b4fc9");
             }
-             
             requestAnimationFrame(onPlay);
         }
-        
         onPlay();
-
     } catch (err) {
-        console.error("Biometrics initialization error:", err);
-        alert("Camera access denied or models failed to load. Check console for details.");
-        document.getElementById('camera-placeholder').style.display = 'block';
+        console.error("Enrollment Error:", err);
+        alert("Camera access denied or models failed to load.");
     }
 }
 
-async function saveFaceEnrollment(manualDescriptor = null) {
+async function saveFaceEnrollment() {
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
     
-    if (!employeeId) return alert("Please select an employee first");
-    
-    // Stop the preview loop from detecting faces
+    if (!employeeId) return;
     isEnrollingBiometrics = true;
 
     if (captureBtn) {
@@ -1905,51 +1773,51 @@ async function saveFaceEnrollment(manualDescriptor = null) {
         captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Capturing...';
     }
 
-    const getOptions = () => {
-        if (faceapi.nets.ssdMobilenetv1.params) {
-            return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-        }
-        return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
+    const drawStatus = (text) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-canvas.width, 0);
+        ctx.fillStyle = "#27ae60";
+        ctx.font = "bold 24px Inter";
+        ctx.textAlign = "center";
+        ctx.fillText(text, canvas.width/2, canvas.height/2);
+        ctx.restore();
     };
-    const options = getOptions();
-    const samples = [];
-    
-    // If we have a high-confidence descriptor from auto-capture, use it as first sample
-    if (manualDescriptor && manualDescriptor.length === 128) {
-        samples.push(Array.from(manualDescriptor));
-    }
 
-    // Try to collect more samples for a robust average
-    console.log("Collecting biometric samples...");
+    const samples = [];
+    const highAccOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+
     try {
-        for (let i = 0; i < 15 && samples.length < 5; i++) {
-            const det = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
-            if (det && det.descriptor && det.descriptor.length === 128 && det.detection?.score >= 0.75) {
+        for (let i = 0; i < 10 && samples.length < 5; i++) {
+            drawStatus(`Capturing Sample ${samples.length + 1}/5...`);
+            const det = await faceapi.detectSingleFace(video, highAccOptions).withFaceLandmarks().withFaceDescriptor();
+            if (det && det.descriptor) {
                 samples.push(Array.from(det.descriptor));
-                console.log(`Sample ${samples.length}/5 collected`);
             }
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 150));
         }
 
-        // We need at least 1 very good sample
-        if (samples.length === 0) {
-            alert("Could not detect a clear face. Please ensure good lighting and face the camera.");
+        if (samples.length < 3) {
+            alert("Poor capture quality. Please ensure good lighting and try again.");
+            isEnrollingBiometrics = false;
             if (captureBtn) {
                 captureBtn.disabled = false;
                 captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
             }
-            isEnrollingBiometrics = false;
             return;
         }
 
-        // Average the descriptors
+        // Average descriptors
         const averaged = new Array(128).fill(0);
         for (const s of samples) {
             for (let i = 0; i < 128; i++) averaged[i] += s[i];
         }
         for (let i = 0; i < 128; i++) averaged[i] /= samples.length;
 
-        console.log("Saving biometric data to server...");
+        drawStatus("Processing...");
+        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-check"></i> Captured.';
+
         const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1959,26 +1827,18 @@ async function saveFaceEnrollment(manualDescriptor = null) {
         const result = await response.json();
         if (result.success) {
             alert("Face enrolled successfully!");
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-            }
-            window.location.reload();
+            location.reload();
         } else {
-            alert("Error saving biometric data: " + result.message);
+            alert("Error: " + result.message);
+            isEnrollingBiometrics = false;
             if (captureBtn) {
                 captureBtn.disabled = false;
                 captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
             }
-            isEnrollingBiometrics = false;
         }
     } catch (err) {
         console.error("Capture Error:", err);
-        alert("An error occurred during capture. Please try again.");
         isEnrollingBiometrics = false;
-        if (captureBtn) {
-            captureBtn.disabled = false;
-            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
-        }
     }
 }
 

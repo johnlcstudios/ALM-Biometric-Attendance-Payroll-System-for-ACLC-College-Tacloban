@@ -3,9 +3,9 @@
 header('Content-Type: application/json');
 
 // Biometric Constants
-define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
+define('BIOMETRIC_MATCH_THRESHOLD', 0.70);
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
-define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.25);
 
 try {
     require_once 'db.php';
@@ -15,16 +15,6 @@ try {
 }
 
 $action = $_GET['action'] ?? '';
-
-// CSRF Protection for sensitive actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, ['login', 'signup', 'kiosk_scan'])) {
-    $headers = getallheaders();
-    $token = $headers['X-CSRF-TOKEN'] ?? '';
-    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
-        http_response_code(403);
-        exit(json_encode(['success' => false, 'message' => 'Invalid CSRF token']));
-    }
-}
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
@@ -60,9 +50,7 @@ try {
                 $_SESSION['company_name'] = $user['company_name'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                // Ensure CSRF token is refreshed after login
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name'], 'csrf_token' => $_SESSION['csrf_token']]);
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -653,13 +641,18 @@ try {
             }
 
             // Fetch company-specific biometric thresholds
-            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
+            $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
+            if (!$config) {
+                echo json_encode(['success' => false, 'message' => 'Company configuration not found']);
+                break;
+            }
+
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
 
-            // Fetch enrolled faces
+            // Fetch active enrolled faces for this company
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
             $stmt_faces->execute([$company_id]);
             $enrolled_faces = $stmt_faces->fetchAll();
@@ -680,7 +673,6 @@ try {
                     }
                     
                     $distance = sqrt($sum);
-                    error_log("Kiosk Scan: Employee {$face['full_name']} (ID: {$face['id']}) - Distance: {$distance}");
                     if ($distance < $best_distance) {
                         $second_best_distance = $best_distance;
                         $best_distance = $distance;
@@ -692,151 +684,150 @@ try {
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
-                // Return a more helpful message for debugging
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
-                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
-                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
+                echo json_encode(['success' => false, 'message' => 'Face not recognized', 'match_percentage' => $match_percentage]);
                 break;
             }
 
-            // Accuracy calculation: distance 0.6 -> approx 80% match. 0 -> 100%
-            $match_percentage = max(0, round(100 - ($best_distance * 35), 2));
-
+            // Ambiguity check
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
                 if ($ratio <= $ambiguity_ratio_threshold) {
-                    echo json_encode([
-                        'success' => false,
-                        'message' => 'Ambiguous match, please try again',
-                        'match_percentage' => $match_percentage
-                    ]);
+                    echo json_encode(['success' => false, 'message' => 'Ambiguous match, please try again']);
                     break;
                 }
             }
-            error_log("Kiosk Scan: Match found for {$best_match['full_name']} (ID: {$best_match['id']}). Distance: {$best_distance}, Match %: {$match_percentage}");
 
-            if ($best_match) {
-                $employee_id = $best_match['id'];
-                $date = date('Y-m-d');
-                $time = date('H:i:s');
+            $match_percentage = max(0, round(100 - ($best_distance * 35), 2));
+            $employee_id = $best_match['id'];
+            $date = date('Y-m-d');
+            $time = date('H:i:s');
 
-                $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
-                $stmt_emp->execute([$employee_id]);
-                $emp_data = $stmt_emp->fetch();
+            // Fetch employee data
+            $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
+            $stmt_emp->execute([$employee_id]);
+            $emp_data = $stmt_emp->fetch();
 
-                $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
-                $stmt_config->execute([$company_id]);
-                $config = $stmt_config->fetch();
+            // Fetch existing log for today
+            $stmt_log = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date = ?");
+            $stmt_log->execute([$employee_id, $date]);
+            $log = $stmt_log->fetch();
 
-                $stmt_log = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date = ?");
-                $stmt_log->execute([$employee_id, $date]);
-                $log = $stmt_log->fetch();
+            // Statistics for summary card
+            $stmt_stats = $pdo->prepare("SELECT COUNT(*) as total_attendance FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL");
+            $stmt_stats->execute([$employee_id]);
+            $stats = $stmt_stats->fetch();
 
-                $stmt_stats = $pdo->prepare("SELECT 
-                    (SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL) as total_attendance
-                ");
-                $stmt_stats->execute([$employee_id]);
-                $stats = $stmt_stats->fetch();
+            // Absence calculation (Mon-Fri)
+            $joined = new DateTime($emp_data['created_at']);
+            $today_dt = new DateTime();
+            $interval = $joined->diff($today_dt);
+            $work_days = 0;
+            $temp_date = clone $joined;
+            for ($i = 0; $i <= $interval->days; $i++) {
+                if ($temp_date->format('N') < 6) $work_days++;
+                $temp_date->modify('+1 day');
+            }
+            $absent_count = max(0, $work_days - $stats['total_attendance']);
 
-                // Calculate Absences: Days since joining - total attendance (excluding weekends)
-                $joined = new DateTime($emp_data['created_at']);
-                $today_dt = new DateTime();
-                $interval = $joined->diff($today_dt);
-                $days_diff = $interval->days;
-                
-                $work_days = 0;
-                $temp_date = clone $joined;
-                for ($i = 0; $i <= $days_diff; $i++) {
-                    if ($temp_date->format('N') < 6) { // 1-5 (Mon-Fri)
-                        $work_days++;
-                    }
-                    $temp_date->modify('+1 day');
-                }
-                
-                $absent_count = max(0, $work_days - $stats['total_attendance']);
-                $common_data = [
-                    'name' => $best_match['full_name'],
-                    'employee_id' => $emp_data['employee_id'],
-                    'position' => $emp_data['position'],
-                    'attendance_count' => $stats['total_attendance'],
-                    'absent_count' => $absent_count,
-                    'match_percentage' => $match_percentage
-                ];
+            $common_data = [
+                'name' => $best_match['full_name'],
+                'employee_id' => $emp_data['employee_id'],
+                'position' => $emp_data['position'],
+                'attendance_count' => $stats['total_attendance'],
+                'absent_count' => $absent_count,
+                'match_percentage' => $match_percentage
+            ];
 
-                $missed_morning = (!$log || empty($log['check_in'])) && $time > date('H:i:s', strtotime($config['work_start'] . ' + 4 hours'));
-                $status = $log ? ($log['status'] ?? 'On-Time') : 'On-Time';
-                $late_minutes = $log ? ($log['late_minutes'] ?? 0) : 0;
-                $column = '';
-                
-                $work_start = $config['work_start'];
-                $grace_period = $config['grace_period'] ?? 15;
+            // Determine Action based on strict time windows
+            $column = '';
+            $status = $log ? ($log['status'] ?? 'On-Time') : 'On-Time';
+            $late_minutes = $log ? ($log['late_minutes'] ?? 0) : 0;
+
+            $work_start = $config['work_start'];
+            $work_end = $config['work_end'];
+            $lunch_out_start = $config['lunch_out_start'];
+            $lunch_out_end = $config['lunch_out_end'];
+            $lunch_in_start = $config['lunch_in_start'];
+            $lunch_in_end = $config['lunch_in_end'];
+            $grace_period = $config['grace_period'] ?? 15;
+
+            // Strict Time Window Logic for Auto-Detection
+            $column = '';
+            
+            // 1. Morning Check-In: From midnight until lunch out start
+            if ($time < $lunch_out_start) {
+                $column = 'check_in';
                 $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
-                
-                // Determine the correct column based on time and ranges
-                if ($time >= $config['lunch_out_start'] && $time <= $config['lunch_out_end']) {
-                    $column = 'lunch_out';
-                } elseif ($time >= $config['lunch_in_start'] && $time <= $config['lunch_in_end']) {
-                    $column = 'lunch_in';
-                } elseif ($time >= date('H:i:s', strtotime($config['work_end'] . ' - 30 minutes'))) {
-                    $column = 'check_out';
-                } elseif ($time <= date('H:i:s', strtotime($work_start . ' + 4 hours'))) {
-                    $column = 'check_in';
-                    // Only mark as late during check-in
-                    if ($time > $late_time) {
-                        $status = 'Late';
-                        $start_ts = strtotime($work_start);
-                        $now_ts = strtotime($time);
-                        $late_minutes = max(0, floor(($now_ts - $start_ts) / 60));
-                    }
-                } else {
-                    // Default to check_out if it's after lunch_in_end and before work_end
-                    $column = 'check_out';
+                if ($time > $late_time) {
+                    $status = 'Late';
+                    $late_minutes = max(0, floor((strtotime($time) - strtotime($work_start)) / 60));
                 }
-
-                // Entry point requirements
-                if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-
-                if ($log && !empty($log[$column])) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'ALREADY LOGGED', 'action' => $column], $common_data));
-                    break;
-                }
-
-                if (!$log) {
-                    $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status, late_minutes) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$company_id, $employee_id, $date, $time, $status, $late_minutes]);
-                } else {
-                    if ($column === 'check_out') {
-                        if (empty($log['check_in']) && !empty($log['lunch_in'])) $status = 'Half-Day';
-                        else if (!empty($log['check_in']) && empty($log['lunch_in'])) $status = 'Half-Day';
-                        else if (empty($log['check_in'])) $status = 'Absent';
-                    }
-                    // For lunch_out/lunch_in, we keep the existing status (Late or On-Time)
-                    $stmt = $pdo->prepare("UPDATE attendance SET $column = ?, status = ?, late_minutes = ? WHERE id = ?");
-                    $stmt->execute([$time, $status, $late_minutes, $log['id']]);
-                }
-
-                echo json_encode(array_merge([
-                    'success' => true, 
-                    'action' => $column, 
-                    'time' => $time, 
-                    'status' => $status, 
-                    'late_minutes' => $late_minutes,
-                    'missed_morning' => $missed_morning
-                ], $common_data));
-            } else {
-                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
+            } 
+            // 2. Lunch Out: During set lunch out window
+            elseif ($time >= $lunch_out_start && $time < $lunch_out_end) {
+                $column = 'lunch_out';
+            } 
+            // 3. Lunch In: During set lunch in window
+            elseif ($time >= $lunch_in_start && $time < $lunch_in_end) {
+                $column = 'lunch_in';
+            } 
+            // 4. Check Out: From lunch in end until midnight
+            else {
+                $column = 'check_out';
             }
+
+            // Validation: Prevent duplicate logs for the same action today
+            if ($log && !empty($log[$column])) {
+                $action_label = str_replace('_', ' ', strtoupper($column));
+                echo json_encode(array_merge([
+                    'success' => false, 
+                    'message' => "ALREADY $action_label FOR TODAY", 
+                    'action' => $column
+                ], $common_data));
+                break;
+            }
+
+            // Validation: Ensure logical sequence (e.g. must check-in before lunch-out)
+            if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                break;
+            }
+            if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                break;
+            }
+            if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
+                break;
+            }
+
+            // Update status for Half-Day if they missed a major slot
+            if ($column === 'check_out' && $log) {
+                if (empty($log['check_in']) || empty($log['lunch_in'])) {
+                    $status = 'Half-Day';
+                }
+            }
+
+            // Save to Database
+            if (!$log) {
+                $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status, late_minutes) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$company_id, $employee_id, $date, $time, $status, $late_minutes]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE attendance SET $column = ?, status = ?, late_minutes = ? WHERE id = ?");
+                $stmt->execute([$time, $status, $late_minutes, $log['id']]);
+            }
+
+            $missed_morning = (!$log || empty($log['check_in'])) && $time > $lunch_out_start;
+
+            echo json_encode(array_merge([
+                'success' => true, 
+                'action' => $column, 
+                'time' => date('h:i A', strtotime($time)), 
+                'status' => $status, 
+                'late_minutes' => $late_minutes,
+                'missed_morning' => $missed_morning
+            ], $common_data));
             break;
 
         case 'run_payroll':

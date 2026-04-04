@@ -260,6 +260,11 @@ try {
     $pdo->exec("UPDATE users u JOIN employees e ON u.id = e.user_id SET u.role = 'Payroll Officer' WHERE e.position = 'Payroll Officer'");
     if (!$silent) echo "DONE\n";
 
+    // 18. Relax Biometric Thresholds for better recognition
+    if (!$silent) echo "Relaxing Biometric Thresholds for better recognition... ";
+    $pdo->exec("UPDATE companies SET biometric_match_threshold = 0.70, biometric_ambiguity_ratio = 1.25 WHERE biometric_match_threshold = 0.60");
+    if (!$silent) echo "DONE\n";
+
     // 8. Create 'subjects' master table
     $stmt = $pdo->query("SHOW TABLES LIKE 'subjects'");
     if (!$stmt->fetch()) {
