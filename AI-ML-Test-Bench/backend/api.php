@@ -750,7 +750,7 @@ try {
             $lunch_out_end = $config['lunch_out_end'] ?: '12:30:00';
             $lunch_in_start = $config['lunch_in_start'] ?: '12:30:00';
             $lunch_in_end = $config['lunch_in_end'] ?: '13:30:00';
-            $grace_period = $config['grace_period'] ?? 15;
+            $grace_period = 15; // Standard grace period
 
             // Strict Time Window Logic for Auto-Detection
             if ($time < $lunch_out_start) {
@@ -1101,7 +1101,6 @@ try {
                 lunch_out_end = ?, 
                 lunch_in_start = ?, 
                 lunch_in_end = ?, 
-                grace_period = ?, 
                 ot_percentage = ?, 
                 deduction_per_sec = ?, 
                 deduction_per_min = ?, 
@@ -1116,7 +1115,6 @@ try {
                 $data['lunchOutEnd'] ?: '12:30:00', 
                 $data['lunchInStart'] ?: '12:30:00', 
                 $data['lunchInEnd'] ?: '13:30:00', 
-                (int)($data['gracePeriod'] ?? 15), 
                 (int)($data['otPercentage'] ?? 25), 
                 (float)($data['deductionPerSec'] ?? 0.0083), 
                 (float)($data['deductionPerMin'] ?? 0.50), 

@@ -122,11 +122,11 @@ try {
         if (!$silent) echo "DONE\n";
     }
 
-    // 6. Check for 'lunch_start', 'lunch_end', 'grace_period' columns in 'companies' table
+    // 6. Check for 'lunch_start', 'lunch_end' columns in 'companies' table
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'lunch_start'");
     if (!$stmt->fetch()) {
-        if (!$silent) echo "Adding 'lunch_start', 'lunch_end', and 'grace_period' columns to 'companies' table... ";
-        $pdo->exec("ALTER TABLE companies ADD COLUMN lunch_start TIME DEFAULT '12:00:00', ADD COLUMN lunch_end TIME DEFAULT '13:00:00', ADD COLUMN grace_period INT DEFAULT 15");
+        if (!$silent) echo "Adding 'lunch_start' and 'lunch_end' columns to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies ADD COLUMN lunch_start TIME DEFAULT '12:00:00', ADD COLUMN lunch_end TIME DEFAULT '13:00:00'");
         if (!$silent) echo "DONE\n";
     }
 
