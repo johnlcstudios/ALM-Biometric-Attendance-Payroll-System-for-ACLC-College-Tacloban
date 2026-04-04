@@ -318,16 +318,31 @@
         async function loadModels() {
             try {
                 statusBadge.textContent = "Loading Face Models...";
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
-                ]);
+                // Use absolute path or relative path to models
+                const MODEL_URL = '../AI-ML-Test-Bench/models/'; 
+                // Fallback to CDN if local models fail
+                const CDN_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                
+                try {
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+                    ]);
+                } catch (e) {
+                    console.warn("Local models failed, falling back to CDN...");
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(CDN_MODEL_URL),
+                        faceapi.nets.ssdMobilenetv1.loadFromUri(CDN_MODEL_URL)
+                    ]);
+                }
+                
                 state.modelsLoaded = true;
                 statusBadge.textContent = "Models Ready";
                 startVideo();
-                loadEnrolledFaces();
             } catch (err) {
                 console.error("Error loading models:", err);
                 statusBadge.textContent = "Error Loading Models";
@@ -337,7 +352,7 @@
 
         /* START VIDEO */
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: {} })
+            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
                 .then(stream => {
                     video.srcObject = stream;
                 })
@@ -348,17 +363,8 @@
                 });
         }
 
-        /* LOAD ENROLLED FACES */
-        function loadEnrolledFaces() {
-            const enrolledData = JSON.parse(localStorage.getItem('enrolledFaces') || '[]');
-            if (enrolledData.length > 0) {
-                const labeledDescriptors = enrolledData.map(data => {
-                    const descriptors = data.descriptors.map(d => new Float32Array(d));
-                    return new faceapi.LabeledFaceDescriptors(data.label, descriptors);
-                });
-                state.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
-            }
-        }
+        let lastScanTime = 0;
+        const SCAN_COOLDOWN = 3000; // 3 seconds between scans
 
         video.addEventListener('play', () => {
             const displaySize = { width: video.videoWidth, height: video.videoHeight };
@@ -366,6 +372,9 @@
 
             setInterval(async () => {
                 if (!state.modelsLoaded || !state.isScanning) return;
+                
+                const now = Date.now();
+                if (now - lastScanTime < SCAN_COOLDOWN) return;
 
                 const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
                     .withFaceLandmarks()
@@ -373,38 +382,60 @@
 
                 const resizedDetections = faceapi.resizeResults(detections, displaySize);
                 overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-                faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
-
-                if (detections.length > 0 && state.faceMatcher) {
-                    const results = resizedDetections.map(d => state.faceMatcher.findBestMatch(d.descriptor));
+                
+                if (detections.length > 0) {
+                    faceapi.draw.drawFaceLandmarks(overlay, resizedDetections);
                     
-                    results.forEach((result, i) => {
-                        const { label, distance } = result;
-                        if (label !== 'unknown') {
-                            statusBadge.textContent = `Verified: ${label}`;
+                    // We only scan the first face detected for kiosk mode
+                    const descriptor = Array.from(detections[0].descriptor);
+                    
+                    statusBadge.textContent = "Verifying...";
+                    statusBadge.className = "status-badge status-scanning";
+                    
+                    try {
+                        const response = await fetch('../AI-ML-Test-Bench/backend/api.php?action=kiosk_scan', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                company_id: 1, // Default or fetch from settings
+                                descriptor: descriptor 
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        lastScanTime = Date.now();
+
+                        if (result.success) {
+                            statusBadge.textContent = `Verified: ${result.name} (${result.match_percentage}%)`;
                             statusBadge.className = "status-badge status-verified";
                             
-                            // Load employee if not already loaded
-                            if (!state.employee || state.employee.name !== label) {
-                                loadEmployeeByName(label);
-                            }
+                            state.employee = {
+                                name: result.name,
+                                role: result.position,
+                                attendance: result.attendance_count,
+                                absences: result.absent_count,
+                                loans: 0 // Fetch loans if needed
+                            };
+                            render();
+                            
+                            // Success Sound or visual feedback
+                            document.querySelector('.kiosk-card').classList.add('success-flash');
+                            setTimeout(() => document.querySelector('.kiosk-card').classList.remove('success-flash'), 1000);
+                            
                         } else {
-                            statusBadge.textContent = "Unknown Face";
-                            statusBadge.className = "status-badge status-scanning";
+                            statusBadge.textContent = result.message || "No Match Found";
+                            statusBadge.className = "status-badge status-error";
                         }
-
-                        const box = resizedDetections[i].detection.box;
-                        const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() });
-                        drawBox.draw(overlay);
-                    });
-                } else if (detections.length > 0) {
-                    statusBadge.textContent = "Face Detected (Not Enrolled)";
-                    statusBadge.className = "status-badge status-scanning";
+                    } catch (err) {
+                        console.error("Scan error:", err);
+                        statusBadge.textContent = "Network Error";
+                        statusBadge.className = "status-badge status-error";
+                    }
                 } else {
                     statusBadge.textContent = "Scanning...";
                     statusBadge.className = "status-badge status-scanning";
                 }
-            }, 500);
+            }, 1000);
         });
 
         /* CLOCK + DATE */
@@ -434,33 +465,6 @@
             document.getElementById("att").textContent = state.employee.attendance;
             document.getElementById("abs").textContent = state.employee.absences;
             document.getElementById("loan").textContent = state.employee.loans;
-        }
-
-        /* API (SIMULATED) */
-        async function fetchEmployeeByName(name) {
-            // Simulated database lookup
-            const employees = {
-                "Arianne Smith": { name: "Arianne Smith", role: "School Dean", attendance: 12, absences: 2, loans: 1 },
-                "John Doe": { name: "John Doe", role: "Instructor", attendance: 10, absences: 1, loans: 0 }
-            };
-            return employees[name] || { name, role: "Employee", attendance: 0, absences: 0, loans: 0 };
-        }
-
-        /* LOAD EMPLOYEE */
-        async function loadEmployeeByName(name) {
-            state.employee = await fetchEmployeeByName(name);
-            render();
-        }
-
-        /* ACTIONS */
-        function timeIn() {
-            if (!state.employee) return alert("Please verify your face first");
-            alert(`Time In recorded for ${state.employee.name}`);
-        }
-
-        function timeOut() {
-            if (!state.employee) return alert("Please verify your face first");
-            alert(`Time Out recorded for ${state.employee.name}`);
         }
 
         // Initialize
