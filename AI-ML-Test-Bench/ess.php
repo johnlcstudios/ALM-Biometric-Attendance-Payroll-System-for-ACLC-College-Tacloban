@@ -1,6 +1,10 @@
 <?php
+// Start session BEFORE requiring db.php or any other output
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'backend/db.php';
-session_start();
+
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
@@ -8,12 +12,14 @@ if (!isset($_SESSION['user_id'])) {
 
 // Redirect Admin, HR, and Payroll roles
 $session_role = trim($_SESSION['role'] ?? '');
-if (in_array($session_role, ['Payroll', 'Payroll Officer'])) {
-    header('Location: Payroll-Officer.php');
-    exit;
-}
-if (in_array($session_role, ['Admin', 'HR'])) {
-    header('Location: index.php');
+$is_management = in_array($session_role, ['Admin', 'HR', 'Payroll', 'Payroll Officer']);
+
+if ($is_management) {
+    if (in_array($session_role, ['Payroll', 'Payroll Officer'])) {
+        header('Location: Payroll-Officer.php');
+    } else {
+        header('Location: index.php');
+    }
     exit;
 }
 
@@ -31,6 +37,7 @@ $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
     <title>Employee Portal - ALM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

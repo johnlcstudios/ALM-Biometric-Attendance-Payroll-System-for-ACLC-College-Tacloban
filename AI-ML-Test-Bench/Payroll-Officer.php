@@ -1,6 +1,9 @@
 <?php
+// Start session BEFORE requiring db.php or any other output
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'backend/db.php';
-session_start();
 
 // Access Control
 if (!isset($_SESSION['user_id'])) {
@@ -48,6 +51,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
     <title>Payroll Officer Dashboard - <?php echo $company_name; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
