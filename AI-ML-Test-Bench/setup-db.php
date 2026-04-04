@@ -2,10 +2,10 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$host = 'localhost';
-$db = 'alm_biometrics';
-$user = 'root';
-$pass = '';
+$host = 'sql301.infinityfree.com';
+$db = 'if0_41515464_alm_biometrics';
+$user = 'if0_41515464';
+$pass = 'BSIT3Aay2027';
 $charset = 'utf8mb4';
 
 $isCli = (php_sapi_name() === 'cli');
