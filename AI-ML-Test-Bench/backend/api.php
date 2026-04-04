@@ -1133,12 +1133,22 @@ try {
             $stmt_leave = $pdo->prepare("SELECT * FROM leave_requests WHERE employee_id = ? ORDER BY id DESC");
             $stmt_leave->execute([$eid]);
             $leave = $stmt_leave->fetchAll();
+
+            $stmt_loans = $pdo->prepare("SELECT * FROM loans WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_loans->execute([$eid]);
+            $loans = $stmt_loans->fetchAll();
+
+            $stmt_resignations = $pdo->prepare("SELECT * FROM resignations WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_resignations->execute([$eid]);
+            $resignations = $stmt_resignations->fetchAll();
             
             echo json_encode([
                 'profile' => $emp,
                 'attendance' => $attendance,
                 'payroll' => $payroll,
-                'leave' => $leave
+                'leave' => $leave,
+                'loans' => $loans,
+                'resignations' => $resignations
             ]);
             break;
 
