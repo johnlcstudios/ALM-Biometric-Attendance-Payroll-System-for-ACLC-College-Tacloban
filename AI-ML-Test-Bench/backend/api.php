@@ -790,6 +790,18 @@ try {
                 }
             }
 
+            // GLOBAL VALIDATION: If the person has already clocked out, they are done for the day.
+            // This prevents "Already Check In" messages when they scan again after clocking out.
+            if ($log && !empty($log['check_out'])) {
+                echo json_encode(array_merge([
+                    'success' => false, 
+                    'message' => "ALREADY CHECKED OUT FOR TODAY", 
+                    'action' => 'check_out',
+                    'server_time' => $time
+                ], $common_data));
+                break;
+            }
+
             // Validation: Prevent duplicate logs for the same action today
             if ($log && !empty($log[$column])) {
                 $action_label = str_replace('_', ' ', strtoupper($column));
