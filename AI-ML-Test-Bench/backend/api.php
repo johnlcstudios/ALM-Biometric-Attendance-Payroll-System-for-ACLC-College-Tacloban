@@ -971,28 +971,27 @@ try {
         case 'update_resignation_status':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $table = str_replace('update_', '', str_replace('_status', '', $action)) . '_requests';
+            
+            $table = '';
+            if ($action === 'update_leave_status') $table = 'leave_requests';
             if ($action === 'update_loan_status') $table = 'loans';
             if ($action === 'update_resignation_status') $table = 'resignations';
 
+            if (!$table) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid action']));
+            }
+
             $pdo->beginTransaction();
             try {
-                // Check if table exists before updating
-                $checkTable = $pdo->prepare("SHOW TABLES LIKE ?");
-                $checkTable->execute([$table]);
-                if (!$checkTable->fetch()) {
-                    throw new Exception("Table $table does not exist");
-                }
-
-                $stmt = $pdo->prepare("UPDATE $table SET status = ? WHERE id = ? AND company_id = ?");
+                $stmt = $pdo->prepare("UPDATE `$table` SET `status` = ? WHERE `id` = ? AND `company_id` = ?");
                 $stmt->execute([$data['status'], $data['id'], $_SESSION['company_id']]);
 
-                if ($action === 'update_resignation_status' && $data['status'] === 'Approved') {
-                    $stmt = $pdo->prepare("SELECT employee_id FROM resignations WHERE id = ?");
+                if ($action === 'update_resignation_status' && ($data['status'] === 'Approved' || $data['status'] === 'Completed')) {
+                    $stmt = $pdo->prepare("SELECT `employee_id` FROM `$table` WHERE `id` = ?");
                     $stmt->execute([$data['id']]);
                     $employee_id = $stmt->fetchColumn();
                     if ($employee_id) {
-                        $stmt = $pdo->prepare("UPDATE employees SET status = 'Resigned' WHERE id = ? AND company_id = ?");
+                        $stmt = $pdo->prepare("UPDATE `employees` SET `status` = 'Resigned' WHERE `id` = ? AND `company_id` = ?");
                         $stmt->execute([$employee_id, $_SESSION['company_id']]);
                     }
                 }

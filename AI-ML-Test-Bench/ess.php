@@ -612,8 +612,8 @@ $position = $emp['position'] ?? 'Staff';
 
             document.getElementById('leave-history-body').innerHTML = leave.map(l => `
                 <tr>
-                    <td>${l.start_date} to ${l.end_date}</td>
-                    <td>${l.leave_type}</td>
+                    <td>${l.duration}</td>
+                    <td>${l.type}</td>
                     <td><span class="status-tag status-${l.status.toLowerCase()}">${l.status}</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="3" class="text-center">No leave requests</td></tr>';
