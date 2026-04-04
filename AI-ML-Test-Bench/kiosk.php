@@ -506,12 +506,17 @@
             const timeStr = now.toTimeString().split(' ')[0];
             let action = "CHECK OUT", color = "var(--primary-blue)";
             
+            const lOutS = companyConfig.lunch_out_start || '11:30:00';
+            const lOutE = companyConfig.lunch_out_end || '12:30:00';
+            const lInS = companyConfig.lunch_in_start || '12:30:00';
+            const lInE = companyConfig.lunch_in_end || '13:30:00';
+
             // Sync with api.php logic
-            if (timeStr < companyConfig.lunch_out_start) {
+            if (timeStr < lOutS) {
                 action = "CHECK IN"; color = "var(--primary-blue)";
-            } else if (timeStr >= companyConfig.lunch_out_start && timeStr < companyConfig.lunch_out_end) {
+            } else if (timeStr >= lOutS && timeStr < lOutE) {
                 action = "LUNCH OUT"; color = "#f39c12";
-            } else if (timeStr >= companyConfig.lunch_in_start && timeStr < companyConfig.lunch_in_end) {
+            } else if (timeStr >= lInS && timeStr < lInE) {
                 action = "LUNCH IN"; color = "#27ae60";
             } else {
                 action = "CHECK OUT"; color = "var(--accent-red)";
