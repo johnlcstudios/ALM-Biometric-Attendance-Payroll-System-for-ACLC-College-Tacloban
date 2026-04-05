@@ -652,8 +652,7 @@ $position = $emp['position'] ?? 'Staff';
                 const response = await fetch(`backend/requests.php?action=apply_${type}`, {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(data)
                 });
@@ -686,8 +685,7 @@ $position = $emp['position'] ?? 'Staff';
                 const response = await fetch('backend/api.php?action=change_password', {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         oldPass: data.current_password,
