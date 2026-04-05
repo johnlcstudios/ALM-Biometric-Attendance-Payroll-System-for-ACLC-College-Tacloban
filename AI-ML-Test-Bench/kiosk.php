@@ -6,6 +6,7 @@
     <title>ALM Attendance Kiosk</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="js/face-api-manager.js"></script>
     <style>
         :root {
             --primary-blue: #1e0178;
@@ -435,6 +436,7 @@
 
     <script>
         const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
         const clockEl = document.getElementById('clock');
         const statusEl = document.getElementById('status-message');
         const displayName = document.getElementById('display-name');
@@ -444,9 +446,14 @@
         const statEmpId = document.getElementById('stat-empid');
         const cameraCircle = document.querySelector('.camera-circle');
         const actionBadge = document.getElementById('current-action-badge');
-        let serverTimeOffsetMs = 0;
         
-        let isProcessing = false;
+        const faceManager = new FaceManager({
+            stabilityRequired: 5,
+            sampleCount: 3,
+            minConfidence: 0.6
+        });
+
+        let serverTimeOffsetMs = 0;
         let currentCompanyId = null;
         let companyConfig = null;
 
@@ -485,7 +492,7 @@
             const newUrl = window.location.pathname + '?company_id=' + id;
             window.history.pushState({path:newUrl},'',newUrl);
             refreshConfig();
-            if (!video.srcObject) startKiosk();
+            if (!faceManager.stream) startKiosk();
         }
 
         function refreshConfig() {
@@ -499,9 +506,7 @@
                 });
         }
 
-        // Periodically refresh config (every 5 minutes) to sync with system settings
         setInterval(refreshConfig, 300000);
-
         setInterval(() => {
             const now = getNow();
             clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -517,36 +522,30 @@
             
             const now = getNow();
             const timeStr = now.toTimeString().split(' ')[0];
-            let action = "CHECK OUT", color = "var(--primary-blue)";
+            let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
             
+            const workStart = companyConfig.work_start || '08:00:00';
+            const workEnd = companyConfig.work_end || '17:00:00';
             const lOutS = companyConfig.lunch_out_start || '11:30:00';
             const lOutE = companyConfig.lunch_out_end || '12:30:00';
             const lInS = companyConfig.lunch_in_start || '12:30:00';
             const lInE = companyConfig.lunch_in_end || '13:30:00';
-            const workEnd = companyConfig.work_end || '17:00:00';
 
-            // Sync with api.php logic
             if (timeStr < lOutS) {
-                action = "CHECK IN"; 
+                action = "TIME IN (CHECK IN)"; 
                 color = "var(--primary-blue)";
             } else if (timeStr >= lOutS && timeStr < lOutE) {
                 action = "LUNCH OUT"; 
-                color = "#f39c12"; // Orange
+                color = "#f39c12"; 
             } else if (timeStr >= lInS && timeStr < lInE) {
                 action = "LUNCH IN"; 
-                color = "#27ae60"; // Green
+                color = "#27ae60"; 
             } else {
-                if (timeStr < workEnd) {
-                    action = "CHECK OUT (EARLY)";
-                    color = "#e67e22"; // Darker Orange
-                } else {
-                    action = "CHECK OUT"; 
-                    color = "var(--accent-red)"; // Red
-                }
+                action = timeStr < workEnd ? "TIME OUT (EARLY)" : "TIME OUT (CHECK OUT)";
+                color = timeStr < workEnd ? "#e67e22" : "var(--accent-red)";
             }
             
-            // If processing a scan, show that status instead
-            if (isProcessing) {
+            if (faceManager.isProcessing) {
                 actionBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESSING...';
                 actionBadge.style.background = "#34495e";
             } else {
@@ -556,98 +555,78 @@
         }
 
         async function startKiosk() {
+            const statusLabel = document.getElementById('loading-status');
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-                video.srcObject = stream;
-                document.getElementById('loading-status').innerText = "Loading AI Models...";
-                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
+                statusLabel.innerText = "Loading AI Models...";
+                await faceManager.loadModels();
+                
+                statusLabel.innerText = "Starting Camera...";
+                await faceManager.startCamera(video);
+                
                 document.getElementById('placeholder').style.display = 'none';
-                detectFace();
-            } catch (err) { console.error(err); statusEl.innerHTML = `<p class="text-danger">Failed: ${err.message}</p>`; }
+                detectLoop();
+            } catch (err) { 
+                console.error(err); 
+                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`; 
+            }
         }
 
-        async function detectFace() {
-            const overlay = document.getElementById('overlay');
-            const ctx = overlay.getContext('2d');
-            const displaySize = faceapi.matchDimensions(overlay, video, true);
+        async function detectLoop() {
             const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-            const highAccOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
             
-            let stabilityCounter = 0;
-            let lastBox = null;
-            const STABILITY_REQUIRED = 5;
-            const MOVEMENT_THRESHOLD = 15;
+            const loop = async () => {
+                if (!currentCompanyId || faceManager.isProcessing) {
+                    requestAnimationFrame(loop);
+                    return;
+                }
 
-            async function loop() {
-                if (!currentCompanyId || isProcessing) { requestAnimationFrame(loop); return; }
                 const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
-                ctx.clearRect(0, 0, overlay.width, overlay.height);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 if (detection) {
-                    const resized = faceapi.resizeResults(detection, displaySize);
-                    const box = resized.detection.box;
-                    faceapi.draw.drawFaceLandmarks(overlay, resized);
+                    const isStable = faceManager.checkStability(detection.detection.box);
+                    const status = isStable ? "VERIFIED! SCANNING..." : "HOLD STILL...";
+                    const color = isStable ? "#27ae60" : "#f39c12";
 
-                    if (lastBox) {
-                        const dx = Math.abs(box.x - lastBox.x), dy = Math.abs(box.y - lastBox.y);
-                        if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
-                        else stabilityCounter = 0;
-                    }
-                    lastBox = box;
+                    faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    ctx.save();
-                    ctx.scale(-1, 1);
-                    ctx.translate(-overlay.width, 0);
-                    ctx.font = "bold 20px Inter"; ctx.textAlign = "center";
-                    
-                    if (stabilityCounter >= STABILITY_REQUIRED) {
-                        ctx.fillStyle = "#27ae60"; ctx.fillText("VERIFIED! SCANNING...", overlay.width - (box.x + box.width/2), box.y + box.height + 30);
-                        isProcessing = true;
+                    if (isStable) {
+                        faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
-                        collectAndScan(highAccOptions);
-                    } else {
-                        ctx.fillStyle = "#f39c12"; ctx.fillText("HOLD STILL...", overlay.width - (box.x + box.width/2), box.y + box.height + 30);
+                        processScan();
                     }
-                    ctx.restore();
-                } else { stabilityCounter = 0; lastBox = null; cameraCircle.classList.remove('scanning'); }
+                } else {
+                    faceManager.stabilityCounter = 0;
+                    cameraCircle.classList.remove('scanning');
+                }
                 requestAnimationFrame(loop);
-            }
+            };
             loop();
         }
 
-        async function collectAndScan(options) {
-            const samples = [];
-            for (let i = 0; i < 5; i++) {
-                const det = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
-                if (det && det.descriptor) samples.push(Array.from(det.descriptor));
-                await new Promise(r => setTimeout(r, 100));
-            }
-            if (samples.length >= 3) {
-                const averaged = new Array(128).fill(0);
-                for (const s of samples) s.forEach((v, i) => averaged[i] += v);
-                averaged.forEach((v, i) => averaged[i] /= samples.length);
-                await processLog(averaged);
-            } else { isProcessing = false; cameraCircle.classList.remove('scanning'); }
-        }
-
-        async function processLog(descriptor) {
-            statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying...</p>';
+        async function processScan() {
+            statusEl.innerHTML = '<p style="color: var(--primary-blue)">Capturing Face Data...</p>';
             try {
+                const descriptor = await faceManager.captureSamples(video);
+                statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying Identity...</p>';
+                
                 const response = await fetch('backend/api.php?action=kiosk_scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ descriptor, company_id: currentCompanyId })
+                    body: JSON.stringify({ 
+                        descriptor, 
+                        company_id: currentCompanyId,
+                        scan_time: getNow().toISOString()
+                    })
                 });
+                
                 const result = await response.json();
                 cameraCircle.classList.remove('scanning');
+                
                 if (result.success) {
-                    displayName.innerText = result.name; displayRole.innerText = result.position;
+                    displayName.innerText = result.name; 
+                    displayRole.innerText = result.position;
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
                     statEmpId.innerText = result.employee_id;
@@ -657,14 +636,23 @@
                     cameraCircle.className = 'camera-circle border-danger';
                     statusEl.innerHTML = `<h3 class="text-danger">${result.message}</h3>`;
                 }
-                setTimeout(() => { resetUI(); isProcessing = false; }, 4000);
-            } catch (err) { console.error(err); isProcessing = false; }
+                
+                setTimeout(() => { resetUI(); faceManager.isProcessing = false; }, 4000);
+            } catch (err) { 
+                console.error(err); 
+                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`;
+                faceManager.isProcessing = false;
+                cameraCircle.classList.remove('scanning');
+            }
         }
 
         function resetUI() {
             cameraCircle.className = 'camera-circle';
-            displayName.innerText = "---"; displayRole.innerText = "---";
-            statAttendance.innerText = "00"; statAbsent.innerText = "00"; statEmpId.innerText = "---";
+            displayName.innerText = "---"; 
+            displayRole.innerText = "---";
+            statAttendance.innerText = "00"; 
+            statAbsent.innerText = "00"; 
+            statEmpId.innerText = "---";
             statusEl.innerHTML = '';
         }
         init();

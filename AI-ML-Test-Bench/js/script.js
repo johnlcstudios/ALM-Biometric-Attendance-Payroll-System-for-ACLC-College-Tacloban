@@ -179,7 +179,28 @@ async function fetchData(specificPage = null) {
 }
 
 // --- Navigation ---
+function stopEnrollmentCamera() {
+    if (enrollmentStream) {
+        enrollmentStream.getTracks().forEach(track => track.stop());
+        enrollmentStream = null;
+    }
+    const video = document.getElementById('video');
+    if (video) video.srcObject = null;
+    
+    const placeholder = document.getElementById('camera-placeholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    
+    const startBtn = document.getElementById('startEnrollBtn');
+    if (startBtn) startBtn.style.display = 'inline-block';
+    
+    const captureBtn = document.getElementById('captureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
+}
+
 function showPage(pageId) {
+    if (currentPage === 'biometrics' && pageId !== 'biometrics') {
+        stopEnrollmentCamera();
+    }
     currentPage = pageId;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn, .nav-link').forEach(l => l.classList.remove('active'));
@@ -1660,129 +1681,72 @@ function viewFacultyLoads(empId) {
 
 // --- Biometrics Enrollment ---
 let enrolledFaceMatcher = null;
-let isEnrollingBiometrics = false;
+const faceManager = new FaceManager({ 
+    stabilityRequired: 8, 
+    sampleCount: 5,
+    stabilityThreshold: 12
+});
 
 async function initFaceEnrollment() {
     const select = document.getElementById('enrollEmployeeSelect');
     const employeeId = select.value;
-    if (!employeeId) return alert("Select an employee first");
+    if (!employeeId) return alert("Please select an employee before starting enrollment.");
 
     const video = document.getElementById('video');
+    const canvas = document.getElementById('overlay');
     const captureBtn = document.getElementById('captureBtn');
     const startBtn = document.getElementById('startEnrollBtn');
-    const previewContainer = document.querySelector('.camera-preview');
     const placeholder = document.getElementById('camera-placeholder');
     const placeholderText = placeholder.querySelector('p');
     
     placeholder.style.display = 'flex';
-    placeholderText.innerText = "Loading Face Models...";
+    placeholderText.innerText = "Initializing AI Models...";
     
     try {
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        placeholderText.innerText = "Face Models Loaded!";
-
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-        video.srcObject = stream;
-
-        // Fetch existing faces for duplicate check
-        try {
-            const res = await fetch('backend/api.php?action=get_enrolled_faces');
-            const data = await res.json();
-            if (data.success && data.faces.length > 0) {
-                const labeledDescriptors = data.faces.map(f => {
-                    const desc = JSON.parse(f.face_descriptor);
-                    return new faceapi.LabeledFaceDescriptors(f.full_name, [new Float32Array(desc)]);
-                });
-                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
-            }
-        } catch (e) { console.error("Error loading enrolled faces:", e); }
-
+        await faceManager.loadModels();
+        placeholderText.innerText = "Starting Camera...";
+        
+        await faceManager.startCamera(video);
+        placeholder.style.display = 'none';
+        
+        startBtn.style.display = 'none';
         captureBtn.style.display = 'inline-block';
         captureBtn.disabled = true;
-        startBtn.style.display = 'none';
-        
-        const canvas = document.getElementById('overlay');
-        await new Promise((resolve) => {
-            if (video.readyState >= 2) resolve();
-            else video.onloadedmetadata = () => resolve();
-        });
-        placeholder.style.display = 'none';
 
-        isEnrollingBiometrics = false;
-        let lastBox = null;
-        let stabilityCounter = 0;
-        const STABILITY_REQUIRED = 6;
-        const MOVEMENT_THRESHOLD = 15;
-        
-        // Fast detector for preview
         const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-        const displaySize = faceapi.matchDimensions(canvas, video, true);
-
-        async function onPlay() {
-            if (!video.srcObject || isEnrollingBiometrics) {
-                if (isEnrollingBiometrics) requestAnimationFrame(onPlay);
-                return;
-            }
+        
+        const loop = async () => {
+            if (!faceManager.stream || faceManager.isProcessing) return;
             
-            const ctx = canvas.getContext('2d');
             const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+            const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            const drawText = (text, x, y, color, size = "18px") => {
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.translate(-canvas.width, 0);
-                ctx.fillStyle = color;
-                ctx.font = `bold ${size} Inter`;
-                ctx.textAlign = "center";
-                ctx.fillText(text, canvas.width - x, y);
-                ctx.restore();
-            };
 
             if (detection) {
-                const resized = faceapi.resizeResults(detection, displaySize);
-                const box = resized.detection.box;
+                const isStable = faceManager.checkStability(detection.detection.box);
+                const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
+                const color = isStable ? "#27ae60" : "#f39c12";
                 
-                faceapi.draw.drawDetections(canvas, resized);
-                faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-                if (lastBox) {
-                    const dx = Math.abs(box.x - lastBox.x);
-                    const dy = Math.abs(box.y - lastBox.y);
-                    if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) stabilityCounter++;
-                    else stabilityCounter = 0;
-                }
-                lastBox = box;
-
-                const textX = box.x + box.width / 2;
-                const textY = box.y + box.height + 30;
-
-                if (stabilityCounter >= STABILITY_REQUIRED) {
-                    drawText("STABILITY VERIFIED! AUTO-CAPTURING...", textX, textY, "#27ae60");
-                    isEnrollingBiometrics = true;
-                    setTimeout(() => saveFaceEnrollment(), 500);
+                faceManager.drawDetection(canvas, video, detection, status, color);
+                
+                if (isStable) {
+                    faceManager.isProcessing = true;
+                    setTimeout(() => saveFaceEnrollment(), 300);
                 } else {
-                    drawText("HOLD STILL...", textX, textY, "#f39c12");
-                    if (stabilityCounter > 2) captureBtn.disabled = false;
+                    captureBtn.disabled = false;
                 }
             } else {
-                stabilityCounter = 0;
-                lastBox = null;
+                faceManager.stabilityCounter = 0;
                 captureBtn.disabled = true;
-                drawText("POSITION FACE IN CENTER", canvas.width/2, canvas.height - 30, "#3b4fc9");
             }
-            requestAnimationFrame(onPlay);
-        }
-        onPlay();
+            requestAnimationFrame(loop);
+        };
+        loop();
+
     } catch (err) {
         console.error("Enrollment Error:", err);
-        alert("Camera access denied or models failed to load.");
+        alert(err.message);
+        stopEnrollmentCamera();
     }
 }
 
@@ -1794,80 +1758,60 @@ async function saveFaceEnrollment() {
     const ctx = canvas.getContext('2d');
     
     if (!employeeId) return;
-    isEnrollingBiometrics = true;
+    faceManager.isProcessing = true;
 
     if (captureBtn) {
         captureBtn.disabled = true;
-        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Capturing...';
+        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     }
 
-    const drawStatus = (text) => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.scale(-1, 1);
-        ctx.translate(-canvas.width, 0);
-        ctx.fillStyle = "#27ae60";
-        ctx.font = "bold 24px Inter";
-        ctx.textAlign = "center";
-        ctx.fillText(text, canvas.width/2, canvas.height/2);
-        ctx.restore();
-    };
-
-    const samples = [];
-    const highAccOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-
     try {
-        for (let i = 0; i < 10 && samples.length < 5; i++) {
-            drawStatus(`Capturing Sample ${samples.length + 1}/5...`);
-            const det = await faceapi.detectSingleFace(video, highAccOptions).withFaceLandmarks().withFaceDescriptor();
-            if (det && det.descriptor) {
-                samples.push(Array.from(det.descriptor));
-            }
-            await new Promise(r => setTimeout(r, 150));
-        }
+        const averagedDescriptor = await faceManager.captureSamples(video, (current, total) => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#27ae60";
+            ctx.font = "bold 24px Inter";
+            ctx.textAlign = "center";
+            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, canvas.width/2, canvas.height/2);
+        });
 
-        if (samples.length < 3) {
-            alert("Poor capture quality. Please ensure good lighting and try again.");
-            isEnrollingBiometrics = false;
-            if (captureBtn) {
-                captureBtn.disabled = false;
-                captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
-            }
-            return;
-        }
-
-        // Average descriptors
-        const averaged = new Array(128).fill(0);
-        for (const s of samples) {
-            for (let i = 0; i < 128; i++) averaged[i] += s[i];
-        }
-        for (let i = 0; i < 128; i++) averaged[i] /= samples.length;
-
-        drawStatus("Processing...");
-        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-check"></i> Captured.';
+        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving...';
 
         const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: employeeId, descriptor: averaged })
+            body: JSON.stringify({ id: employeeId, descriptor: averagedDescriptor })
         });
         
         const result = await response.json();
         if (result.success) {
-            alert("Face enrolled successfully!");
+            alert("Enrollment Complete! Face data saved securely.");
             location.reload();
         } else {
-            alert("Error: " + result.message);
-            isEnrollingBiometrics = false;
-            if (captureBtn) {
-                captureBtn.disabled = false;
-                captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
-            }
+            throw new Error(result.message);
         }
     } catch (err) {
-        console.error("Capture Error:", err);
-        isEnrollingBiometrics = false;
+        alert("Enrollment Failed: " + err.message);
+        faceManager.isProcessing = false;
+        if (captureBtn) {
+            captureBtn.disabled = false;
+            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Retry Enrollment';
+        }
     }
+}
+
+function stopEnrollmentCamera() {
+    faceManager.stopCamera();
+    const video = document.getElementById('video');
+    if (video) video.srcObject = null;
+    
+    const placeholder = document.getElementById('camera-placeholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    
+    const startBtn = document.getElementById('startEnrollBtn');
+    if (startBtn) startBtn.style.display = 'inline-block';
+    
+    const captureBtn = document.getElementById('captureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
 }
 
 // --- Charts ---
