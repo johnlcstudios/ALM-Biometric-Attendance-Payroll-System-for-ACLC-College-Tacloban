@@ -3,9 +3,9 @@
 header('Content-Type: application/json');
 
 // Biometric Constants
-define('BIOMETRIC_MATCH_THRESHOLD', 0.70);
-define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
-define('BIOMETRIC_AMBIGUITY_RATIO', 1.25);
+define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
+define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
 
 try {
     require_once 'db.php';
@@ -743,24 +743,42 @@ try {
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
-                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
-                echo json_encode(['success' => false, 'message' => 'Face not recognized', 'match_percentage' => $match_percentage]);
+                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
+                echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
                 break;
             }
 
             // Ambiguity check
             if ($second_best_distance < 999) {
-                $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
+                $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 999;
                 if ($ratio <= $ambiguity_ratio_threshold) {
-                    echo json_encode(['success' => false, 'message' => 'Ambiguous match, please try again']);
+                    echo json_encode(['success' => false, 'message' => 'Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', 'debug_ratio' => $ratio]);
                     break;
                 }
             }
 
-            $match_percentage = max(0, round(100 - ($best_distance * 35), 2));
+            // Improved Match Percentage formula
+            // 0.0 distance = 100%, 0.6 distance (threshold) = ~70%, 0.8+ = 0%
+            $match_percentage = max(0, round(100 - ($best_distance * 125), 2));
             $employee_id = $best_match['id'];
-            $date = date('Y-m-d');
-            $time = date('H:i:s');
+
+            // Use provided scan time from kiosk if available, else use current server time
+            $scan_time_input = $data['scan_time'] ?? null;
+            if ($scan_time_input) {
+                try {
+                    $dt = new DateTime($scan_time_input);
+                    // Ensure the timezone is correctly handled if the client sent an ISO string
+                    $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                    $date = $dt->format('Y-m-d');
+                    $time = $dt->format('H:i:s');
+                } catch (Exception $e) {
+                    $date = date('Y-m-d');
+                    $time = date('H:i:s');
+                }
+            } else {
+                $date = date('Y-m-d');
+                $time = date('H:i:s');
+            }
 
             // Fetch employee data
             $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
@@ -863,7 +881,13 @@ try {
 
             // Validation: Prevent duplicate logs for the same action today
             if ($log && !empty($log[$column])) {
-                $action_label = str_replace('_', ' ', strtoupper($column));
+                $labels = [
+                    'check_in' => 'TIME IN (CHECK IN)',
+                    'lunch_out' => 'LUNCH OUT',
+                    'lunch_in' => 'LUNCH IN',
+                    'check_out' => 'TIME OUT (CHECK OUT)'
+                ];
+                $action_label = $labels[$column] ?? strtoupper($column);
                 echo json_encode(array_merge([
                     'success' => false, 
                     'message' => "ALREADY $action_label FOR TODAY", 
@@ -905,9 +929,17 @@ try {
 
             $missed_morning = (!$log || empty($log['check_in'])) && $time > $lunch_out_start;
 
+            $labels = [
+                'check_in' => 'TIME IN (CHECK IN)',
+                'lunch_out' => 'LUNCH OUT',
+                'lunch_in' => 'LUNCH IN',
+                'check_out' => 'TIME OUT (CHECK OUT)'
+            ];
+            $display_action = $labels[$column] ?? strtoupper($column);
+
             echo json_encode(array_merge([
                 'success' => true, 
-                'action' => $column, 
+                'action' => $display_action, 
                 'time' => date('h:i A', strtotime($time)), 
                 'status' => $status, 
                 'late_minutes' => $late_minutes,
