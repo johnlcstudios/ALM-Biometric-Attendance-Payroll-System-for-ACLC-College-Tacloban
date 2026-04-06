@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS companies (
     deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
     deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
     deduction_per_hour DECIMAL(10, 2) DEFAULT 30.00,
+    biometric_match_threshold DECIMAL(10, 2) DEFAULT 0.60,
+    biometric_duplicate_threshold DECIMAL(10, 2) DEFAULT 0.38,
+    biometric_ambiguity_ratio DECIMAL(10, 2) DEFAULT 1.05,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -77,6 +80,9 @@ CREATE TABLE IF NOT EXISTS attendance (
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_attendance_date ON attendance(log_date);
+CREATE INDEX idx_attendance_emp_date ON attendance(employee_id, log_date);
+CREATE INDEX idx_attendance_company ON attendance(company_id);
 
 -- Payroll History
 CREATE TABLE IF NOT EXISTS payroll (
@@ -95,6 +101,8 @@ CREATE TABLE IF NOT EXISTS payroll (
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
+CREATE INDEX idx_payroll_period ON payroll(period);
+CREATE INDEX idx_payroll_company_period ON payroll(company_id, period);
 
 -- Leave Requests
 CREATE TABLE IF NOT EXISTS leave_requests (
