@@ -621,9 +621,16 @@ try {
                 }
             }
 
-            $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to save face descriptor: ' . $e->getMessage()]);
+            }
             break;
 
         case 'reset_password':
