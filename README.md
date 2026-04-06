@@ -84,7 +84,13 @@ git checkout Frontend   # or Backend or Biometric
 
 ### **3️⃣ Pull Latest Changes (Before You Start)**
 ```bash
+git stash
+```
+```bash
 git pull origin Frontend   # or Backend
+```
+```bash
+git stash pop
 ```
 
 ### **4️⃣ Add/Modify Files**
