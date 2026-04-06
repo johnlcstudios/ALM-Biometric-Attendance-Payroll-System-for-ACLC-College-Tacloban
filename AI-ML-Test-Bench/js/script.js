@@ -1166,20 +1166,52 @@ async function updateLeaveStatus(id, status) {
 function renderLoanTable() {
     const tbody = document.getElementById('loanTableBody');
     if (!tbody) return;
-    tbody.innerHTML = loanRequests.map(req => `
-        <tr>
-            <td>${escapeHTML(req.full_name)}</td>
-            <td>₱${parseFloat(req.amount).toLocaleString()}</td>
-            <td>${escapeHTML(req.reason)}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
-            <td>
-                ${req.status === 'Pending' ? `
-                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')"><i class="fas fa-check"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="updateLoanStatus(${req.id}, 'Rejected')"><i class="fas fa-times"></i></button>
-                ` : (req.status === 'Approved' ? '<span class="text-info">Awaiting Payroll</span>' : '<span class="text-muted">Processed</span>')}
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = loanRequests.map(req => {
+        let actionButtons = '';
+        const role = USER_ROLE.toLowerCase();
+        
+        if (req.status === 'Pending') {
+            // HR and Admin can Approve/Reject
+            if (role === 'admin' || role === 'hr') {
+                actionButtons = `
+                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')" title="Approve"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="updateLoanStatus(${req.id}, 'Rejected')" title="Reject"><i class="fas fa-times"></i></button>
+                `;
+            } else {
+                actionButtons = '<span class="text-muted">Awaiting HR Approval</span>';
+            }
+        } else if (req.status === 'Approved') {
+            // Payroll can Distribute
+            if (role === 'payroll' || role === 'payroll officer' || role === 'admin') {
+                actionButtons = `
+                    <button class="btn btn-primary btn-sm" onclick="updateLoanStatus(${req.id}, 'Distributed')" title="Mark as Distributed"><i class="fas fa-hand-holding-usd"></i> Distribute</button>
+                `;
+            } else {
+                actionButtons = '<span class="text-info">Awaiting Distribution</span>';
+            }
+        } else if (req.status === 'Distributed') {
+            // Payroll can mark as Paid
+            if (role === 'payroll' || role === 'payroll officer' || role === 'admin') {
+                actionButtons = `
+                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Paid')" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>
+                `;
+            } else {
+                actionButtons = '<span class="text-primary">Distributed</span>';
+            }
+        } else {
+            actionButtons = `<span class="text-muted">${req.status}</span>`;
+        }
+
+        return `
+            <tr>
+                <td>${escapeHTML(req.full_name)}</td>
+                <td>₱${parseFloat(req.amount).toLocaleString()}</td>
+                <td>${escapeHTML(req.reason)}</td>
+                <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+                <td>${actionButtons}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function updateLoanStatus(id, status) {
