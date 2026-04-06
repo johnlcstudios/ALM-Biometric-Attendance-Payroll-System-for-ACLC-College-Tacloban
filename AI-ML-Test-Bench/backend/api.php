@@ -18,7 +18,7 @@ $action = $_GET['action'] ?? '';
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer']);
+    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
 }
 
 // Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
