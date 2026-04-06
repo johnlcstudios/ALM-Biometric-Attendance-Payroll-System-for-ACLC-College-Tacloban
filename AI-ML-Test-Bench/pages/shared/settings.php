@@ -42,10 +42,6 @@ $company = $stmt_company->fetch();
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Late Grace Period (Minutes)</label>
-                        <input type="number" name="gracePeriod" value="<?php echo $company['grace_period'] ?? '15'; ?>" min="0">
-                    </div>
-                    <div class="form-group">
                         <label>Overtime Percentage (%)</label>
                         <input type="number" name="otPercentage" value="<?php echo $company['ot_percentage'] ?? '25'; ?>" min="0">
                     </div>
@@ -64,7 +60,10 @@ $company = $stmt_company->fetch();
                         <input type="number" step="0.01" name="deductionPerHour" value="<?php echo $company['deduction_per_hour'] ?? '30.00'; ?>">
                     </div>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                <div id="settings-msg" style="margin-bottom: 15px; display: none;"></div>
+                <button type="button" class="btn btn-primary" id="saveSettingsBtn" onclick="saveSettings()">
+                    <i class="fas fa-save"></i> Save System Settings
+                </button>
             </form>
         </div>
         
@@ -72,11 +71,17 @@ $company = $stmt_company->fetch();
         <div class="settings-card">
             <h3>Admin Tools</h3>
             <div class="setting-item">
-                <p>Assign Payroll Officer</p>
+                <div>
+                    <strong>Manage Access</strong>
+                    <p class="small text-muted">Assign Payroll Officers and HR roles.</p>
+                </div>
                 <button class="btn btn-primary btn-sm" onclick="showPage('assign_payroll')">Manage Access</button>
             </div>
             <div class="setting-item">
-                <p>Manage Subject Loads</p>
+                <div>
+                    <strong>Subject Loads</strong>
+                    <p class="small text-muted">Configure academic units for Faculty.</p>
+                </div>
                 <button class="btn btn-secondary btn-sm" onclick="showPage('subject_loads')">Configure Loads</button>
             </div>
         </div>
@@ -85,17 +90,26 @@ $company = $stmt_company->fetch();
         <div class="settings-card">
             <h3>Backup & Security</h3>
             <div class="setting-item">
-                <p>Attendance Station</p>
+                <div>
+                    <strong>Attendance Kiosk</strong>
+                    <p class="small text-muted">Open the face recognition terminal.</p>
+                </div>
                 <a href="kiosk.php?company_id=<?php echo $_SESSION['company_id']; ?>" target="_blank" class="btn btn-primary btn-sm">
-                    Launch Kiosk <i class="fas fa-external-link-alt"></i>
+                    Launch Terminal <i class="fas fa-external-link-alt"></i>
                 </a>
             </div>
             <div class="setting-item">
-                <p>Database Backup</p>
-                <button class="btn btn-secondary btn-sm">Download Backup</button>
+                <div>
+                    <strong>System Backup</strong>
+                    <p class="small text-muted">Download current database state.</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="alert('Backup functionality is handled via MySQL Workbench or phpMyAdmin for security.')">Download SQL</button>
             </div>
             <div class="setting-item">
-                <p>Admin Password</p>
+                <div>
+                    <strong>Security</strong>
+                    <p class="small text-muted">Update your administrative password.</p>
+                </div>
                 <button class="btn btn-secondary btn-sm" onclick="openModal('passwordModal')">Change Password</button>
             </div>
         </div>

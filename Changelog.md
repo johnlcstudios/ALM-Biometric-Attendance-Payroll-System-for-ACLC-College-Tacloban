@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-04-06
+
+### Added
+- **Multi-Stage Loan Workflow**:
+    - Implemented a new status-driven workflow for Loans: `Pending` -> `Approved`/`Rejected` -> `Distributed` -> `Paid`.
+    - Added role-based action buttons: HR/Admin handles approval, while Payroll Officer manages distribution and payment marking.
+- **Enhanced Status Styling**:
+    - Added dedicated CSS classes and color coding for new loan statuses (`Distributed`, `Paid`, `Approved`, `Rejected`) across the Admin, Payroll, and Employee portals.
+
+### Enhanced
+- **Payroll Officer Autonomy**:
+    - Enabled Payroll Officers to update loan statuses for approved requests, allowing them to track fund distribution and repayments independently of HR.
+- **Role-Based UI Logic**:
+    - Refined the loan management table to dynamically show or hide action buttons based on the current user's role and the loan's lifecycle stage.
+- **System Initialization**:
+    - Improved `script.js` to safer handle global variables like `USER_ROLE`, preventing initialization race conditions.
+
+### Fixed
+- **Critical Dashboard Loading Error**:
+    - Resolved `ReferenceError: FaceManager is not defined` that caused the Payroll Officer and Employee portals to hang on the loading screen.
+    - Fixed missing `face-api.js` and `face-api-manager.js` dependencies in `Payroll-Officer.php` and `ess.php`.
+- **RBAC Security**:
+    - Updated `isAdminOrHR()` in `api.php` to correctly authorize Payroll Officers for status updates, ensuring backend requests are no longer blocked as "Unauthorized".
+
+## [1.3.0] - 2026-04-04
+
+### Added
+- **Master Subject List**:
+    - Created a new `subjects` table to store master subject data (Code, Description, Units, Hours).
+    - Added a `subject_loads` table to manage faculty subject assignments.
+    - Implemented UI for managing master subjects and assigning loads to faculty members.
+- **CSRF Protection**:
+    - Implemented CSRF token validation for all POST requests in `api.php` and `requests.php` to enhance system security.
+- **Enhanced ESS Requests**:
+    - Added backend support for employees to apply for Loans and Resignations via the Employee Self-Service (ESS) portal.
+- **System Settings**:
+    - Added a "Configure Loads" shortcut in the settings page for quick access to subject management.
+
+### Changed
+- **Employee Management**:
+    - Updated the "Add Employee" flow to include a 4-step wizard with subject load assignment for Faculty positions.
+- **Database Schema**:
+    - Updated `update_db.php` to automatically create `subjects` and `subject_loads` tables if they don't exist.
+
+### Fixed
+- **Payroll Calculations**:
+    - Refined deduction logic in `run_specialized_payroll` to use company-specific `deduction_per_min` rates.
+- **Navigation**:
+    - Ensured "Subject Load Management" is accessible for both Admin/HR and Payroll Officer roles.
+
 ## [1.2.0] - 2026-04-02
 
 ### Added

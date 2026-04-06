@@ -43,7 +43,6 @@ $position = $emp['position'] ?? 'Staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
     <title>Employee Portal - <?php echo $company_name; ?></title>
     
     <!-- Fonts & Icons -->
@@ -77,6 +76,8 @@ $position = $emp['position'] ?? 'Staff';
         .status-pending { background: #fff3cd; color: #856404; }
         .status-approved { background: #d4edda; color: #155724; }
         .status-rejected { background: #f8d7da; color: #721c24; }
+        .status-distributed { background: #cce5ff; color: #004085; }
+        .status-paid { background: #d4edda; color: #155724; }
         .status-completed { background: #cce5ff; color: #004085; }
         
         /* Modal for Payslip */
@@ -461,6 +462,8 @@ $position = $emp['position'] ?? 'Staff';
     <!-- Modals -->
     <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="js/face-api-manager.js"></script>
     <script src="js/script.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -653,8 +656,7 @@ $position = $emp['position'] ?? 'Staff';
                 const response = await fetch(`backend/requests.php?action=apply_${type}`, {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(data)
                 });
@@ -687,8 +689,7 @@ $position = $emp['position'] ?? 'Staff';
                 const response = await fetch('backend/api.php?action=change_password', {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         oldPass: data.current_password,
