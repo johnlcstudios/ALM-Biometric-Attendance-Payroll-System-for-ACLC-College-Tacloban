@@ -18,6 +18,19 @@ let subjectLoads = [];
 let currentPage = 'dashboard';
 
 // --- Helper Functions ---
+function escapeHTML(str) {
+    if (!str || typeof str !== 'string') return str || '';
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[m];
+    });
+}
+
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'block';
@@ -35,6 +48,49 @@ window.onclick = (event) => {
     }
 };
 
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 500;
+        min-width: 250px;
+    `;
+    
+    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> <span>${escapeHTML(message)}</span>`;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// Add keyframes for animations if not in CSS
+if (!document.getElementById('toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.innerHTML = `
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    `;
+    document.head.appendChild(style);
+}
+
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
@@ -49,9 +105,12 @@ function filterTable(input, tableId) {
 }
 
 // --- Data Fetching ---
-async function fetchData() {
+async function fetchData(specificPage = null) {
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = specificPage || urlParams.get('page') || 'dashboard';
 
     try {
         const fetchJSON = async (url) => {
@@ -68,30 +127,43 @@ async function fetchData() {
 
         const getArray = (data) => Array.isArray(data) ? data : [];
         
-        employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
-        attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
-        payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
-        leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
-        loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
-        resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
-        masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
-        subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
-
-        const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
-        if (dashboardStats) {
-            const totalEl = document.getElementById('stat-total-emp');
-            const presentEl = document.getElementById('stat-present');
-            const absentEl = document.getElementById('stat-absent');
-            const leaveEl = document.getElementById('stat-leave');
-            if (totalEl) totalEl.innerText = dashboardStats.total_employees;
-            if (presentEl) presentEl.innerText = dashboardStats.present_today;
-            if (absentEl) absentEl.innerText = dashboardStats.absent_today;
-            if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+        // Always fetch employees as they are used globally
+        if (employees.length === 0 || page === 'employees') {
+            employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
         }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialPage = urlParams.get('page') || 'dashboard';
-        showPage(initialPage);
+        // Conditional fetching based on page
+        if (page === 'dashboard') {
+            const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
+            if (dashboardStats) {
+                const totalEl = document.getElementById('stat-total-emp');
+                const presentEl = document.getElementById('stat-present');
+                const absentEl = document.getElementById('stat-absent');
+                const leaveEl = document.getElementById('stat-leave');
+                if (totalEl) totalEl.innerText = dashboardStats.total_employees;
+                if (presentEl) presentEl.innerText = dashboardStats.present_today;
+                if (absentEl) absentEl.innerText = dashboardStats.absent_today;
+                
+                // Still need leave requests for the count
+                leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
+                if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
+            }
+        } else if (page === 'attendance') {
+            attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
+        } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
+            payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
+        } else if (page === 'leave') {
+            leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
+        } else if (page === 'loans') {
+            loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
+        } else if (page === 'resignations') {
+            resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
+        } else if (page === 'subject_loads' || page === 'employees') {
+            masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
+            subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
+        }
+
+        showPage(page);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -149,7 +221,7 @@ function populateEnrollmentSelect() {
     if (!select) return;
     
     select.innerHTML = '<option value="">Select Employee...</option>' + 
-        employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+        employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
 }
 
 // --- Render Functions ---
@@ -172,19 +244,19 @@ function renderEmployeeTable() {
 
         return `
             <tr>
-                <td><strong>${emp.employee_id}</strong></td>
+                <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
                 <td>
                     <div class="user-info">
                         <div class="user-details">
-                            <span class="name">${emp.full_name}</span>
-                            <span class="email">${emp.email}</span>
+                            <span class="name">${escapeHTML(emp.full_name)}</span>
+                            <span class="email">${escapeHTML(emp.email)}</span>
                         </div>
                     </div>
                 </td>
-                <td>${emp.position}</td>
-                <td>${emp.department}</td>
+                <td>${escapeHTML(emp.position)}</td>
+                <td>${escapeHTML(emp.department)}</td>
                 <td>${actionHtml}</td>
-                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${emp.status || 'Active'}</span></td>
+                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
@@ -201,10 +273,10 @@ function renderMasterSubjects() {
     if (subjectTbody) {
         subjectTbody.innerHTML = masterSubjects.map(s => `
             <tr>
-                <td><strong>${s.code}</strong></td>
-                <td>${s.description}</td>
-                <td>${s.units}</td>
-                <td>${s.hours}</td>
+                <td><strong>${escapeHTML(s.code)}</strong></td>
+                <td>${escapeHTML(s.description)}</td>
+                <td>${escapeHTML(s.units)}</td>
+                <td>${escapeHTML(s.hours)}</td>
                 <td>
                     <button class="btn btn-secondary btn-sm" onclick="editMasterSubject('${s.id}')"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-danger btn-sm" onclick="deleteMasterSubject('${s.id}')"><i class="fas fa-trash"></i></button>
@@ -226,7 +298,7 @@ async function exportFacultyPayroll() {
     }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
-        return alert("No payroll data available to export.");
+        return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3'); // Using A3 for 17 columns
@@ -268,7 +340,7 @@ async function exportUtilityPayroll() {
     }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
-        return alert("No payroll data available to export.");
+        return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3');
@@ -362,13 +434,13 @@ function renderEmployeeTable() {
         
         return `
         <tr id="row-${emp.id}">
-            <td>${emp.employee_id}</td>
+            <td>${escapeHTML(emp.employee_id)}</td>
             <td>
-                <div><strong>${emp.full_name}</strong></div>
-                <div class="text-muted" style="font-size: 0.8rem;">Username: ${emp.username || 'N/A'}</div>
+                <div><strong>${escapeHTML(emp.full_name)}</strong></div>
+                <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
             </td>
-            <td>${emp.position}</td>
-            <td>${emp.department}</td>
+            <td>${escapeHTML(emp.position)}</td>
+            <td>${escapeHTML(emp.department)}</td>
             <td>
                 ${isFaculty ? `
                     <span class="badge badge-info" style="cursor: pointer; padding: 5px 10px; border-radius: 4px; background: #3498db; color: white;" onclick="viewFacultyLoads('${emp.id}')">
@@ -376,7 +448,7 @@ function renderEmployeeTable() {
                     </span>
                 ` : '<span class="text-muted">---</span>'}
             </td>
-            <td><span class="status-badge status-${statusClass}">${statusLabel}</span></td>
+            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
             <td>
                 <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
@@ -421,14 +493,14 @@ function onLoadSubjectChange(subjectId) {
 }
 
 async function resetPassword(userId) {
-    if (!userId) return alert('This employee does not have a user account.');
+    if (!userId) return showToast('This employee does not have a user account.', 'error');
     if (confirm("Are you sure you want to reset this employee's password to 'welcome123'?")) {
         const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
-            alert(result.message);
+            showToast(result.message || 'Password reset successful!', 'success');
         } else {
-            alert('Error: ' + (result.message || 'Failed to reset password.'));
+            showToast('Error: ' + (result.message || 'Failed to reset password.'), 'error');
         }
     }
 }
@@ -505,25 +577,39 @@ async function saveEmployee() {
         data.subjects = subDescs.map((desc, i) => ({ description: desc, units: subUnits[i] }));
     }
 
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+
     try {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
             body: JSON.stringify(data)
         });
         
         const result = await response.json();
         if (result.success) {
             closeModal('employeeModal');
-            fetchData();
+            await fetchData();
             resetEmpModal();
-            alert('Employee saved successfully!');
+            showToast('Employee saved successfully!', 'success');
         } else {
-            alert('Error: ' + result.message);
+            showToast('Error: ' + result.message, 'error');
         }
     } catch (err) {
         console.error("Save error:", err);
-        alert("Failed to connect to the server.");
+        showToast("Failed to connect to the server.", 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Employee';
+        }
     }
 }
 
@@ -664,10 +750,10 @@ function renderAttendanceTable() {
         // Formatted Employee Display - ensuring it's in one column
         const employeeDisplay = `
             <div class="table-emp-info">
-                <div class="emp-avatar">${(log.full_name || 'E').charAt(0)}</div>
+                <div class="emp-avatar">${escapeHTML((log.full_name || 'E').charAt(0))}</div>
                 <div class="emp-details">
-                    <span class="emp-name">${log.full_name || '---'}</span>
-                    <span class="emp-id">${log.emp_code || '---'}</span>
+                    <span class="emp-name">${escapeHTML(log.full_name || '---')}</span>
+                    <span class="emp-id">${escapeHTML(log.emp_code || '---')}</span>
                 </div>
             </div>
         `;
@@ -675,14 +761,14 @@ function renderAttendanceTable() {
         return `
         <tr>
             <td>${employeeDisplay}</td>
-            <td><span class="text-muted"><i class="far fa-calendar-alt"></i> ${log.log_date}</span></td>
+            <td><span class="text-muted"><i class="far fa-calendar-alt"></i> ${escapeHTML(log.log_date)}</span></td>
             <td><strong>${log.check_in ? formatTime(log.check_in) : '---'}</strong></td>
             <td><span class="text-muted">${log.lunch_out ? formatTime(log.lunch_out) : '---'}</span></td>
             <td><span class="text-muted">${log.lunch_in ? formatTime(log.lunch_in) : '---'}</span></td>
             <td><strong>${log.check_out ? formatTime(log.check_out) : '---'}</strong></td>
             <td>
                 <div class="status-pill-container">
-                    <span class="status-badge status-${statusClass}">${status}</span>
+                    <span class="status-badge status-${statusClass}">${escapeHTML(status)}</span>
                     ${log.late_minutes > 0 ? `<span class="late-tag">${log.late_minutes}m late</span>` : ''}
                 </div>
             </td>
@@ -811,7 +897,7 @@ async function loadFacultyPayroll(period = 'latest') {
     tbody.innerHTML = data.map((p, index) => `
         <tr>
             <td>${index + 1}</td>
-            <td><strong>${p.full_name}</strong><br><small>${p.emp_code}</small></td>
+            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
             <td>₱${parseFloat(p.basic_salary).toLocaleString()}</td>
             <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
             <td>₱5,000.00</td>
@@ -847,7 +933,7 @@ async function loadUtilityPayroll(period = 'latest') {
     tbody.innerHTML = data.map((p, index) => `
         <tr>
             <td>${index + 1}</td>
-            <td><strong>${p.full_name}</strong><br><small>${p.emp_code}</small></td>
+            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
             <td>₱${(parseFloat(p.basic_salary)/22).toFixed(2)}</td>
             <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
             <td>₱0.00</td>
@@ -872,24 +958,44 @@ async function runPayroll() {
     const category = document.getElementById('payrollCategorySelect').value;
     
     if (!start_date || !end_date) {
-        return alert('Please select both a start and end date.');
+        return showToast('Please select both a start and end date.', 'error');
     }
 
+    const runBtn = document.querySelector('button[onclick="runPayroll()"]');
     const categoryText = category === 'all' ? 'all employees' : `${category} staff`;
+
     if (confirm(`Run payroll for ${categoryText} from ${start_date} to ${end_date}?`)) {
-        const response = await fetch('backend/api.php?action=run_payroll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ start_date, end_date, category })
-        });
-        
-        const result = await response.json();
-        if (result.success) {
-            alert(result.message || `Payroll processed for ${start_date} to ${end_date}`);
-            closeModal('runPayrollModal');
-            fetchData();
-        } else {
-            alert("Error: " + (result.message || "Failed to process payroll."));
+        if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        }
+
+        try {
+            const response = await fetch('backend/api.php?action=run_payroll', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ start_date, end_date, category })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                showToast(result.message || `Payroll processed for ${start_date} to ${end_date}`, 'success');
+                closeModal('runPayrollModal');
+                await fetchData();
+            } else {
+                showToast("Error: " + (result.message || "Failed to process payroll."), 'error');
+            }
+        } catch (err) {
+            console.error("Payroll error:", err);
+            showToast("Failed to connect to the server.", 'error');
+        } finally {
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '<i class="fas fa-play"></i> Run Payroll';
+            }
         }
     }
 }
@@ -913,13 +1019,13 @@ function renderPayrollTable() {
             tbody.innerHTML = batchList.map((b, index) => `
                 <tr>
                     <td><strong>BATCH-${101 + index}</strong></td>
-                    <td>${b.period}</td>
+                    <td>${escapeHTML(b.period)}</td>
                     <td>₱${parseFloat(b.total_disbursed).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    <td>${new Date(b.processing_date).toLocaleDateString()}</td>
+                    <td>${escapeHTML(new Date(b.processing_date).toLocaleDateString())}</td>
                     <td>Admin</td>
                     <td><span class="status-badge status-active">Completed</span></td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewBatch('${b.period}')"><i class="fas fa-eye"></i> View</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye"></i> View</button>
                     </td>
                 </tr>
             `).join('');
@@ -968,19 +1074,19 @@ function renderLeaveTable() {
     const leaveBalanceSelect = document.getElementById('leaveBalanceEmployeeSelect');
     if (leaveBalanceSelect) {
         leaveBalanceSelect.innerHTML = '<option value="">Select Employee...</option>' + 
-            employees.map(emp => `<option value="${emp.id}">${emp.full_name} (${emp.employee_id})</option>`).join('');
+            employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
     }
 
     const tbody = document.getElementById('leaveTableBody');
     if (!tbody) return;
     tbody.innerHTML = leaveRequests.map(req => `
         <tr>
-            <td>${req.full_name}</td>
-            <td>${req.leave_type || req.type}</td>
-            <td>${req.start_date || '-'}</td>
-            <td>${req.end_date || '-'}</td>
-            <td>${req.reason}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
+            <td>${escapeHTML(req.full_name)}</td>
+            <td>${escapeHTML(req.leave_type || req.type)}</td>
+            <td>${escapeHTML(req.start_date || '-')}</td>
+            <td>${escapeHTML(req.end_date || '-')}</td>
+            <td>${escapeHTML(req.reason)}</td>
+            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
                 ${req.status === 'Pending' ? `
                     <button class="btn btn-success btn-sm" onclick="updateLeaveStatus(${req.id}, 'Approved')"><i class="fas fa-check"></i></button>
@@ -1044,10 +1150,10 @@ function renderLoanTable() {
     if (!tbody) return;
     tbody.innerHTML = loanRequests.map(req => `
         <tr>
-            <td>${req.full_name}</td>
+            <td>${escapeHTML(req.full_name)}</td>
             <td>₱${parseFloat(req.amount).toLocaleString()}</td>
-            <td>${req.reason}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
+            <td>${escapeHTML(req.reason)}</td>
+            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
                 ${req.status === 'Pending' ? `
                     <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')"><i class="fas fa-check"></i></button>
@@ -1075,10 +1181,10 @@ function renderResignationTable() {
     if (!tbody) return;
     tbody.innerHTML = resignationRequests.map(req => `
         <tr>
-            <td>${req.full_name}</td>
-            <td>${req.effective_date}</td>
-            <td>${req.reason}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span></td>
+            <td>${escapeHTML(req.full_name)}</td>
+            <td>${escapeHTML(req.effective_date)}</td>
+            <td>${escapeHTML(req.reason)}</td>
+            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
                 ${req.status === 'Pending' ? `
                     <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>

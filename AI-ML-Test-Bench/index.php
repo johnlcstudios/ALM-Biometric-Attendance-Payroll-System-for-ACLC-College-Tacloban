@@ -1,6 +1,14 @@
 <?php
+// Start session BEFORE requiring db.php or any other output
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'backend/db.php';
-session_start();
+
+// Load database updates silently every time index.php is loaded
+define('INTERNAL_UPDATE', true);
+require_once 'backend/update_db.php';
+
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
@@ -38,6 +46,9 @@ $allowed_pages = [
     'settings'
 ];
 $page = $_GET['page'] ?? 'dashboard';
+// Sanitize page input to prevent LFI (remove directory traversal characters)
+$page = str_replace(['.', '/', '\\'], '', $page);
+
 if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 ?>
 <!DOCTYPE html>
@@ -45,6 +56,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
     <title>Payroll System Hub - <?php echo $company_name; ?></title>
     <!-- Same head links as before -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

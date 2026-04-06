@@ -2,9 +2,10 @@
 // api.php - Core Backend Logic
 header('Content-Type: application/json');
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Biometric Constants
+define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
+define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
 
 try {
     require_once 'db.php';
@@ -14,6 +15,16 @@ try {
 }
 
 $action = $_GET['action'] ?? '';
+
+// CSRF Protection for sensitive actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, ['login', 'signup', 'kiosk_scan'])) {
+    $headers = getallheaders();
+    $token = $headers['X-CSRF-TOKEN'] ?? '';
+    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+        http_response_code(403);
+        exit(json_encode(['success' => false, 'message' => 'Invalid CSRF token']));
+    }
+}
 
 // // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 // function isAdminOrHR() {
@@ -53,13 +64,16 @@ try {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                session_regenerate_id(true); // Prevent session fixation
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+                // Ensure CSRF token is refreshed after login
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name'], 'csrf_token' => $_SESSION['csrf_token']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -138,9 +152,25 @@ try {
         case 'run_specialized_payroll':
             requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
-            $type = $data['type']; // 'faculty' or 'utility'
-            $start_date = $data['start_date'];
-            $end_date = $data['end_date'];
+            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
+            $start_date = $data['start_date'] ?? '';
+            $end_date = $data['end_date'] ?? '';
+
+            if (empty($type) || empty($start_date) || empty($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
+            }
+            if (!in_array($type, ['faculty', 'utility'])) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
+            }
+
+            // Basic Date Validation
+            if (!strtotime($start_date) || !strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
+            }
+            if (strtotime($start_date) > strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
+            }
+
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
 
@@ -154,20 +184,29 @@ try {
             $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
             $stmt_employees->execute([$company_id, $position]);
             $employees = $stmt_employees->fetchAll();
+            $employee_ids = array_column($employees, 'id');
+
+            // Pre-fetch all attendance logs to avoid N+1 query problem
+            $logs_by_emp = [];
+            if (!empty($employee_ids)) {
+                $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
+                $stmt_all_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ?");
+                $stmt_all_att->execute(array_merge($employee_ids, [$start_date, $end_date]));
+                while ($row = $stmt_all_att->fetch()) {
+                    $logs_by_emp[$row['employee_id']][] = $row;
+                }
+            }
 
             $pdo->beginTransaction();
             try {
                 foreach ($employees as $emp) {
-                    // Basic Attendance Stats for calculations
-                    $stmt_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ?");
-                    $stmt_att->execute([$emp['id'], $start_date, $end_date]);
-                    $logs = $stmt_att->fetchAll();
+                    $logs = $logs_by_emp[$emp['id']] ?? [];
                     
                     $total_absent = 0;
                     $total_late_min = 0;
                     $days_present = 0;
                     foreach ($logs as $l) {
-                        if ($l['status'] === 'Late') $total_late_min += $l['late_minutes'];
+                        if ($l['status'] === 'Late') $total_late_min += (int)$l['late_minutes'];
                         if ($l['status'] === 'Absent') $total_absent++;
                         if (!empty($l['check_in'])) $days_present++;
                     }
@@ -312,16 +351,14 @@ try {
             $override_amount = $data['override_amount'] ?: null;
             $effective_date = $data['effective_date'] ?: date('Y-m-d');
             
-            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
-            $stmt->execute([$_SESSION['company_id']]);
-            $employees = $stmt->fetchAll();
-            
             $pdo->beginTransaction();
             try {
-                foreach ($employees as $emp) {
-                    $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $category_id, $override_amount, $effective_date, $override_amount, $effective_date]);
-                }
+                // Efficient Batch Insert/Update
+                $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) 
+                                     SELECT ?, id, ?, ?, ? FROM employees WHERE company_id = ? AND status = 'Active'
+                                     ON DUPLICATE KEY UPDATE override_amount = VALUES(override_amount), effective_date = VALUES(effective_date)");
+                $stmt->execute([$_SESSION['company_id'], $category_id, $override_amount, $effective_date, $_SESSION['company_id']]);
+                
                 $pdo->commit();
                 echo json_encode(['success' => true, 'message' => 'Allowance applied to all active employees']);
             } catch (Exception $e) {
@@ -364,16 +401,14 @@ try {
             $override_amount = $data['override_amount'] ?: null;
             $effective_date = $data['effective_date'] ?: date('Y-m-d');
             
-            $stmt = $pdo->prepare("SELECT id FROM employees WHERE company_id = ? AND status = 'Active'");
-            $stmt->execute([$_SESSION['company_id']]);
-            $employees = $stmt->fetchAll();
-            
             $pdo->beginTransaction();
             try {
-                foreach ($employees as $emp) {
-                    $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE override_amount = ?, effective_date = ?");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $deduction_id, $override_amount, $effective_date, $override_amount, $effective_date]);
-                }
+                // Efficient Batch Insert/Update
+                $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) 
+                                     SELECT ?, id, ?, ?, ? FROM employees WHERE company_id = ? AND status = 'Active'
+                                     ON DUPLICATE KEY UPDATE override_amount = VALUES(override_amount), effective_date = VALUES(effective_date)");
+                $stmt->execute([$_SESSION['company_id'], $deduction_id, $override_amount, $effective_date, $_SESSION['company_id']]);
+                
                 $pdo->commit();
                 echo json_encode(['success' => true, 'message' => 'Deduction applied to all active employees']);
             } catch (Exception $e) {
@@ -564,8 +599,6 @@ try {
                 break;
             }
 
-            $face_duplicate_threshold = 0.38;
-
             // Check for duplicate face within the same company
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND id != ?");
             $stmt_faces->execute([$_SESSION['company_id'], $data['id']]);
@@ -581,7 +614,7 @@ try {
                         $sum += $diff * $diff;
                     }
                     $distance = sqrt($sum);
-                    if ($distance < $face_duplicate_threshold) {
+                    if ($distance < BIOMETRIC_DUPLICATE_THRESHOLD) {
                         echo json_encode(['success' => false, 'message' => "This face is already registered to " . $face['full_name']]);
                         return;
                     }
@@ -619,7 +652,11 @@ try {
 
         case 'kiosk_scan':
             $data = json_decode(file_get_contents('php://input'), true);
-            $company_id = $data['company_id'] ?? 1;
+            $company_id = $data['company_id'] ?? null;
+            if (!$company_id) {
+                echo json_encode(['success' => false, 'message' => 'Company ID is required for kiosk scan']);
+                break;
+            }
             $descriptor = $data['descriptor'] ?? [];
 
             if (empty($descriptor) || count($descriptor) !== 128) {
@@ -627,8 +664,12 @@ try {
                  break;
             }
 
-            // Log incoming descriptor for debugging
-            error_log("Kiosk Scan: Incoming descriptor for company_id {$company_id}: " . json_encode($descriptor));
+            // Fetch company-specific biometric thresholds
+            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
+            $stmt_config->execute([$company_id]);
+            $config = $stmt_config->fetch();
+            $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
+            $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
 
             // Fetch enrolled faces
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
@@ -636,8 +677,6 @@ try {
             $enrolled_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
-            $scan_threshold = 0.60; // Standard threshold for Euclidean distance in Face-api.js
-            $ambiguity_ratio_threshold = 1.05; // Less aggressive ambiguity check
             $best_distance = 999;
             $second_best_distance = 999;
             
@@ -664,10 +703,10 @@ try {
                 }
             }
 
-            if (!$best_match || $best_distance > $scan_threshold) {
+            if (!$best_match || $best_distance > $match_threshold) {
                 // Return a more helpful message for debugging
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
-                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$scan_threshold}");
+                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
                 break;
             }
@@ -678,7 +717,6 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 0;
                 if ($ratio <= $ambiguity_ratio_threshold) {
-                    error_log("Kiosk Scan: Ambiguous match detected. Best distance: {$best_distance}, Second best: {$second_best_distance}, Ratio: {$ratio}");
                     echo json_encode([
                         'success' => false,
                         'message' => 'Ambiguous match, please try again',
@@ -839,6 +877,18 @@ try {
             $stmt_employees = $pdo->prepare($query);
             $stmt_employees->execute($params);
             $employees = $stmt_employees->fetchAll();
+            $employee_ids = array_column($employees, 'id');
+
+            // Pre-fetch all attendance counts for the period
+            $attendance_counts = [];
+            if (!empty($employee_ids)) {
+                $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
+                $stmt_all_att = $pdo->prepare("SELECT employee_id, COUNT(*) as count FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL GROUP BY employee_id");
+                $stmt_all_att->execute(array_merge($employee_ids, [$start_date, $end_date]));
+                while ($row = $stmt_all_att->fetch()) {
+                    $attendance_counts[$row['employee_id']] = (int)$row['count'];
+                }
+            }
 
             $stmt_deductions = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ? AND is_active = true");
             $stmt_deductions->execute([$_SESSION['company_id']]);
@@ -847,11 +897,9 @@ try {
             $pdo->beginTransaction();
             try {
                 foreach ($employees as $emp) {
-                    $stmt_attendance = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
-                    $stmt_attendance->execute([$emp['id'], $start_date, $end_date]);
-                    $days_present = $stmt_attendance->fetchColumn();
+                    $days_present = $attendance_counts[$emp['id']] ?? 0;
 
-                    $monthly_salary = $emp['basic_salary'];
+                    $monthly_salary = (float)$emp['basic_salary'];
                     $earned_pay = ($work_days_in_period > 0) ? ($days_present / $work_days_in_period) * $monthly_salary : 0;
                     
                     $total_deductions = 0;
@@ -1099,20 +1147,12 @@ try {
             $leave = $stmt_leave->fetchAll();
 
             $stmt_loans = $pdo->prepare("SELECT * FROM loans WHERE employee_id = ? ORDER BY id DESC");
-            try {
-                $stmt_loans->execute([$eid]);
-                $loans = $stmt_loans->fetchAll();
-            } catch (Exception $e) {
-                $loans = [];
-            }
+            $stmt_loans->execute([$eid]);
+            $loans = $stmt_loans->fetchAll();
 
-            $stmt_subjects = $pdo->prepare("SELECT * FROM subject_loads WHERE faculty_id = ? ORDER BY created_at DESC");
-            $stmt_subjects->execute([$eid]);
-            $subjects = $stmt_subjects->fetchAll();
-
-            $stmt_resignation = $pdo->prepare("SELECT * FROM resignations WHERE employee_id = ? ORDER BY id DESC");
-            $stmt_resignation->execute([$eid]);
-            $resignation = $stmt_resignation->fetchAll();
+            $stmt_resignations = $pdo->prepare("SELECT * FROM resignations WHERE employee_id = ? ORDER BY id DESC");
+            $stmt_resignations->execute([$eid]);
+            $resignations = $stmt_resignations->fetchAll();
             
             echo json_encode([
                 'profile' => $emp,
@@ -1120,50 +1160,8 @@ try {
                 'payroll' => $payroll,
                 'leave' => $leave,
                 'loans' => $loans,
-                'subjects' => $subjects,
-                'resignation' => $resignation
+                'resignations' => $resignations
             ]);
-            break;
-
-        case 'update_profile':
-            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $data = json_decode(file_get_contents('php://input'), true);
-            $email = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
-            
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid email format']));
-            }
-
-            $pdo->beginTransaction();
-            try {
-                // Update User Email
-                $stmt_user = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
-                $stmt_user->execute([$email, $_SESSION['user_id']]);
-
-                // Update Employee Details (only certain fields allowed for self-update)
-                $stmt_emp = $pdo->prepare("UPDATE employees SET email = ?, dob = ? WHERE user_id = ?");
-                $stmt_emp->execute([$email, $data['dob'], $_SESSION['user_id']]);
-
-                $pdo->commit();
-                echo json_encode(['success' => true]);
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-            }
-            break;
-
-        case 'apply_resignation':
-            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $data = json_decode(file_get_contents('php://input'), true);
-            
-            $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
-            $stmt->execute([$_SESSION['user_id']]);
-            $emp = $stmt->fetch();
-            if (!$emp) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
-
-            $stmt = $pdo->prepare("INSERT INTO resignations (company_id, employee_id, reason, effective_date, status) VALUES (?, ?, ?, ?, 'Pending')");
-            $stmt->execute([$emp['company_id'], $emp['id'], $data['reason'], $data['effective_date']]);
-            echo json_encode(['success' => true]);
             break;
 
         case 'get_subject_loads':
