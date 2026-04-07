@@ -2,6 +2,44 @@
  * Biometric Attendance & Payroll System - Core Logic (PHP/MySQL Version)
  */
 
+async function updateBiometricStatus(employeeId) {
+    const statusDiv = document.getElementById('biometricStatus');
+    const removeBtn = document.getElementById('removeFaceBtn');
+    const startBtn = document.getElementById('startEnrollBtn');
+    
+    if (!employeeId) {
+        statusDiv.innerHTML = '';
+        removeBtn.style.display = 'none';
+        startBtn.style.display = 'inline-block';
+        return;
+    }
+
+    try {
+        const res = await fetch(`backend/api.php?action=get_employee_biometric_status&id=${employeeId}`);
+        const data = await res.json();
+        
+        if (data.enrolled) {
+            statusDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> Biometrics Enrolled (${data.enrolled_at})</div>`;
+            removeBtn.style.display = 'inline-block';
+            startBtn.innerHTML = '<i class="fas fa-sync"></i> Re-enroll Face';
+        } else {
+            statusDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> No Biometrics Found</div>';
+            removeBtn.style.display = 'none';
+            startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Camera';
+            startBtn.style.display = 'inline-block';
+        }
+    } catch (err) {
+        console.error("Error checking biometric status:", err);
+    }
+}
+
+function handleUnenroll() {
+    const select = document.getElementById('enrollEmployeeSelect');
+    const id = select.value;
+    const name = select.options[select.selectedIndex].text.split(' (')[0];
+    if (id) unenrollFace(id, name);
+}
+
 // --- Dashboard Charts ---
 let attendanceChart = null;
 let pChart, aChart;
@@ -222,52 +260,44 @@ function populateEnrollmentSelect() {
     
     select.innerHTML = '<option value="">Select Employee...</option>' + 
         employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
+
+    // Add listener to update status
+    select.onchange = () => updateBiometricStatus(select.value);
+}
+
+function updateBiometricStatus(empId) {
+    const statusDiv = document.getElementById('biometricStatus');
+    const startBtn = document.getElementById('startEnrollBtn');
+    const removeBtn = document.getElementById('removeFaceBtn');
+    if (!statusDiv) return;
+
+    if (!empId) {
+        statusDiv.innerHTML = '';
+        if (removeBtn) removeBtn.style.display = 'none';
+        return;
+    }
+
+    const emp = employees.find(e => e.id == empId);
+    if (emp && emp.face_descriptor) {
+        statusDiv.innerHTML = '<div class="alert alert-success" style="padding: 10px; margin: 10px 0;"><i class="fas fa-check-circle"></i> This employee is already enrolled in Face Biometrics.</div>';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera"></i> Re-enroll Face';
+    } else {
+        statusDiv.innerHTML = '<div class="alert alert-info" style="padding: 10px; margin: 10px 0;"><i class="fas fa-info-circle"></i> No biometric data found. Please enroll this employee.</div>';
+        if (removeBtn) removeBtn.style.display = 'none';
+        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Enrollment';
+    }
+}
+
+function handleUnenroll() {
+    const select = document.getElementById('enrollEmployeeSelect');
+    if (!select || !select.value) return;
+    const emp = employees.find(e => e.id == select.value);
+    if (!emp) return;
+    unenrollFace(emp.id, emp.full_name);
 }
 
 // --- Render Functions ---
-function renderEmployeeTable() {
-    const tbody = document.getElementById('employeeTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = employees.map(emp => {
-        const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
-        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
-        
-        const actionHtml = isFaculty ? `
-            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
-                <i class="fas fa-book"></i> View (${loadCount})
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="addSubjectLoadModal('${emp.id}')">
-                <i class="fas fa-plus"></i> Add Load
-            </button>
-        ` : '---';
-
-        return `
-            <tr>
-                <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
-                <td>
-                    <div class="user-info">
-                        <div class="user-details">
-                            <span class="name">${escapeHTML(emp.full_name)}</span>
-                            <span class="email">${escapeHTML(emp.email)}</span>
-                        </div>
-                    </div>
-                </td>
-                <td>${escapeHTML(emp.position)}</td>
-                <td>${escapeHTML(emp.department)}</td>
-                <td>${actionHtml}</td>
-                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
-}
-
 function renderMasterSubjects() {
     const subjectTbody = document.getElementById('subjectsTableBody');
     if (subjectTbody) {
@@ -431,6 +461,7 @@ function renderEmployeeTable() {
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
         const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
         const statusClass = statusLabel.toLowerCase().replace(' ', '-');
+        const hasFace = emp.face_descriptor !== null;
         
         return `
         <tr id="row-${emp.id}">
@@ -448,15 +479,26 @@ function renderEmployeeTable() {
                     </span>
                 ` : '<span class="text-muted">---</span>'}
             </td>
-            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
             <td>
-                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-                <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
-                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
+                <span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span>
+                <br>
+                <div style="margin-top: 5px;">
+                    ${hasFace ? 
+                        '<span class="badge badge-success" style="font-size: 0.7rem;"><i class="fas fa-user-check"></i> Face Enrolled</span>' : 
+                        '<span class="badge badge-secondary" style="font-size: 0.7rem;"><i class="fas fa-user-slash"></i> No Face Data</span>'}
+                </div>
+            </td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-warning btn-sm" onclick="resetPasswordModal('${emp.id}')" title="Reset Password"><i class="fas fa-key"></i></button>
+                    ${hasFace ? `<button class="btn btn-dark btn-sm" onclick="unenrollFace('${emp.id}', '${escapeHTML(emp.full_name)}')" title="Unenroll Face"><i class="fas fa-user-minus"></i></button>` : ''}
+                    ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
+                </div>
             </td>
         </tr>
-    `; }).join('');
+    `; }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
 }
 
 function openAddLoadModal(empId) {
@@ -587,8 +629,7 @@ async function saveEmployee() {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
             headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
         });
@@ -974,8 +1015,7 @@ async function runPayroll() {
             const response = await fetch('backend/api.php?action=run_payroll', {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ start_date, end_date, category })
             });
@@ -1535,20 +1575,35 @@ async function deleteEmployeeDeduction(id) {
 
 // --- Settings ---
 async function saveSettings() {
-    const form = document.getElementById('settingsForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    const response = await fetch('backend/api.php?action=save_settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-        alert('Settings updated!');
-        window.location.reload();
+    try {
+        const form = document.getElementById('settingsForm');
+        if (!form) throw new Error("Settings form not found");
+        
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        console.log("Saving settings with data:", data);
+        
+        const response = await fetch('backend/api.php?action=save_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const result = await response.json();
+        console.log("Save result:", result);
+        
+        if (result.success) {
+            alert(result.message || 'Settings updated successfully!');
+            window.location.reload();
+        } else {
+            alert('Failed to save settings: ' + (result.message || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error("Error saving settings:", err);
+        alert('An error occurred while saving: ' + err.message);
     }
 }
 
@@ -1630,6 +1685,11 @@ function viewFacultyLoads(empId) {
 }
 
 // --- Biometrics Enrollment ---
+const faceManager = new FaceManager({
+    stabilityRequired: 5,
+    sampleCount: 5,
+    minConfidence: 0.6
+});
 let enrolledFaceMatcher = null;
 let isEnrollingBiometrics = false;
 
@@ -1642,25 +1702,17 @@ async function initFaceEnrollment() {
     const captureBtn = document.getElementById('captureBtn');
     const startBtn = document.getElementById('startEnrollBtn');
     const previewContainer = document.querySelector('.camera-preview');
+    const canvas = document.getElementById('overlay');
     
     document.getElementById('camera-placeholder').style.display = 'none';
     
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-        video.srcObject = stream;
-        
-        console.log("Loading face-api models...");
-        // Use CDN models directly to avoid shard-loading errors from local filesystem
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-        
+        console.log("Loading face-api models & starting camera...");
         await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            faceManager.loadModels(),
+            faceManager.startCamera(video)
         ]);
-        console.log("Models loaded successfully");
-
+        
         // Fetch existing faces to check for duplicates
         try {
             const res = await fetch('backend/api.php?action=get_enrolled_faces');
@@ -1670,291 +1722,108 @@ async function initFaceEnrollment() {
                     const desc = JSON.parse(f.face_descriptor);
                     return new faceapi.LabeledFaceDescriptors(f.full_name, [new Float32Array(desc)]);
                 });
-                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); // Using a strict threshold for duplicate check
+                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
             }
         } catch (e) {
             console.error("Error loading enrolled faces:", e);
         }
 
         captureBtn.style.display = 'inline-block';
-        captureBtn.disabled = true; // Disable until blink detected
+        captureBtn.disabled = true;
         startBtn.style.display = 'none';
         
-        const canvas = document.getElementById('overlay');
-        
-        // Wait for video metadata to get actual resolution
-        await new Promise((resolve) => {
-            if (video.readyState >= 2) resolve();
-            else video.onloadedmetadata = () => resolve();
-        });
-
         isEnrollingBiometrics = false;
-        let lastBox = null;
-        let stabilityCounter = 0;
-        let scanLineY = 0;
-        let scanDirection = 1;
-        const STABILITY_REQUIRED = 5; // number of stable frames before scanning
-        const MOVEMENT_THRESHOLD = 20; // Slightly relaxed for better UX
+        const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
         
-        const getDetectorOptions = () => {
-            if (faceapi.nets.ssdMobilenetv1.params) {
-                return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-            }
-            return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-        };
-        const detectorOptions = getDetectorOptions();
-
-        // Preview loop using requestAnimationFrame for smoother performance
-        async function onPlay() {
-            if (!video.srcObject) return;
+        // Preview loop
+        const onPlay = async () => {
+            if (!video.srcObject || isEnrollingBiometrics) return;
             
-            // Match dimensions and get dimensions for scaling
-            const displaySize = faceapi.matchDimensions(canvas, video, true);
-
-            // Draw scanning animation line
+            const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Scanning Line Animation
-            if (!isEnrollingBiometrics) {
-                scanLineY += 5 * scanDirection;
-                if (scanLineY >= canvas.height || scanLineY <= 0) scanDirection *= -1;
-                
-                ctx.beginPath();
-                ctx.moveTo(0, scanLineY);
-                ctx.lineTo(canvas.width, scanLineY);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = 'rgba(59, 79, 201, 0.5)';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#3b4fc9';
-                ctx.stroke();
-                ctx.shadowBlur = 0; // Reset shadow
-            }
-
-            // SKIP DETECTION IF CAPTURING
-            if (isEnrollingBiometrics) {
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.translate(-canvas.width, 0);
-                ctx.fillStyle = "#27ae60";
-                ctx.font = "bold 20px Inter";
-                ctx.textAlign = "center";
-                ctx.fillText("CAPTURING BIOMETRICS...", canvas.width/2, canvas.height/2);
-                ctx.restore();
-                requestAnimationFrame(onPlay);
-                return;
-            }
-
-            const detection = await faceapi.detectSingleFace(video, detectorOptions)
-                .withFaceLandmarks();
-            
-            // Reset outline unless face detected and matched
-            previewContainer.classList.remove('registered', 'success');
 
             if (detection) {
-                const resizedDetection = faceapi.resizeResults(detection, displaySize);
-                const box = resizedDetection.detection.box;
-
-                // Check for already registered face
-                let matchedName = null;
+                const isStable = faceManager.checkStability(detection.detection.box);
+                
+                // Duplicate check
+                let duplicateName = null;
                 if (enrolledFaceMatcher) {
                     const fullD = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks().withFaceDescriptor();
                     if (fullD) {
                         const match = enrolledFaceMatcher.findBestMatch(fullD.descriptor);
-                        if (match.label !== 'unknown') {
-                            matchedName = match.label;
-                            previewContainer.classList.add('registered');
-                        }
+                        if (match.label !== 'unknown') duplicateName = match.label;
                     }
                 }
 
-                // Stability Check: Faster than waiting for a blink
-                if (lastBox) {
-                    const dx = Math.abs(box.x - lastBox.x);
-                    const dy = Math.abs(box.y - lastBox.y);
-                    if (dx < MOVEMENT_THRESHOLD && dy < MOVEMENT_THRESHOLD) {
-                        stabilityCounter++;
-                    } else {
-                        stabilityCounter = 0;
-                    }
+                const status = duplicateName ? `ALREADY REGISTERED: ${duplicateName}` : (isStable ? "VERIFIED! SAVING..." : "HOLD STILL...");
+                const color = duplicateName ? "#db261f" : (isStable ? "#27ae60" : "#f39c12");
+
+                faceManager.drawDetection(canvas, video, detection, status, color);
+                
+                if (isStable && !duplicateName) {
+                    captureBtn.disabled = false;
+                    isEnrollingBiometrics = true;
+                    saveFaceEnrollment();
                 }
-                lastBox = box;
-
-                // Enable manual capture after a few stable frames
-                if (stabilityCounter >= 3 && captureBtn) captureBtn.disabled = false;
-
-                // Draw feedback
-                faceapi.draw.drawDetections(canvas, resizedDetection);
-                faceapi.draw.drawFaceLandmarks(canvas, resizedDetection);
-                
-                // Mirror text drawing so it's readable on mirrored canvas
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.translate(-canvas.width, 0);
-                
-                const textX = canvas.width - (box.x + box.width / 2);
-                const textY = box.y + box.height + 30;
-
-                ctx.font = "bold 18px Inter";
-                ctx.textAlign = "center";
-                
-                if (matchedName) {
-                    ctx.fillStyle = "#db261f";
-                    ctx.fillText(`ALREADY REGISTERED: ${matchedName}`, textX, textY);
-                    
-                    const selectedEmp = select.options[select.selectedIndex].text;
-                    if (matchedName === selectedEmp.split(' (')[0]) {
-                        ctx.fillStyle = "#27ae60";
-                        ctx.fillText(`This is ${matchedName}!`, textX, textY + 25);
-                    }
-                } else if (stabilityCounter < STABILITY_REQUIRED) {
-                    ctx.fillStyle = "#f20e0eff";
-                    ctx.fillText("SCANNING... HOLD STILL", textX, textY);
-                } else {
-                    ctx.fillStyle = "#27ae60";
-                    ctx.fillText(`Stability Verified!`, textX, textY);
-                    previewContainer.classList.add('success');
-
-                    if (!isEnrollingBiometrics) {
-                        // Get the full descriptor
-                        const fullDetection = await faceapi.detectSingleFace(video, detectorOptions)
-                            .withFaceLandmarks()
-                            .withFaceDescriptor();
-
-                        if (fullDetection) {
-                            const confidence = Math.round(fullDetection.detection.score * 100);
-                            
-                            if (confidence >= 90) {
-                                isEnrollingBiometrics = true; // Set immediately to prevent multiple triggers
-                                
-                                // Visual feedback
-                                ctx.strokeStyle = "#27ae60";
-                                ctx.lineWidth = 6;
-                                ctx.strokeRect(box.x, box.y, box.width, box.height); 
-                                ctx.fillText("Auto-Capturing...", textX, textY + 25);
-
-                                console.log(`Face detected and verified (${confidence}%). Auto-enrolling...`);
-                                
-                                setTimeout(() => {
-                                    saveFaceEnrollment(fullDetection.descriptor);
-                                }, 1000);
-                            }
-                        }
-                    }
-                }
-                ctx.restore();
             } else {
-                 stabilityCounter = 0;
-                 lastBox = null;
-                 if (captureBtn) captureBtn.disabled = true;
-                 
-                 // Show "Scanning" status when no face
-                 ctx.save();
-                 ctx.scale(-1, 1);
-                 ctx.translate(-canvas.width, 0);
-                 ctx.fillStyle = "#3b4fc9";
-                 ctx.font = "16px Inter";
-                 ctx.textAlign = "center";
-                 ctx.fillText("POSITION FACE IN CIRCLE", canvas.width/2, canvas.height - 30);
-                 ctx.restore();
+                faceManager.stabilityCounter = 0;
             }
-             
-            requestAnimationFrame(onPlay);
-        }
+            if (!isEnrollingBiometrics) requestAnimationFrame(onPlay);
+        };
         
-        onPlay();
+        requestAnimationFrame(onPlay);
 
     } catch (err) {
         console.error("Biometrics initialization error:", err);
-        alert("Camera access denied or models failed to load. Check console for details.");
+        alert(err.message || "Failed to initialize biometrics.");
         document.getElementById('camera-placeholder').style.display = 'block';
     }
 }
 
-async function saveFaceEnrollment(manualDescriptor = null) {
+async function saveFaceEnrollment() {
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
     
     if (!employeeId) return alert("Please select an employee first");
     
-    // Stop the preview loop from detecting faces
     isEnrollingBiometrics = true;
 
     if (captureBtn) {
         captureBtn.disabled = true;
-        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Capturing...';
+        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     }
 
-    const getOptions = () => {
-        if (faceapi.nets.ssdMobilenetv1.params) {
-            return new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-        }
-        return new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 });
-    };
-    const options = getOptions();
-    const samples = [];
-    
-    // If we have a high-confidence descriptor from auto-capture, use it as first sample
-    if (manualDescriptor && manualDescriptor.length === 128) {
-        samples.push(Array.from(manualDescriptor));
-    }
-
-    // Try to collect more samples for a robust average
-    console.log("Collecting biometric samples...");
     try {
-        for (let i = 0; i < 15 && samples.length < 5; i++) {
-            const det = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
-            if (det && det.descriptor && det.descriptor.length === 128 && det.detection?.score >= 0.75) {
-                samples.push(Array.from(det.descriptor));
-                console.log(`Sample ${samples.length}/5 collected`);
-            }
-            await new Promise(r => setTimeout(r, 100));
-        }
-
-        // We need at least 1 very good sample
-        if (samples.length === 0) {
-            alert("Could not detect a clear face. Please ensure good lighting and face the camera.");
-            if (captureBtn) {
-                captureBtn.disabled = false;
-                captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
-            }
-            isEnrollingBiometrics = false;
-            return;
-        }
-
-        // Average the descriptors
-        const averaged = new Array(128).fill(0);
-        for (const s of samples) {
-            for (let i = 0; i < 128; i++) averaged[i] += s[i];
-        }
-        for (let i = 0; i < 128; i++) averaged[i] /= samples.length;
+        console.log("Collecting biometric samples...");
+        const descriptor = await faceManager.captureSamples(video, (count, total) => {
+            if (captureBtn) captureBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Sampling ${count}/${total}`;
+        });
 
         console.log("Saving biometric data to server...");
         const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: employeeId, descriptor: averaged })
+            body: JSON.stringify({ id: employeeId, descriptor })
         });
         
         const result = await response.json();
         if (result.success) {
             alert("Face enrolled successfully!");
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-            }
+            faceManager.stopCamera();
             window.location.reload();
         } else {
             alert("Error saving biometric data: " + result.message);
+            isEnrollingBiometrics = false;
             if (captureBtn) {
                 captureBtn.disabled = false;
                 captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
             }
-            isEnrollingBiometrics = false;
         }
     } catch (err) {
         console.error("Capture Error:", err);
-        alert("An error occurred during capture. Please try again.");
+        alert(err.message || "An error occurred during capture.");
         isEnrollingBiometrics = false;
         if (captureBtn) {
             captureBtn.disabled = false;
@@ -2040,16 +1909,124 @@ function initCharts() {
     });
 }
 
-// --- Auth ---
-async function logout() {
-    if (confirm("Are you sure you want to logout?")) {
-        await fetch('backend/api.php?action=logout');
-        window.location.href = 'login.php';
+// --- Administrative Controls ---
+async function unenrollFace(id, name) {
+    if (!confirm(`Are you sure you want to REMOVE biometric data for ${name}?\n\nThis action cannot be undone and they will no longer be able to use face recognition until re-enrolled.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`backend/api.php?action=unenroll_face&id=${id}`);
+        const data = await res.json();
+        if (data.success) {
+            showToast("Face data removed successfully", 'success');
+            fetchData('employees'); // Refresh
+            if (currentPage === 'biometrics') {
+                const select = document.getElementById('enrollEmployeeSelect');
+                if (select && select.value == id) updateBiometricStatus(id);
+            }
+        } else {
+            showToast(data.message || "Failed to remove face data", 'error');
+        }
+    } catch (err) {
+        showToast("An error occurred during unenrollment", 'error');
+    }
+}
+
+function resetPasswordModal(employeeId) {
+    const emp = employees.find(e => e.id == employeeId);
+    if (!emp) return;
+
+    const newPass = prompt(`Enter new password for ${emp.full_name}:\n(Leave blank to auto-generate)`, "");
+    if (newPass === null) return; // Cancelled
+
+    const mustChange = confirm("Require user to change password on next login?");
+
+    resetPassword(employeeId, newPass, mustChange);
+}
+
+async function resetPassword(id, password, mustChange) {
+    try {
+        const res = await fetch('backend/api.php?action=reset_password', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id, password, must_change: mustChange })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`Password reset successful!\n\nNew Password: ${data.new_password}\n\nPlease provide this to the employee.`);
+            showToast("Password reset successfully", 'success');
+        } else {
+            showToast(data.message || "Failed to reset password", 'error');
+        }
+    } catch (err) {
+        showToast("An error occurred during password reset", 'error');
+    }
+}
+
+async function handleForcePasswordChange(event) {
+    event.preventDefault();
+    const oldPass = document.getElementById('forceOldPass').value;
+    const newPass = document.getElementById('forceNewPass').value;
+    const confirmPass = document.getElementById('forceConfirmPass').value;
+
+    if (newPass !== confirmPass) {
+        return alert("New passwords do not match.");
+    }
+    
+    if (newPass === oldPass) {
+        return alert("New password cannot be the same as the current password.");
+    }
+
+    try {
+        const res = await fetch('backend/api.php?action=change_password', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ oldPass, newPass })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert("Security update complete. You may now continue.");
+            sessionStorage.removeItem('force_password_change');
+            document.getElementById('forcePasswordModal').style.display = 'none';
+        } else {
+            alert(data.message || "Invalid current password.");
+        }
+    } catch (err) {
+        alert("An error occurred during password change.");
     }
 }
 
 // Initialize on Load
 window.onload = () => {
+    // Expose functions globally for dynamic HTML
+    window.unenrollFace = unenrollFace;
+    window.handleUnenroll = handleUnenroll;
+    window.updateBiometricStatus = updateBiometricStatus;
+    window.resetPasswordModal = resetPasswordModal;
+    window.handleForcePasswordChange = handleForcePasswordChange;
+    window.saveSettings = saveSettings;
+    
+    // Check for forced password change
+    if (sessionStorage.getItem('force_password_change') === 'true') {
+        const modal = document.getElementById('forcePasswordModal');
+        if (modal) {
+            modal.style.display = 'block';
+            // Disable background closing
+            window.onclick = (e) => {
+                if (e.target.id === 'forcePasswordModal') return;
+                // Original click handler logic
+                if (e.target.classList.contains('modal') && e.target.id !== 'forcePasswordModal') {
+                    e.target.style.display = 'none';
+                }
+            };
+        }
+    }
+    
     fetchData();
     const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
