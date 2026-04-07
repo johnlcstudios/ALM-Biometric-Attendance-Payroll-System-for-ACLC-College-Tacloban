@@ -6,11 +6,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-<<<<<<< HEAD
 // Set default timezone for the system
 date_default_timezone_set('Asia/Manila');
-=======
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
 // Error reporting - avoid leaking details in production
 error_reporting(E_ALL);
