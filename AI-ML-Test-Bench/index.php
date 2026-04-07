@@ -56,6 +56,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token'] ?? ''; ?>">
     <title>Payroll System Hub - <?php echo $company_name; ?></title>
     <!-- Same head links as before -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
