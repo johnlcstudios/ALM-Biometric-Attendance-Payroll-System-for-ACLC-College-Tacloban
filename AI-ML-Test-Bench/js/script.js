@@ -609,7 +609,10 @@ async function saveEmployee() {
     try {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
             body: JSON.stringify(data)
         });
         
@@ -993,7 +996,14 @@ async function runPayroll() {
         try {
             const response = await fetch('backend/api.php?action=run_payroll', {
                 method: 'POST',
+<<<<<<< HEAD
                 headers: { 'Content-Type': 'application/json' },
+=======
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
                 body: JSON.stringify({ start_date, end_date, category })
             });
             
@@ -1099,8 +1109,14 @@ function renderLeaveTable() {
     tbody.innerHTML = leaveRequests.map(req => `
         <tr>
             <td>${escapeHTML(req.full_name)}</td>
+<<<<<<< HEAD
             <td>${escapeHTML(req.type)}</td>
             <td>${escapeHTML(req.duration || '-')}</td>
+=======
+            <td>${escapeHTML(req.leave_type || req.type)}</td>
+            <td>${escapeHTML(req.start_date || '-')}</td>
+            <td>${escapeHTML(req.end_date || '-')}</td>
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
             <td>${escapeHTML(req.reason)}</td>
             <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
@@ -1166,6 +1182,7 @@ async function updateLeaveStatus(id, status) {
 function renderLoanTable() {
     const tbody = document.getElementById('loanTableBody');
     if (!tbody) return;
+<<<<<<< HEAD
     tbody.innerHTML = loanRequests.map(req => {
         let actionButtons = '';
         const role = USER_ROLE.toLowerCase();
@@ -1212,6 +1229,22 @@ function renderLoanTable() {
             </tr>
         `;
     }).join('');
+=======
+    tbody.innerHTML = loanRequests.map(req => `
+        <tr>
+            <td>${escapeHTML(req.full_name)}</td>
+            <td>₱${parseFloat(req.amount).toLocaleString()}</td>
+            <td>${escapeHTML(req.reason)}</td>
+            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+            <td>
+                ${req.status === 'Pending' ? `
+                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="updateLoanStatus(${req.id}, 'Rejected')"><i class="fas fa-times"></i></button>
+                ` : (req.status === 'Approved' ? '<span class="text-info">Awaiting Payroll</span>' : '<span class="text-muted">Processed</span>')}
+            </td>
+        </tr>
+    `).join('');
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 }
 
 async function updateLoanStatus(id, status) {

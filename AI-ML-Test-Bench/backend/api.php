@@ -3,9 +3,15 @@
 header('Content-Type: application/json');
 
 // Biometric Constants
+<<<<<<< HEAD
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
 define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
+=======
+define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
+define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 
 try {
     require_once 'db.php';
@@ -16,14 +22,41 @@ try {
 
 $action = $_GET['action'] ?? '';
 
+<<<<<<< HEAD
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+=======
+// CSRF Protection for sensitive actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, ['login', 'signup', 'kiosk_scan'])) {
+    $headers = getallheaders();
+    $token = $headers['X-CSRF-TOKEN'] ?? '';
+    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+        http_response_code(403);
+        exit(json_encode(['success' => false, 'message' => 'Invalid CSRF token']));
+    }
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 }
 
-// Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
-function isPayrollOrHigher() {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+// // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
+// function isAdminOrHR() {
+//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer']);
+// }
+
+// // Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
+// function isPayrollOrHigher() {
+//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+// }
+
+// Helper validates validates user authentication and enforces role-based access control by restricting API endpoints to authorized user roles.
+function requireAccess($roles = []) {
+    if (!isset($_SESSION['user_id'])) {
+        exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+    }
+
+    if (!empty($roles) && !in_array($_SESSION['role'], $roles)) {
+        exit(json_encode(['success' => false, 'message' => 'Forbidden']));
+    }
 }
 
 // Centralized validation functions
@@ -109,7 +142,9 @@ try {
                 $_SESSION['company_name'] = $user['company_name'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+                // Ensure CSRF token is refreshed after login
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name'], 'csrf_token' => $_SESSION['csrf_token']]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -146,7 +181,7 @@ try {
             break;
 
         case 'get_faculty_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $period = $_GET['period'] ?? '';
             
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -166,7 +201,7 @@ try {
             break;
 
         case 'get_utility_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $period = $_GET['period'] ?? '';
 
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -186,8 +221,9 @@ try {
             break;
 
         case 'run_specialized_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
+<<<<<<< HEAD
             $type = $data['type'] ?? '';
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -209,6 +245,26 @@ try {
             $stmt_company->execute([$company_id]);
             $company = $stmt_company->fetch();
             $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
+=======
+            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
+            $start_date = $data['start_date'] ?? '';
+            $end_date = $data['end_date'] ?? '';
+
+            if (empty($type) || empty($start_date) || empty($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
+            }
+            if (!in_array($type, ['faculty', 'utility'])) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
+            }
+
+            // Basic Date Validation
+            if (!strtotime($start_date) || !strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
+            }
+            if (strtotime($start_date) > strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
+            }
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
@@ -336,14 +392,14 @@ try {
             break;
 
         case 'get_allowance_categories':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
 
         case 'add_allowance_category':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
@@ -351,7 +407,7 @@ try {
             break;
 
         case 'get_employee_allowances':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
                                  JOIN employees e ON ea.employee_id = e.id 
@@ -362,7 +418,7 @@ try {
             break;
 
         case 'assign_employee_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['category_id'], $data['override_amount'], $data['effective_date']]);
@@ -370,7 +426,7 @@ try {
             break;
 
         case 'delete_allowance_category':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -378,7 +434,7 @@ try {
             break;
 
         case 'delete_employee_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -386,7 +442,7 @@ try {
             break;
 
         case 'bulk_assign_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $category_id = $data['category_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -409,7 +465,7 @@ try {
             break;
 
         case 'get_deduction_breakdown':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name, d.type as category_type, d.value as category_rate 
                                  FROM employee_deductions ed 
                                  JOIN employees e ON ed.employee_id = e.id 
@@ -420,7 +476,7 @@ try {
             break;
 
         case 'assign_employee_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['deduction_id'], $data['override_amount'], $data['effective_date']]);
@@ -428,7 +484,7 @@ try {
             break;
 
         case 'delete_employee_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -436,7 +492,7 @@ try {
             break;
 
         case 'bulk_assign_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $deduction_id = $data['deduction_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -459,7 +515,7 @@ try {
             break;
 
         case 'revoke_payroll_access':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $pdo->beginTransaction();
             try {
@@ -478,14 +534,14 @@ try {
             break;
 
         case 'get_deduction_categories':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
 
         case 'get_employee_deductions':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name FROM employee_deductions ed JOIN employees e ON ed.employee_id = e.id JOIN deductions d ON ed.deduction_id = d.id WHERE ed.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
@@ -497,6 +553,7 @@ try {
             break;
 
         case 'get_employees':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
             $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
@@ -504,7 +561,7 @@ try {
             break;
 
         case 'save_employee':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             
             // Centralized validation
@@ -609,7 +666,7 @@ try {
             break;
 
         case 'delete_employee':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
@@ -619,7 +676,7 @@ try {
             break;
 
         case 'get_enrolled_faces':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
             $stmt->execute([$_SESSION['company_id']]);
             $faces = $stmt->fetchAll();
@@ -627,7 +684,7 @@ try {
             break;
 
         case 'save_face_descriptor':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['id']) || empty($data['descriptor'])) {
                 echo json_encode(['success' => false, 'message' => 'Invalid data']);
@@ -656,13 +713,20 @@ try {
                 }
             }
 
-            $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to save face descriptor: ' . $e->getMessage()]);
+            }
             break;
 
         case 'reset_password':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $target_user_id = $_GET['user_id'] ?? '';
             
             // Security: Ensure target user belongs to the same company
@@ -700,6 +764,7 @@ try {
             }
 
             // Fetch company-specific biometric thresholds
+<<<<<<< HEAD
             $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
@@ -707,6 +772,13 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Company configuration not found']);
                 break;
             }
+=======
+            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
+            $stmt_config->execute([$company_id]);
+            $config = $stmt_config->fetch();
+            $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
+            $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
@@ -743,8 +815,15 @@ try {
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
+<<<<<<< HEAD
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
                 echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
+=======
+                // Return a more helpful message for debugging
+                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
+                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
+                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
                 break;
             }
 
@@ -752,7 +831,15 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 999;
                 if ($ratio <= $ambiguity_ratio_threshold) {
+<<<<<<< HEAD
                     echo json_encode(['success' => false, 'message' => 'Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', 'debug_ratio' => $ratio]);
+=======
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Ambiguous match, please try again',
+                        'match_percentage' => $match_percentage
+                    ]);
+>>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
                     break;
                 }
             }
@@ -970,7 +1057,7 @@ try {
             break;
 
         case 'run_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -1106,7 +1193,7 @@ try {
         case 'update_leave_status':
         case 'update_loan_status':
         case 'update_resignation_status':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             
             $table = '';
@@ -1188,7 +1275,7 @@ try {
             break;
 
         case 'save_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (isset($data['id']) && !empty($data['id'])) {
                 $stmt = $pdo->prepare("UPDATE deductions SET name = ?, type = ?, value = ?, is_active = ?, is_government = ? WHERE id = ? AND company_id = ?");
@@ -1201,7 +1288,7 @@ try {
             break;
 
         case 'delete_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1209,7 +1296,7 @@ try {
             break;
 
         case 'save_settings':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             
             // Basic validation
@@ -1328,7 +1415,7 @@ try {
             break;
 
         case 'save_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['code']) || empty($data['description'])) {
                 echo json_encode(['success' => false, 'message' => 'Code and description are required']);
@@ -1345,7 +1432,7 @@ try {
             break;
 
         case 'delete_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1353,7 +1440,7 @@ try {
             break;
 
         case 'save_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'], $data['hours']]);
@@ -1361,7 +1448,7 @@ try {
             break;
 
         case 'delete_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1369,7 +1456,7 @@ try {
             break;
 
         case 'update_role':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $role = $_GET['role'] ?? 'Employee';
             try {
@@ -1407,7 +1494,7 @@ try {
             break;
 
         case 'update_leave_balance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $employee_id = $_GET['employee_id'] ?? '';
             $balance = $_GET['balance'] ?? 0;
             $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE id = ? AND company_id = ?");
@@ -1416,7 +1503,7 @@ try {
             break;
 
         case 'bulk_update_leave_balance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $balance = isset($data['balance']) ? (float)$data['balance'] : null;
             if ($balance === null || $balance < 0) {
@@ -1437,6 +1524,7 @@ try {
             break;
 
         case 'get_payroll_batches':
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
             $stmt = $pdo->prepare("SELECT period, SUM(net_pay) as total_disbursed, COUNT(*) as staff_count, MAX(created_at) as processing_date FROM payroll WHERE company_id = ? GROUP BY period ORDER BY processing_date DESC");
             $stmt->execute([$_SESSION['company_id']]);
