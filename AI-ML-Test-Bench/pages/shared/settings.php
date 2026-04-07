@@ -26,20 +26,36 @@ $company = $stmt_company->fetch();
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+<<<<<<< HEAD
                         <label>Check In Window (Allowed Between)</label>
                         <div style="display:flex; gap:5px; align-items:center;">
                             <input type="time" name="checkInStart" value="<?php echo $company['check_in_start'] ?? '06:00'; ?>">
                             <span>to</span>
                             <input type="time" name="checkInEnd" value="<?php echo $company['check_in_end'] ?? '10:00'; ?>">
+=======
+                        <label>Lunch Out Range</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '11:30'; ?>">
+                            <span>to</span>
+                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '12:30'; ?>">
+>>>>>>> parent of cce40fc (Merge pull request #14 from johnlcstudios/biometrics)
                         </div>
                         <small class="text-muted">Users can only Check In during this time</small>
                     </div>
                     <div class="form-group">
+<<<<<<< HEAD
                         <label>Check Out Window (Allowed Between)</label>
                         <div style="display:flex; gap:5px; align-items:center;">
                             <input type="time" name="checkOutStart" value="<?php echo $company['check_out_start'] ?? '16:00'; ?>">
                             <span>to</span>
                             <input type="time" name="checkOutEnd" value="<?php echo $company['check_out_end'] ?? '22:00'; ?>">
+=======
+                        <label>Lunch In Range</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '12:30'; ?>">
+                            <span>to</span>
+                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '13:30'; ?>">
+>>>>>>> parent of cce40fc (Merge pull request #14 from johnlcstudios/biometrics)
                         </div>
                         <small class="text-muted">Users can only Check Out during this time</small>
                     </div>
