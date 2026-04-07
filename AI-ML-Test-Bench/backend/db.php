@@ -6,15 +6,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-<<<<<<< HEAD
 // Set default timezone for the system
 date_default_timezone_set('Asia/Manila');
-=======
-// Generate CSRF token if not exists
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
->>>>>>> fac333b3f40cb73b85b1ad630ed689bc9fae34a0
 
 // Error reporting - avoid leaking details in production
 error_reporting(E_ALL);
