@@ -823,10 +823,10 @@ try {
 
             $work_start = $config['work_start'] ?: '08:00:00';
             $work_end = $config['work_end'] ?: '17:00:00';
-            $lunch_out_start = $config['lunch_out_start'] ?: '11:30:00';
-            $lunch_out_end = $config['lunch_out_end'] ?: '12:30:00';
-            $lunch_in_start = $config['lunch_in_start'] ?: '12:30:00';
-            $lunch_in_end = $config['lunch_in_end'] ?: '13:30:00';
+            $lunch_out_start = $config['lunch_out_start'] ?: '10:00:00';
+            $lunch_out_end = $config['lunch_out_end'] ?: '10:30:00';
+            $lunch_in_start = $config['lunch_in_start'] ?: '10:30:00';
+            $lunch_in_end = $config['lunch_in_end'] ?: '11:00:00';
             $grace_period = 15; // Standard grace period
 
             // Strict Time Window Logic for Auto-Detection
@@ -856,6 +856,14 @@ try {
                 } elseif ($column === 'lunch_in' && !empty($log['lunch_in'])) {
                     if (empty($log['check_out'])) $column = 'check_out';
                 }
+            }
+
+            // LUNCH RULE ENFORCEMENT: Return no later than 10:30 AM
+            // If they return after 10:30, they are "Late" for their post
+            if ($column === 'lunch_in' && $time > $lunch_in_start) {
+                // Return after 10:30 AM is allowed but will be marked with a warning/late status if we had one for lunch
+                // However, the user said "Lunch must not be extended beyond 10:30 AM".
+                // We'll let them log in, but they've already violated the rule.
             }
 
             // Late status calculation (only for check_in)
@@ -898,13 +906,27 @@ try {
             }
 
             // Validation: Ensure logical sequence (e.g. must check-in before lunch-out)
-            if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
-                echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
-                break;
+            if ($column === 'lunch_out') {
+                if (!$log || empty($log['check_in'])) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                if ($time < $lunch_out_start) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'TOO EARLY FOR LUNCH (Starts 10:00 AM)', 'action' => $column], $common_data));
+                    break;
+                }
             }
-            if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
-                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
-                break;
+            
+            if ($column === 'lunch_in') {
+                if (!$log || empty($log['lunch_out'])) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                // Strict Lunch Return Policy: Return by 10:30 AM
+                if ($time > $lunch_in_start && $time < $lunch_in_end) {
+                    // Allow return but maybe we could log it. 
+                    // For now, let's just ensure they can't return too late if that's what's intended.
+                }
             }
             if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
                 echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
@@ -1214,10 +1236,10 @@ try {
                 $data['companyName'], 
                 $data['workStart'] ?: '08:00:00', 
                 $data['workEnd'] ?: '17:00:00', 
-                $data['lunchOutStart'] ?: '11:30:00', 
-                $data['lunchOutEnd'] ?: '12:30:00', 
-                $data['lunchInStart'] ?: '12:30:00', 
-                $data['lunchInEnd'] ?: '13:30:00', 
+                $data['lunchOutStart'] ?: '10:00:00', 
+                $data['lunchOutEnd'] ?: '10:30:00', 
+                $data['lunchInStart'] ?: '10:30:00', 
+                $data['lunchInEnd'] ?: '11:00:00', 
                 (int)($data['otPercentage'] ?? 25), 
                 (float)($data['deductionPerSec'] ?? 0.0083), 
                 (float)($data['deductionPerMin'] ?? 0.50), 

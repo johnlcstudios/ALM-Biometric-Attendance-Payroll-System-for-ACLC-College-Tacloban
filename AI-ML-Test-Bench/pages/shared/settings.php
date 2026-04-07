@@ -26,17 +26,17 @@ $company = $stmt_company->fetch();
                     <div class="form-group">
                         <label>Lunch Out Range</label>
                         <div style="display:flex; gap:5px;">
-                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '11:30'; ?>">
+                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '10:00'; ?>">
                             <span>to</span>
-                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '12:30'; ?>">
+                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '10:30'; ?>">
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Lunch In Range</label>
                         <div style="display:flex; gap:5px;">
-                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '12:30'; ?>">
+                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '10:30'; ?>">
                             <span>to</span>
-                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '13:30'; ?>">
+                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '11:00'; ?>">
                         </div>
                     </div>
                 </div>
