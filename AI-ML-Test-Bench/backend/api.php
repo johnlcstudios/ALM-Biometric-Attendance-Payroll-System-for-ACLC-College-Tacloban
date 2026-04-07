@@ -3,15 +3,9 @@
 header('Content-Type: application/json');
 
 // Biometric Constants
-<<<<<<< HEAD
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
 define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
-=======
-define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
-define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
-define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
 try {
     require_once 'db.php';
@@ -22,32 +16,9 @@ try {
 
 $action = $_GET['action'] ?? '';
 
-<<<<<<< HEAD
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
-=======
-
-// // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
-// function isAdminOrHR() {
-//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer']);
-// }
-
-// // Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
-// function isPayrollOrHigher() {
-//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
-// }
-
-// Helper validates validates user authentication and enforces role-based access control by restricting API endpoints to authorized user roles.
-function requireAccess($roles = []) {
-    if (!isset($_SESSION['user_id'])) {
-        exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-    }
-
-    if (!empty($roles) && !in_array($_SESSION['role'], $roles)) {
-        exit(json_encode(['success' => false, 'message' => 'Forbidden']));
-    }
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 }
 
 /**
@@ -240,7 +211,6 @@ try {
         case 'run_specialized_payroll':
             requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
-<<<<<<< HEAD
             $type = $data['type'] ?? '';
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -262,26 +232,6 @@ try {
             $stmt_company->execute([$company_id]);
             $company = $stmt_company->fetch();
             $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
-=======
-            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
-            $start_date = $data['start_date'] ?? '';
-            $end_date = $data['end_date'] ?? '';
-
-            if (empty($type) || empty($start_date) || empty($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
-            }
-            if (!in_array($type, ['faculty', 'utility'])) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
-            }
-
-            // Basic Date Validation
-            if (!strtotime($start_date) || !strtotime($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
-            }
-            if (strtotime($start_date) > strtotime($end_date)) {
-                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
-            }
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
@@ -883,21 +833,11 @@ try {
             }
 
             // Fetch company-specific biometric thresholds
-<<<<<<< HEAD
-            $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
-            $stmt_config->execute([$company_id]);
-            $config = $stmt_config->fetch();
-            if (!$config) {
-                echo json_encode(['success' => false, 'message' => 'Company configuration not found']);
-                break;
-            }
-=======
             $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
@@ -934,15 +874,8 @@ try {
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
-<<<<<<< HEAD
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
                 echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
-=======
-                // Return a more helpful message for debugging
-                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
-                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
-                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                 break;
             }
 
@@ -950,15 +883,11 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 999;
                 if ($ratio <= $ambiguity_ratio_threshold) {
-<<<<<<< HEAD
-                    echo json_encode(['success' => false, 'message' => 'Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', 'debug_ratio' => $ratio]);
-=======
                     echo json_encode([
                         'success' => false,
                         'message' => 'Ambiguous match, please try again',
                         'match_percentage' => $match_percentage
                     ]);
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                     break;
                 }
             }
@@ -984,8 +913,6 @@ try {
             } else {
                 $date = date('Y-m-d');
                 $time = date('H:i:s');
-<<<<<<< HEAD
-=======
 
                 $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
                 $stmt_emp->execute([$employee_id]);
@@ -1120,7 +1047,6 @@ try {
                 ], $common_data));
             } else {
                 echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
             }
 
             // Fetch employee data
@@ -1532,41 +1458,6 @@ try {
         case 'save_settings':
             requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
-<<<<<<< HEAD
-            
-            // Basic validation
-            if (empty($data['companyName'])) {
-                echo json_encode(['success' => false, 'message' => 'Company Name is required']);
-                break;
-            }
-
-            $stmt = $pdo->prepare("UPDATE companies SET 
-                name = ?, 
-                work_start = ?, 
-                work_end = ?, 
-                lunch_out_start = ?, 
-                lunch_out_end = ?, 
-                lunch_in_start = ?, 
-                lunch_in_end = ?, 
-                ot_percentage = ?, 
-                deduction_per_sec = ?, 
-                deduction_per_min = ?, 
-                deduction_per_hour = ? 
-                WHERE id = ?");
-            
-            $stmt->execute([
-                $data['companyName'], 
-                $data['workStart'] ?: '08:00:00', 
-                $data['workEnd'] ?: '17:00:00', 
-                $data['lunchOutStart'] ?: '11:30:00', 
-                $data['lunchOutEnd'] ?: '12:30:00', 
-                $data['lunchInStart'] ?: '12:30:00', 
-                $data['lunchInEnd'] ?: '13:30:00', 
-                (int)($data['otPercentage'] ?? 25), 
-                (float)($data['deductionPerSec'] ?? 0.0083), 
-                (float)($data['deductionPerMin'] ?? 0.50), 
-                (float)($data['deductionPerHour'] ?? 30.00), 
-=======
             $stmt = $pdo->prepare("UPDATE companies SET name = ?, work_start = ?, work_end = ?, check_in_start = ?, check_in_end = ?, lunch_out_start = ?, lunch_out_end = ?, lunch_in_start = ?, lunch_in_end = ?, check_out_start = ?, check_out_end = ?, grace_period = ?, ot_percentage = ?, deduction_per_sec = ?, deduction_per_min = ?, deduction_per_hour = ? WHERE id = ?");
             $stmt->execute([
                 $data['companyName'], 
@@ -1585,7 +1476,6 @@ try {
                 $data['deductionPerSec'], 
                 $data['deductionPerMin'], 
                 $data['deductionPerHour'], 
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                 $_SESSION['company_id']
             ]);
             
