@@ -11,12 +11,12 @@ CREATE TABLE IF NOT EXISTS companies (
     admin_email VARCHAR(255) UNIQUE NOT NULL,
     work_start TIME DEFAULT '08:00:00',
     work_end TIME DEFAULT '17:00:00',
-    lunch_start TIME DEFAULT '10:00:00',
-    lunch_end TIME DEFAULT '11:00:00',
-    lunch_out_start TIME DEFAULT '10:00:00',
-    lunch_out_end TIME DEFAULT '10:30:00',
-    lunch_in_start TIME DEFAULT '10:30:00',
-    lunch_in_end TIME DEFAULT '11:00:00',
+    lunch_start TIME DEFAULT '12:00:00',
+    lunch_end TIME DEFAULT '13:00:00',
+    lunch_out_start TIME DEFAULT '11:30:00',
+    lunch_out_end TIME DEFAULT '12:30:00',
+    lunch_in_start TIME DEFAULT '12:30:00',
+    lunch_in_end TIME DEFAULT '13:30:00',
     ot_percentage INT DEFAULT 25,
     deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
     deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
@@ -82,7 +82,10 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE INDEX idx_attendance_date ON attendance(log_date);
 CREATE INDEX idx_attendance_emp_date ON attendance(employee_id, log_date);
 CREATE INDEX idx_attendance_company ON attendance(company_id);
+<<<<<<< HEAD
 CREATE INDEX idx_attendance_company_emp_date ON attendance(company_id, employee_id, log_date);
+=======
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
 -- Payroll History
 CREATE TABLE IF NOT EXISTS payroll (
@@ -103,7 +106,10 @@ CREATE TABLE IF NOT EXISTS payroll (
 );
 CREATE INDEX idx_payroll_period ON payroll(period);
 CREATE INDEX idx_payroll_company_period ON payroll(company_id, period);
+<<<<<<< HEAD
 CREATE INDEX idx_payroll_company_type_period ON payroll(company_id, payroll_type, period);
+=======
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
 -- Leave Requests
 CREATE TABLE IF NOT EXISTS leave_requests (

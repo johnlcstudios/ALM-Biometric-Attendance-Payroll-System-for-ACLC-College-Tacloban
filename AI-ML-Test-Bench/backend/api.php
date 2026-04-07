@@ -3,9 +3,15 @@
 header('Content-Type: application/json');
 
 // Biometric Constants
+<<<<<<< HEAD
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
 define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
+=======
+define('BIOMETRIC_MATCH_THRESHOLD', 0.60);
+define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.38);
+define('BIOMETRIC_AMBIGUITY_RATIO', 1.05);
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
 try {
     require_once 'db.php';
@@ -16,14 +22,54 @@ try {
 
 $action = $_GET['action'] ?? '';
 
+<<<<<<< HEAD
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+=======
+
+// // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
+// function isAdminOrHR() {
+//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer']);
+// }
+
+// // Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
+// function isPayrollOrHigher() {
+//     return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+// }
+
+// Helper validates validates user authentication and enforces role-based access control by restricting API endpoints to authorized user roles.
+function requireAccess($roles = []) {
+    if (!isset($_SESSION['user_id'])) {
+        exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+    }
+
+    if (!empty($roles) && !in_array($_SESSION['role'], $roles)) {
+        exit(json_encode(['success' => false, 'message' => 'Forbidden']));
+    }
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 }
 
-// Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
-function isPayrollOrHigher() {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+/**
+ * Log sensitive administrative actions to the audit_logs table.
+ */
+function logAction($pdo, $action_type, $target_employee_id = null, $details = null) {
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['company_id'])) return;
+
+    try {
+        $stmt = $pdo->prepare("INSERT INTO audit_logs (company_id, admin_user_id, action_type, target_employee_id, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_SESSION['company_id'],
+            $_SESSION['user_id'],
+            $action_type,
+            $target_employee_id,
+            $details,
+            $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        ]);
+    } catch (Exception $e) {
+        // Fail silently to avoid breaking the main request, but in prod you'd use error_log()
+        error_log("Audit Log Failure: " . $e->getMessage());
+    }
 }
 
 // Centralized validation functions
@@ -109,7 +155,13 @@ try {
                 $_SESSION['company_name'] = $user['company_name'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+                $_SESSION['must_change_password'] = (bool)$user['must_change_password'];
+                echo json_encode([
+                    'success' => true, 
+                    'role' => trim($user['role']), 
+                    'company_name' => $user['company_name'], 
+                    'must_change_password' => (bool)$user['must_change_password']
+                ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
@@ -146,7 +198,7 @@ try {
             break;
 
         case 'get_faculty_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $period = $_GET['period'] ?? '';
             
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -166,7 +218,7 @@ try {
             break;
 
         case 'get_utility_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $period = $_GET['period'] ?? '';
 
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -186,8 +238,9 @@ try {
             break;
 
         case 'run_specialized_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
+<<<<<<< HEAD
             $type = $data['type'] ?? '';
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -209,16 +262,41 @@ try {
             $stmt_company->execute([$company_id]);
             $company = $stmt_company->fetch();
             $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
+=======
+            $type = $data['type'] ?? ''; // 'faculty' or 'utility'
+            $start_date = $data['start_date'] ?? '';
+            $end_date = $data['end_date'] ?? '';
+
+            if (empty($type) || empty($start_date) || empty($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Missing required fields: type, start_date, end_date']));
+            }
+            if (!in_array($type, ['faculty', 'utility'])) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid payroll type']));
+            }
+
+            // Basic Date Validation
+            if (!strtotime($start_date) || !strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid date format']));
+            }
+            if (strtotime($start_date) > strtotime($end_date)) {
+                exit(json_encode(['success' => false, 'message' => 'Start date cannot be after end date']));
+            }
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
             $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
             $company_id = $_SESSION['company_id'];
 
             $position = ($type === 'faculty') ? 'Faculty' : 'Utility';
 
-            $stmt_company = $pdo->prepare("SELECT deduction_per_min FROM companies WHERE id = ?");
+            $stmt_company = $pdo->prepare("SELECT deduction_per_min, deduction_per_sec, deduction_per_hour, ot_percentage FROM companies WHERE id = ?");
             $stmt_company->execute([$company_id]);
             $company = $stmt_company->fetch();
-            $deduction_per_min = isset($company['deduction_per_min']) ? (float)$company['deduction_per_min'] : 0.50;
+            
+            $deduction_per_min  = isset($company['deduction_per_min'])  ? (float)$company['deduction_per_min']  : 0.50;
+            $deduction_per_sec  = isset($company['deduction_per_sec'])  ? (float)$company['deduction_per_sec']  : 0.0083;
+            $deduction_per_hour = isset($company['deduction_per_hour']) ? (float)$company['deduction_per_hour'] : 30.00;
+            $ot_percentage      = isset($company['ot_percentage'])      ? (float)$company['ot_percentage']      : 25.0;
+
             
             $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
             $stmt_employees->execute([$company_id, $position]);
@@ -336,14 +414,14 @@ try {
             break;
 
         case 'get_allowance_categories':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
 
         case 'add_allowance_category':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
@@ -351,7 +429,7 @@ try {
             break;
 
         case 'get_employee_allowances':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
                                  JOIN employees e ON ea.employee_id = e.id 
@@ -362,7 +440,7 @@ try {
             break;
 
         case 'assign_employee_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['category_id'], $data['override_amount'], $data['effective_date']]);
@@ -370,7 +448,7 @@ try {
             break;
 
         case 'delete_allowance_category':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -378,7 +456,7 @@ try {
             break;
 
         case 'delete_employee_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -386,7 +464,7 @@ try {
             break;
 
         case 'bulk_assign_allowance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $category_id = $data['category_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -409,7 +487,7 @@ try {
             break;
 
         case 'get_deduction_breakdown':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name, d.type as category_type, d.value as category_rate 
                                  FROM employee_deductions ed 
                                  JOIN employees e ON ed.employee_id = e.id 
@@ -420,7 +498,7 @@ try {
             break;
 
         case 'assign_employee_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['deduction_id'], $data['override_amount'], $data['effective_date']]);
@@ -428,7 +506,7 @@ try {
             break;
 
         case 'delete_employee_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -436,7 +514,7 @@ try {
             break;
 
         case 'bulk_assign_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $deduction_id = $data['deduction_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -459,7 +537,7 @@ try {
             break;
 
         case 'revoke_payroll_access':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'];
             $pdo->beginTransaction();
             try {
@@ -478,14 +556,14 @@ try {
             break;
 
         case 'get_deduction_categories':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
 
         case 'get_employee_deductions':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name FROM employee_deductions ed JOIN employees e ON ed.employee_id = e.id JOIN deductions d ON ed.deduction_id = d.id WHERE ed.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
@@ -497,6 +575,7 @@ try {
             break;
 
         case 'get_employees':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
             $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
@@ -504,7 +583,7 @@ try {
             break;
 
         case 'save_employee':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             
             // Centralized validation
@@ -609,7 +688,7 @@ try {
             break;
 
         case 'delete_employee':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
@@ -619,7 +698,7 @@ try {
             break;
 
         case 'get_enrolled_faces':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
             $stmt->execute([$_SESSION['company_id']]);
             $faces = $stmt->fetchAll();
@@ -627,7 +706,7 @@ try {
             break;
 
         case 'save_face_descriptor':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['id']) || empty($data['descriptor'])) {
                 echo json_encode(['success' => false, 'message' => 'Invalid data']);
@@ -651,18 +730,122 @@ try {
                     $distance = sqrt($sum);
                     if ($distance < BIOMETRIC_DUPLICATE_THRESHOLD) {
                         echo json_encode(['success' => false, 'message' => "This face is already registered to " . $face['full_name']]);
-                        return;
+                        break;
                     }
                 }
             }
 
-            $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
-            $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ?, enrolled_at = NOW() WHERE id = ? AND company_id = ?");
+                $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
+                
+                logAction($pdo, 'Face Enrollment', $data['id'], "New biometric data registered");
+                
+                $pdo->commit();
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'unenroll_face':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
+            $id = $_GET['id'] ?? '';
+            if (!$id) {
+                echo json_encode(['success' => false, 'message' => 'Employee ID is required']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = NULL WHERE id = ? AND company_id = ?");
+                $stmt->execute([$id, $_SESSION['company_id']]);
+                
+                logAction($pdo, 'Face Unenrollment', $id, "Biometric data permanently removed");
+                
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Face data removed successfully']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
             break;
 
         case 'reset_password':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
+            $data = json_decode(file_get_contents('php://input'), true);
+            $employee_id = $data['id'] ?? '';
+            $new_password = $data['password'] ?? '';
+            $must_change = $data['must_change'] ?? false;
+
+            if (!$employee_id) {
+                echo json_encode(['success' => false, 'message' => 'Employee ID is required']);
+                break;
+            }
+
+            if (empty($new_password)) {
+                // Auto-generate a password if none provided
+                $new_password = bin2hex(random_bytes(4)); // 8 chars
+            }
+
+            if (strlen($new_password) < 6) {
+                echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Find user_id linked to this employee
+                $stmt = $pdo->prepare("SELECT user_id FROM employees WHERE id = ? AND company_id = ?");
+                $stmt->execute([$employee_id, $_SESSION['company_id']]);
+                $user_id = $stmt->fetchColumn();
+
+                if (!$user_id) throw new Exception("Employee has no linked user account.");
+
+                $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE users SET password = ?, must_change_password = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([$hashed, $must_change ? 1 : 0, $user_id, $_SESSION['company_id']]);
+                
+                logAction($pdo, 'Password Reset', $employee_id, "Password reset by admin. Must change: " . ($must_change ? 'Yes' : 'No'));
+                
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Password reset successfully', 'new_password' => $new_password]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'get_employee_biometric_status':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("SELECT id, (face_descriptor IS NOT NULL) as enrolled, enrolled_at FROM employees WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            $status = $stmt->fetch();
+            if ($status) {
+                echo json_encode([
+                    'success' => true,
+                    'enrolled' => (bool)$status['enrolled'],
+                    'enrolled_at' => $status['enrolled_at'] ? date('M d, Y h:i A', strtotime($status['enrolled_at'])) : 'N/A'
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Employee not found']);
+            }
+            break;
+
+        case 'get_employee_status':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
+            $id = $_GET['id'] ?? '';
+            $stmt = $pdo->prepare("SELECT id, full_name, (face_descriptor IS NOT NULL) as has_face FROM employees WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            $status = $stmt->fetch();
+            echo json_encode(['success' => true, 'status' => $status]);
+            break;
+
+        case 'reset_password_legacy':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $target_user_id = $_GET['user_id'] ?? '';
             
             // Security: Ensure target user belongs to the same company
@@ -700,6 +883,7 @@ try {
             }
 
             // Fetch company-specific biometric thresholds
+<<<<<<< HEAD
             $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
@@ -707,6 +891,13 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Company configuration not found']);
                 break;
             }
+=======
+            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio FROM companies WHERE id = ?");
+            $stmt_config->execute([$company_id]);
+            $config = $stmt_config->fetch();
+            $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
+            $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
@@ -743,8 +934,15 @@ try {
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
+<<<<<<< HEAD
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
                 echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
+=======
+                // Return a more helpful message for debugging
+                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 35), 2)) : 0;
+                error_log("Kiosk Scan: No match found or distance too high. Best distance: {$best_distance}, Threshold: {$match_threshold}");
+                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                 break;
             }
 
@@ -752,7 +950,15 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 999;
                 if ($ratio <= $ambiguity_ratio_threshold) {
+<<<<<<< HEAD
                     echo json_encode(['success' => false, 'message' => 'Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', 'debug_ratio' => $ratio]);
+=======
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Ambiguous match, please try again',
+                        'match_percentage' => $match_percentage
+                    ]);
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                     break;
                 }
             }
@@ -778,6 +984,143 @@ try {
             } else {
                 $date = date('Y-m-d');
                 $time = date('H:i:s');
+<<<<<<< HEAD
+=======
+
+                $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
+                $stmt_emp->execute([$employee_id]);
+                $emp_data = $stmt_emp->fetch();
+
+                $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
+                $stmt_config->execute([$company_id]);
+                $config = $stmt_config->fetch();
+
+                $stmt_log = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date = ?");
+                $stmt_log->execute([$employee_id, $date]);
+                $log = $stmt_log->fetch();
+
+                $stmt_stats = $pdo->prepare("SELECT 
+                    (SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL) as total_attendance
+                ");
+                $stmt_stats->execute([$employee_id]);
+                $stats = $stmt_stats->fetch();
+
+                // Calculate Absences: Days since joining - total attendance (excluding weekends)
+                $joined = new DateTime($emp_data['created_at']);
+                $today_dt = new DateTime();
+                $interval = $joined->diff($today_dt);
+                $days_diff = $interval->days;
+                
+                $work_days = 0;
+                $temp_date = clone $joined;
+                for ($i = 0; $i <= $days_diff; $i++) {
+                    if ($temp_date->format('N') < 6) { // 1-5 (Mon-Fri)
+                        $work_days++;
+                    }
+                    $temp_date->modify('+1 day');
+                }
+                
+                $absent_count = max(0, $work_days - $stats['total_attendance']);
+                $common_data = [
+                    'name' => $best_match['full_name'],
+                    'employee_id' => $emp_data['employee_id'],
+                    'position' => $emp_data['position'],
+                    'attendance_count' => $stats['total_attendance'],
+                    'absent_count' => $absent_count,
+                    'match_percentage' => $match_percentage
+                ];
+
+                $missed_morning = (!$log || empty($log['check_in'])) && $time > $config['check_in_end'];
+                $status = $log ? ($log['status'] ?? 'On-Time') : 'On-Time';
+                $late_minutes = $log ? ($log['late_minutes'] ?? 0) : 0;
+                $column = '';
+                
+                $work_start = $config['work_start'];
+                $grace_period = $config['grace_period'] ?? 15;
+                $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
+                
+                // Define ranges with fallbacks
+                $ciS = $config['check_in_start'] ?? '04:00:00';
+                $ciE = $config['check_in_end'] ?? '10:00:00';
+                $loS = $config['lunch_out_start'] ?? '12:00:00';
+                $loE = $config['lunch_out_end'] ?? '12:30:00';
+                $liS = $config['lunch_in_start'] ?? '12:30:00';
+                $liE = $config['lunch_in_end'] ?? '13:30:00';
+                $coS = $config['check_out_start'] ?? '16:00:00';
+                $coE = $config['check_out_end'] ?? '23:00:00';
+
+                // Determine the correct column based on time and ranges
+                if ($time >= $ciS && $time <= $ciE) {
+                    $column = 'check_in';
+                    // Only mark as late during check-in
+                    if ($time > $late_time) {
+                        $status = 'Late';
+                        $start_ts = strtotime($work_start);
+                        $now_ts = strtotime($time);
+                        $late_minutes = max(0, floor(($now_ts - $start_ts) / 60));
+                    }
+                } elseif ($time >= $loS && $time <= $loE) {
+                    $column = 'lunch_out';
+                } elseif ($time >= $liS && $time <= $liE) {
+                    $column = 'lunch_in';
+                } elseif ($time >= $coS && $time <= $coE) {
+                    $column = 'check_out';
+                }
+
+                if (empty($column)) {
+                    echo json_encode(array_merge([
+                        'success' => false, 
+                        'message' => 'SYSTEM LOCKED: NO ACTIVE WINDOW', 
+                        'details' => "Current time $time is outside allowed windows.",
+                        'action' => 'none'
+                    ], $common_data));
+                    break;
+                }
+
+                // Entry point requirements
+                if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+                if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
+                    break;
+                }
+
+                if ($log && !empty($log[$column])) {
+                    echo json_encode(array_merge(['success' => false, 'message' => 'ALREADY LOGGED', 'action' => $column], $common_data));
+                    break;
+                }
+
+                if (!$log) {
+                    $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, $column, status, late_minutes) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$company_id, $employee_id, $date, $time, $status, $late_minutes]);
+                } else {
+                    if ($column === 'check_out') {
+                        if (empty($log['check_in']) && !empty($log['lunch_in'])) $status = 'Half-Day';
+                        else if (!empty($log['check_in']) && empty($log['lunch_in'])) $status = 'Half-Day';
+                        else if (empty($log['check_in'])) $status = 'Absent';
+                    }
+                    // For lunch_out/lunch_in, we keep the existing status (Late or On-Time)
+                    $stmt = $pdo->prepare("UPDATE attendance SET $column = ?, status = ?, late_minutes = ? WHERE id = ?");
+                    $stmt->execute([$time, $status, $late_minutes, $log['id']]);
+                }
+
+                echo json_encode(array_merge([
+                    'success' => true, 
+                    'action' => $column, 
+                    'time' => $time, 
+                    'status' => $status, 
+                    'late_minutes' => $late_minutes,
+                    'missed_morning' => $missed_morning
+                ], $common_data));
+            } else {
+                echo json_encode(['success' => false, 'message' => 'No match found', 'match_percentage' => $match_percentage]);
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
             }
 
             // Fetch employee data
@@ -823,10 +1166,10 @@ try {
 
             $work_start = $config['work_start'] ?: '08:00:00';
             $work_end = $config['work_end'] ?: '17:00:00';
-            $lunch_out_start = $config['lunch_out_start'] ?: '10:00:00';
-            $lunch_out_end = $config['lunch_out_end'] ?: '10:30:00';
-            $lunch_in_start = $config['lunch_in_start'] ?: '10:30:00';
-            $lunch_in_end = $config['lunch_in_end'] ?: '11:00:00';
+            $lunch_out_start = $config['lunch_out_start'] ?: '11:30:00';
+            $lunch_out_end = $config['lunch_out_end'] ?: '12:30:00';
+            $lunch_in_start = $config['lunch_in_start'] ?: '12:30:00';
+            $lunch_in_end = $config['lunch_in_end'] ?: '13:30:00';
             $grace_period = 15; // Standard grace period
 
             // Strict Time Window Logic for Auto-Detection
@@ -856,14 +1199,6 @@ try {
                 } elseif ($column === 'lunch_in' && !empty($log['lunch_in'])) {
                     if (empty($log['check_out'])) $column = 'check_out';
                 }
-            }
-
-            // LUNCH RULE ENFORCEMENT: Return no later than 10:30 AM
-            // If they return after 10:30, they are "Late" for their post
-            if ($column === 'lunch_in' && $time > $lunch_in_start) {
-                // Return after 10:30 AM is allowed but will be marked with a warning/late status if we had one for lunch
-                // However, the user said "Lunch must not be extended beyond 10:30 AM".
-                // We'll let them log in, but they've already violated the rule.
             }
 
             // Late status calculation (only for check_in)
@@ -906,27 +1241,13 @@ try {
             }
 
             // Validation: Ensure logical sequence (e.g. must check-in before lunch-out)
-            if ($column === 'lunch_out') {
-                if (!$log || empty($log['check_in'])) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                if ($time < $lunch_out_start) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'TOO EARLY FOR LUNCH (Starts 10:00 AM)', 'action' => $column], $common_data));
-                    break;
-                }
+            if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                break;
             }
-            
-            if ($column === 'lunch_in') {
-                if (!$log || empty($log['lunch_out'])) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                // Strict Lunch Return Policy: Return by 10:30 AM
-                if ($time > $lunch_in_start && $time < $lunch_in_end) {
-                    // Allow return but maybe we could log it. 
-                    // For now, let's just ensure they can't return too late if that's what's intended.
-                }
+            if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                break;
             }
             if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
                 echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
@@ -970,7 +1291,7 @@ try {
             break;
 
         case 'run_payroll':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -1106,7 +1427,7 @@ try {
         case 'update_leave_status':
         case 'update_loan_status':
         case 'update_resignation_status':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             
             $table = '';
@@ -1188,7 +1509,7 @@ try {
             break;
 
         case 'save_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (isset($data['id']) && !empty($data['id'])) {
                 $stmt = $pdo->prepare("UPDATE deductions SET name = ?, type = ?, value = ?, is_active = ?, is_government = ? WHERE id = ? AND company_id = ?");
@@ -1201,7 +1522,7 @@ try {
             break;
 
         case 'delete_deduction':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1209,8 +1530,9 @@ try {
             break;
 
         case 'save_settings':
-            if (!isPayrollOrHigher()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
+<<<<<<< HEAD
             
             // Basic validation
             if (empty($data['companyName'])) {
@@ -1236,14 +1558,34 @@ try {
                 $data['companyName'], 
                 $data['workStart'] ?: '08:00:00', 
                 $data['workEnd'] ?: '17:00:00', 
-                $data['lunchOutStart'] ?: '10:00:00', 
-                $data['lunchOutEnd'] ?: '10:30:00', 
-                $data['lunchInStart'] ?: '10:30:00', 
-                $data['lunchInEnd'] ?: '11:00:00', 
+                $data['lunchOutStart'] ?: '11:30:00', 
+                $data['lunchOutEnd'] ?: '12:30:00', 
+                $data['lunchInStart'] ?: '12:30:00', 
+                $data['lunchInEnd'] ?: '13:30:00', 
                 (int)($data['otPercentage'] ?? 25), 
                 (float)($data['deductionPerSec'] ?? 0.0083), 
                 (float)($data['deductionPerMin'] ?? 0.50), 
                 (float)($data['deductionPerHour'] ?? 30.00), 
+=======
+            $stmt = $pdo->prepare("UPDATE companies SET name = ?, work_start = ?, work_end = ?, check_in_start = ?, check_in_end = ?, lunch_out_start = ?, lunch_out_end = ?, lunch_in_start = ?, lunch_in_end = ?, check_out_start = ?, check_out_end = ?, grace_period = ?, ot_percentage = ?, deduction_per_sec = ?, deduction_per_min = ?, deduction_per_hour = ? WHERE id = ?");
+            $stmt->execute([
+                $data['companyName'], 
+                $data['workStart'], 
+                $data['workEnd'], 
+                $data['checkInStart'], 
+                $data['checkInEnd'], 
+                $data['lunchOutStart'], 
+                $data['lunchOutEnd'], 
+                $data['lunchInStart'], 
+                $data['lunchInEnd'], 
+                $data['checkOutStart'], 
+                $data['checkOutEnd'], 
+                $data['gracePeriod'], 
+                $data['otPercentage'], 
+                $data['deductionPerSec'], 
+                $data['deductionPerMin'], 
+                $data['deductionPerHour'], 
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                 $_SESSION['company_id']
             ]);
             
@@ -1328,7 +1670,7 @@ try {
             break;
 
         case 'save_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['code']) || empty($data['description'])) {
                 echo json_encode(['success' => false, 'message' => 'Code and description are required']);
@@ -1345,7 +1687,7 @@ try {
             break;
 
         case 'delete_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1353,7 +1695,7 @@ try {
             break;
 
         case 'save_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'], $data['hours']]);
@@ -1361,7 +1703,7 @@ try {
             break;
 
         case 'delete_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
@@ -1369,7 +1711,7 @@ try {
             break;
 
         case 'update_role':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $id = $_GET['id'] ?? '';
             $role = $_GET['role'] ?? 'Employee';
             try {
@@ -1398,8 +1740,9 @@ try {
             
             if ($user && password_verify($oldPass, $user['password'])) {
                 $hashed = password_hash($newPass, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?");
                 $stmt->execute([$hashed, $_SESSION['user_id']]);
+                $_SESSION['must_change_password'] = false;
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Incorrect current password']);
@@ -1407,7 +1750,7 @@ try {
             break;
 
         case 'update_leave_balance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $employee_id = $_GET['employee_id'] ?? '';
             $balance = $_GET['balance'] ?? 0;
             $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE id = ? AND company_id = ?");
@@ -1416,7 +1759,7 @@ try {
             break;
 
         case 'bulk_update_leave_balance':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
             $data = json_decode(file_get_contents('php://input'), true);
             $balance = isset($data['balance']) ? (float)$data['balance'] : null;
             if ($balance === null || $balance < 0) {
@@ -1437,10 +1780,74 @@ try {
             break;
 
         case 'get_payroll_batches':
+            requireAccess(['Admin', 'HR', 'Payroll', 'Payroll Officer']);
             if (!isset($_SESSION['company_id'])) exit(json_encode([]));
             $stmt = $pdo->prepare("SELECT period, SUM(net_pay) as total_disbursed, COUNT(*) as staff_count, MAX(created_at) as processing_date FROM payroll WHERE company_id = ? GROUP BY period ORDER BY processing_date DESC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_settings':
+            requireAccess(['Admin', 'HR', 'Payroll Officer']);
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!$data) {
+                echo json_encode(['success' => false, 'message' => 'Invalid data received']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Ensure company_id is present
+                $id = $_SESSION['company_id'] ?? null;
+                if (!$id) throw new Exception("Session expired or company ID missing");
+
+                $stmt = $pdo->prepare("UPDATE companies SET 
+                    name = ?, 
+                    work_start = ?, 
+                    work_end = ?, 
+                    lunch_out_start = ?, 
+                    lunch_out_end = ?, 
+                    lunch_in_start = ?, 
+                    lunch_in_end = ?, 
+                    check_in_start = ?, 
+                    check_in_end = ?, 
+                    check_out_start = ?, 
+                    check_out_end = ?, 
+                    grace_period = ?, 
+                    ot_percentage = ?, 
+                    deduction_per_sec = ?, 
+                    deduction_per_min = ?, 
+                    deduction_per_hour = ?
+                    WHERE id = ?");
+                
+                $stmt->execute([
+                    $data['companyName'] ?? '',
+                    $data['workStart'] ?? '08:00',
+                    $data['workEnd'] ?? '17:00',
+                    $data['lunchOutStart'] ?? '12:00',
+                    $data['lunchOutEnd'] ?? '12:30',
+                    $data['lunchInStart'] ?? '12:30',
+                    $data['lunchInEnd'] ?? '13:00',
+                    $data['checkInStart'] ?? '04:00',
+                    $data['checkInEnd'] ?? '10:00',
+                    $data['checkOutStart'] ?? '16:00',
+                    $data['checkOutEnd'] ?? '23:00',
+                    (int)($data['gracePeriod'] ?? 15),
+                    (int)($data['otPercentage'] ?? 25),
+                    (float)($data['deductionPerSec'] ?? 0),
+                    (float)($data['deductionPerMin'] ?? 0),
+                    (float)($data['deductionPerHour'] ?? 0),
+                    $id
+                ]);
+
+                logAction($pdo, 'System Settings Update', null, "General system settings updated by " . $_SESSION['role'] . " (ID: " . $_SESSION['user_id'] . ")");
+                
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Settings updated successfully']);
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Update failed: ' . $e->getMessage()]);
+            }
             break;
 
         case 'get_companies':

@@ -191,6 +191,36 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo $role; ?>";
     </script>
+    <!-- Force Password Change Modal -->
+    <div id="forcePasswordModal" class="modal" style="display: none; z-index: 10001; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);">
+        <div class="modal-content" style="max-width: 400px; margin: 10% auto; border-radius: 15px; border: 1px solid var(--primary-color);">
+            <div class="modal-header" style="background: var(--primary-color); color: white; border-top-left-radius: 14px; border-top-right-radius: 14px;">
+                <h3><i class="fas fa-shield-alt"></i> Security Update Required</h3>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p>An administrator has reset your password. For your security, you <strong>must</strong> change it before proceeding.</p>
+                <form id="forcePasswordForm" onsubmit="handleForcePasswordChange(event)">
+                    <div class="form-group">
+                        <label>Current Password</label>
+                        <input type="password" id="forceOldPass" class="form-control" placeholder="Enter temporary password" required>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" id="forceNewPass" class="form-control" placeholder="Minimum 6 characters" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="forceConfirmPass" class="form-control" placeholder="Re-type new password" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="width: 100%; margin-top: 10px;">
+                        Update Password & Continue
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/face-api-manager.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>

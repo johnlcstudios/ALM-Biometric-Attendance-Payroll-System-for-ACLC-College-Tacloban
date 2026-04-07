@@ -125,8 +125,13 @@ try {
     // 6. Check for 'lunch_start', 'lunch_end' columns in 'companies' table
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'lunch_start'");
     if (!$stmt->fetch()) {
+<<<<<<< HEAD
         if (!$silent) echo "Adding 'lunch_start' and 'lunch_end' columns to 'companies' table... ";
         $pdo->exec("ALTER TABLE companies ADD COLUMN lunch_start TIME DEFAULT '12:00:00', ADD COLUMN lunch_end TIME DEFAULT '13:00:00'");
+=======
+        if (!$silent) echo "Adding 'lunch_start', 'lunch_end', and 'grace_period' columns to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies ADD COLUMN lunch_start TIME DEFAULT '12:00:00', ADD COLUMN lunch_end TIME DEFAULT '13:00:00', ADD COLUMN grace_period INT DEFAULT 15");
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
         if (!$silent) echo "DONE\n";
     }
 
@@ -141,6 +146,19 @@ try {
             ADD COLUMN lunch_in_end TIME DEFAULT '13:30:00'");
         if (!$silent) echo "DONE\n";
     }
+
+    // 7.1 Check for check in and check out ranges in 'companies' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'check_in_start'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding check in and check out range columns to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies 
+            ADD COLUMN check_in_start TIME DEFAULT '06:00:00', 
+            ADD COLUMN check_in_end TIME DEFAULT '10:00:00', 
+            ADD COLUMN check_out_start TIME DEFAULT '16:00:00', 
+            ADD COLUMN check_out_end TIME DEFAULT '22:00:00'");
+        if (!$silent) echo "DONE\n";
+    }
+
 
     // 10. Add OT and dynamic deduction columns to 'companies'
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'ot_percentage'");
@@ -259,11 +277,14 @@ try {
     if (!$silent) echo "Syncing Payroll Officer roles... ";
     $pdo->exec("UPDATE users u JOIN employees e ON u.id = e.user_id SET u.role = 'Payroll Officer' WHERE e.position = 'Payroll Officer'");
     if (!$silent) echo "DONE\n";
+<<<<<<< HEAD
 
     // 18. Relax Biometric Thresholds for better recognition
     if (!$silent) echo "Relaxing Biometric Thresholds for better recognition... ";
     $pdo->exec("UPDATE companies SET biometric_match_threshold = 0.70, biometric_ambiguity_ratio = 1.25 WHERE biometric_match_threshold = 0.60");
     if (!$silent) echo "DONE\n";
+=======
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
 
     // 8. Create 'subjects' master table
     $stmt = $pdo->query("SHOW TABLES LIKE 'subjects'");
@@ -307,6 +328,62 @@ try {
         if (!$silent) echo "'subject_loads' table already exists.\n";
     }
 
+<<<<<<< HEAD
+=======
+    // 18. Create 'audit_logs' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'audit_logs'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Creating 'audit_logs' table... ";
+        $sql = "CREATE TABLE audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            admin_user_id INT NOT NULL,
+            action_type VARCHAR(100) NOT NULL,
+            target_employee_id INT,
+            details TEXT,
+            ip_address VARCHAR(45),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 19. Add 'must_change_password' to 'users' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'must_change_password'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'must_change_password' to 'users' table... ";
+        $pdo->exec("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT FALSE");
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 20. Add 'enrolled_at' to 'employees' table for biometrics
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'enrolled_at'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'enrolled_at' to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN enrolled_at DATETIME NULL AFTER face_descriptor");
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 21. Add missing configuration columns to 'companies' table
+    $companyColumns = [
+        'check_in_start' => "TIME DEFAULT '04:00:00'",
+        'check_in_end' => "TIME DEFAULT '11:00:00'",
+        'check_out_start' => "TIME DEFAULT '16:00:00'",
+        'check_out_end' => "TIME DEFAULT '23:00:00'",
+        'grace_period' => "INT DEFAULT 15"
+    ];
+    foreach ($companyColumns as $col => $def) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE '$col'");
+        if (!$stmt->fetch()) {
+            if (!$silent) echo "Adding '$col' to 'companies' table... ";
+            $pdo->exec("ALTER TABLE companies ADD COLUMN $col $def");
+            if (!$silent) echo "DONE\n";
+        }
+    }
+
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
     if (!$silent) echo "\n<b>Database update completed successfully!</b>";
     if (!$silent) echo "\n<a href='index.php'>Return to Dashboard</a>";
 
