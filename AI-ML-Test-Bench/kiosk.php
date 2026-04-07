@@ -526,10 +526,10 @@
             
             const workStart = companyConfig.work_start || '08:00:00';
             const workEnd = companyConfig.work_end || '17:00:00';
-            const lOutS = companyConfig.lunch_out_start || '11:30:00';
-            const lOutE = companyConfig.lunch_out_end || '12:30:00';
-            const lInS = companyConfig.lunch_in_start || '12:30:00';
-            const lInE = companyConfig.lunch_in_end || '13:30:00';
+            const lOutS = companyConfig.lunch_out_start || '10:00:00';
+            const lOutE = companyConfig.lunch_out_end || '10:30:00';
+            const lInS = companyConfig.lunch_in_start || '10:30:00';
+            const lInE = companyConfig.lunch_in_end || '11:00:00';
 
             if (timeStr < lOutS) {
                 action = "TIME IN (CHECK IN)"; 
