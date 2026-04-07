@@ -12,15 +12,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $action = $_GET['action'] ?? '';
 
-// CSRF Protection for sensitive actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $headers = getallheaders();
-    $token = $headers['X-CSRF-TOKEN'] ?? '';
-    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
-        http_response_code(403);
-        exit(json_encode(['success' => false, 'message' => 'Invalid CSRF token']));
-    }
-}
 $user_id = $_SESSION['user_id'];
 $company_id = $_SESSION['company_id'];
 

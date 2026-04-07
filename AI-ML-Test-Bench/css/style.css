@@ -928,6 +928,12 @@ tr:last-child td {
 .btn-primary:hover { background-color: var(--primary-color); }
 .btn-success { background-color: var(--success-color); color: white; }
 .btn-secondary { background-color: var(--secondary-color); color: white; }
+.btn-warning { background-color: var(--warning-color); color: white; }
+.btn-danger { background-color: var(--danger-color); color: white; }
+.btn-dark { background-color: #2d3436; color: white; }
+
+.status-badge.face-enrolled { background-color: rgba(39, 174, 96, 0.15); color: #27ae60; }
+.status-badge.no-face { background-color: rgba(108, 117, 125, 0.15); color: #6c757d; }
 
 /* Modern Employee Modal Styling */
 .large-modal {

@@ -142,6 +142,19 @@ try {
         if (!$silent) echo "DONE\n";
     }
 
+    // 7.1 Check for check in and check out ranges in 'companies' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'check_in_start'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding check in and check out range columns to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies 
+            ADD COLUMN check_in_start TIME DEFAULT '06:00:00', 
+            ADD COLUMN check_in_end TIME DEFAULT '10:00:00', 
+            ADD COLUMN check_out_start TIME DEFAULT '16:00:00', 
+            ADD COLUMN check_out_end TIME DEFAULT '22:00:00'");
+        if (!$silent) echo "DONE\n";
+    }
+
+
     // 10. Add OT and dynamic deduction columns to 'companies'
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'ot_percentage'");
     if (!$stmt->fetch()) {
@@ -300,6 +313,59 @@ try {
         if (!$silent) echo "DONE\n";
     } else {
         if (!$silent) echo "'subject_loads' table already exists.\n";
+    }
+
+    // 18. Create 'audit_logs' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'audit_logs'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Creating 'audit_logs' table... ";
+        $sql = "CREATE TABLE audit_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            admin_user_id INT NOT NULL,
+            action_type VARCHAR(100) NOT NULL,
+            target_employee_id INT,
+            details TEXT,
+            ip_address VARCHAR(45),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 19. Add 'must_change_password' to 'users' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'must_change_password'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'must_change_password' to 'users' table... ";
+        $pdo->exec("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT FALSE");
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 20. Add 'enrolled_at' to 'employees' table for biometrics
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'enrolled_at'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'enrolled_at' to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN enrolled_at DATETIME NULL AFTER face_descriptor");
+        if (!$silent) echo "DONE\n";
+    }
+
+    // 21. Add missing configuration columns to 'companies' table
+    $companyColumns = [
+        'check_in_start' => "TIME DEFAULT '04:00:00'",
+        'check_in_end' => "TIME DEFAULT '11:00:00'",
+        'check_out_start' => "TIME DEFAULT '16:00:00'",
+        'check_out_end' => "TIME DEFAULT '23:00:00'",
+        'grace_period' => "INT DEFAULT 15"
+    ];
+    foreach ($companyColumns as $col => $def) {
+        $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE '$col'");
+        if (!$stmt->fetch()) {
+            if (!$silent) echo "Adding '$col' to 'companies' table... ";
+            $pdo->exec("ALTER TABLE companies ADD COLUMN $col $def");
+            if (!$silent) echo "DONE\n";
+        }
     }
 
     if (!$silent) echo "\n<b>Database update completed successfully!</b>";

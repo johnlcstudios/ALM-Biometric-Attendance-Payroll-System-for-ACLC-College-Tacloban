@@ -236,6 +236,12 @@ document.getElementById('loginForm').onsubmit = async (e) => {
     const result = await response.json();
 
     if (result.success) {
+        if (result.must_change_password) {
+            // Store a temporary flag or just handle it in the destination page
+            // For now, let's just append a query param or use localStorage
+            sessionStorage.setItem('force_password_change', 'true');
+        }
+
         const role = result.role ? result.role.trim() : 'Employee';
         if (role === 'Payroll' || role === 'Payroll Officer') {
             window.location.href = 'Payroll-Officer.php';
