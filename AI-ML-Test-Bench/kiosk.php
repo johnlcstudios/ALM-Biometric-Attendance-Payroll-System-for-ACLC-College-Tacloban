@@ -521,7 +521,6 @@
             }
             
             const now = getNow();
-<<<<<<< HEAD
             const timeStr = now.toTimeString().split(' ')[0];
             let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
             
@@ -544,33 +543,6 @@
             } else {
                 action = timeStr < workEnd ? "TIME OUT (EARLY)" : "TIME OUT (CHECK OUT)";
                 color = timeStr < workEnd ? "#e67e22" : "var(--accent-red)";
-=======
-            const timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
-            let action = "SYSTEM LOCKED (OUTSIDE SCHEDULE)", color = "#7f8c8d";
-            
-            // Get precise windows from config
-            const ciS = companyConfig.check_in_start || '04:00:00';
-            const ciE = companyConfig.check_in_end || '10:00:00';
-            const loS = companyConfig.lunch_out_start || '12:00:00';
-            const loE = companyConfig.lunch_out_end || '12:30:00';
-            const liS = companyConfig.lunch_in_start || '12:30:00';
-            const liE = companyConfig.lunch_in_end || '13:30:00';
-            const coS = companyConfig.check_out_start || '16:00:00';
-            const coE = companyConfig.check_out_end || '23:00:00';
-
-            if (timeStr >= ciS && timeStr <= ciE) {
-                action = "TIME IN (CHECK IN)"; 
-                color = "var(--primary-blue)";
-            } else if (timeStr >= loS && timeStr <= loE) {
-                action = "LUNCH OUT"; 
-                color = "#f39c12"; 
-            } else if (timeStr >= liS && timeStr <= liE) {
-                action = "LUNCH IN"; 
-                color = "#27ae60"; 
-            } else if (timeStr >= coS && timeStr <= coE) {
-                action = "TIME OUT (CHECK OUT)";
-                color = "var(--accent-red)";
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
             }
             
             if (faceManager.isProcessing) {
@@ -646,11 +618,7 @@
                         descriptor, 
                         company_id: currentCompanyId,
                         scan_time: getNow().toISOString()
-<<<<<<< HEAD
                     })
-=======
-                     })
->>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
                 });
                 
                 const result = await response.json();
