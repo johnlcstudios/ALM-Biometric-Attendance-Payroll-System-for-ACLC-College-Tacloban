@@ -76,8 +76,11 @@ $position = $emp['position'] ?? 'Staff';
         .status-pending { background: #fff3cd; color: #856404; }
         .status-approved { background: #d4edda; color: #155724; }
         .status-rejected { background: #f8d7da; color: #721c24; }
+<<<<<<< HEAD
         .status-distributed { background: #cce5ff; color: #004085; }
         .status-paid { background: #d4edda; color: #155724; }
+=======
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
         .status-completed { background: #cce5ff; color: #004085; }
         
         /* Modal for Payslip */
@@ -462,8 +465,11 @@ $position = $emp['position'] ?? 'Staff';
     <!-- Modals -->
     <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
 
+<<<<<<< HEAD
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script src="js/face-api-manager.js"></script>
+=======
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
     <script src="js/script.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -612,6 +618,7 @@ $position = $emp['position'] ?? 'Staff';
             const leave = essData.leave || [];
             const loans = essData.loans || [];
             const resign = essData.resignations || [];
+<<<<<<< HEAD
 
             document.getElementById('leave-history-body').innerHTML = leave.map(l => `
                 <tr>
@@ -621,6 +628,17 @@ $position = $emp['position'] ?? 'Staff';
                 </tr>
             `).join('') || '<tr><td colspan="3" class="text-center">No leave requests</td></tr>';
 
+=======
+
+            document.getElementById('leave-history-body').innerHTML = leave.map(l => `
+                <tr>
+                    <td>${l.start_date} to ${l.end_date}</td>
+                    <td>${l.leave_type}</td>
+                    <td><span class="status-tag status-${l.status.toLowerCase()}">${l.status}</span></td>
+                </tr>
+            `).join('') || '<tr><td colspan="3" class="text-center">No leave requests</td></tr>';
+
+>>>>>>> b18e6a800b4a10f04fb7931b2f121a80ae4af12a
             document.getElementById('loan-history-body').innerHTML = loans.map(l => `
                 <tr>
                     <td>${new Date(l.requested_at).toLocaleDateString()}</td>
