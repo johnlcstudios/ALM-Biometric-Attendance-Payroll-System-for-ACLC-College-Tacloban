@@ -171,22 +171,17 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
 
-- ***P0*** Enforce duplicate-face blocking everywhere: server-side duplicate check on enrollment, block ambiguous matches at kiosk, log attempts.
-- ***P0*** Improve enrollment quality: multi-sample descriptor averaging, stability checks, minimum confidence gating, “too dark/too far” guidance.
 - ***P0*** Time integrity: kiosk UI time sync to server, use server time for logs/windows/cutoffs.
 - ***P0*** Liveness hardening: multi-step liveness (blink + head turn + mouth), random prompts, anti-replay timing checks.
 - ***P1*** Matching calibration: tune thresholds per camera/site, store configurable thresholds per company, add test mode for calibration.
-- ***P1*** Multi-face handling: reject when >1 face detected, show instruction.
-- ***P1*** Device handling: camera selection UI, fallback strategies, better permission error UX, auto-stop streams.
 - ***P2*** Monitoring: track FAR/FRR metrics (false accept/reject), ambiguous rates, model load errors, device failures.
 - ***P2*** Performance: optimize inputSize dynamically, throttle detection, reduce CPU load on weaker devices.
 - ***P3*** Advanced improvements: optional higher-accuracy detector pipeline (if hardware allows), periodic re-enrollment prompts.
 
 ### Backend — Task Backlog (Priority-Ordered)
 
-- ***P0*** Authorization/RBAC audit: ensure company scoping on every endpoint, prevent data leakage, unify role checks (Admin/HR/Payroll Officer).
+
 - ***P0*** Data integrity & transactions: wrap bulk operations + payroll runs + “apply to all” in transactions, prevent partial writes.
-- ***P0*** Payroll correctness validation: unit-test payroll formulas (absences, late, OT, allowances, deductions, loans), consistent period handling.
 - ***P0*** “Latest period” + filtering consistency: standardize period keys, add “latest” fetch patterns to avoid empty exports/pages.
 - ***P1*** Input validation standard: centralized validation for dates, amounts, IDs; reject invalid payloads; consistent JSON shape.
 - ***P1*** Database indexing: company_id + employee_id + period + log_date indexes for attendance/payroll queries.
@@ -198,28 +193,25 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 
 ### Frontend — Task Backlog (Priority-Ordered)
 
-- ***P0*** Stability after page-splitting: guard DOM lookups, prevent null crashes, ensure each page initializes only its own widgets.
-- ***P0*** Data loading lifecycle: load the right datasets per page, show spinners, disable buttons while requests run, prevent double submits.
-- ***P0*** Export/Print reliability: ensure data is fetched before export, unify headers with table schema, handle “latest” automatically.
-- ***P1*** UX consistency: unify cards/tables/buttons styling across Admin/HR/Payroll Officer/Employee, consistent empty states.
-- ***P1*** Responsive wide tables: sticky columns, horizontal scroll UX, A3 print layouts, column grouping.
-- ***P1*** Better forms: validation messages, date-range helpers, safe defaults, confirmations, undo for bulk actions.
-- ***P2*** Performance: virtualized tables for large datasets, debounce search, caching (per page), reduce re-renders.
-- ***P2*** Accessibility: keyboard navigation, contrast, ARIA labels, focus management in modals.
-- ***P3*** Observability: frontend error boundary/log capture for crashes, user-friendly error banners.
+**P0** Fix all non-functional buttons:
+- Subject Load (Add/Edit/Delete)
+- Attendance Logs (Action buttons)
+- Payroll (Export/Print)
+- PDF actions
+**P0** Fix data rendering issues: ensure tables load data on page initialization.
+**P0** Fix search functionality (Attendance Logs): restrict search to Name/ID only (exclude STATUS).
+**P0** Fix async handling: ensure proper fetch/await logic and prevent race conditions.
+**P0** Prevent double-trigger bugs: disable buttons during API calls.
+**P1** Implement pagination UI across all tables.
+**P1** Add table limits and consistent layouts.
+**P1** Remove redundant text across pages.
+**P1** Improve UI consistency (buttons, tables, labels).
+**P2** Improve loading states (spinners, skeletons).
+**P2** Enhance responsiveness for large tables.
 
 ### Testing Team — Task Backlog (Priority-Ordered)  
-- **P0** Build regression test checklist (manual) for every core flow: login/roles, employee CRUD, face enrollment, kiosk scan sequence, attendance logs, payroll runs, exports, settings.  
-- **P0** Validate RBAC + company isolation: try to access other company data, test Payroll Officer parity, verify “employee” cannot access admin endpoints/pages.  
-- **P0** Kiosk accuracy test plan: lighting scenarios, distance, angle, glasses/mask, multiple faces, replay attempts, duplicate enrollment attempts; record FAR/FRR observations.  
-- **P0** Time-window testing: work start/end + lunch windows + grace period; verify allowed/blocked actions and correct statuses (Late minutes, Lunch Out/In columns).  
-- **P0** Payroll correctness test cases: fixed salary, absences, late deductions, OT %, allowances/deductions/loans; verify period grouping and “latest” retrieval.  
-- **P1** Export/print verification: ensure exported tables match UI columns exactly (Faculty 17 / Utility 15), test exporting without visiting pages first, test “latest” auto-load.  
-- **P1** Data integrity testing: bulk “Apply to All” (allowance/deduction/leave) with failures/retries; ensure no partial updates; verify transaction safety.  
-- **P1** Cross-browser testing: Chrome/Edge + at least one other browser; camera permissions; print layout; PDF generation.  
-- **P2** Performance testing: large employee list, large attendance logs, repeated kiosk scans; measure load times and UI responsiveness.  
-- **P2** Security testing (basic): input fuzzing (dates/amounts), unauthorized POSTs, session expiry behavior, CSRF-like actions, rate-limit attempts for kiosk_scan.  
-- **P3** Automation roadmap: identify top 10 stable flows to automate first (API tests for backend, UI smoke tests if feasible).
+- **P0** Test All possible functions and features across all user roles (Admin, HR, Payroll Officer, Employee) to identify bugs, edge cases, and UX issues.  
+- **P0** Biometric Testing: Enroll multiple employees, test duplicate face blocking, test various lighting/distance conditions, test multi-face scenarios, and ensure reliable recognition at the kiosk.
 
 ### Administrative Team (HR/Admin/Payroll Operations) — Task Backlog (Priority-Ordered)  
 - **P0** Define official policies: work schedule, lunch windows, grace period rules, overtime policy, deduction rules, leave policies, loan policies.  
@@ -236,4 +228,3 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 
 Definitions
 **SOP: Standard Operating Procedure**
-
