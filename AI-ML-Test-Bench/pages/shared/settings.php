@@ -14,6 +14,30 @@ $company = $stmt_company->fetch();
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label>System Timezone</label>
+                        <select name="timezone" class="form-control">
+                            <?php
+                            $timezones = [
+                                'Asia/Manila' => 'Philippines (GMT+8)',
+                                'UTC' => 'UTC / GMT',
+                                'Asia/Singapore' => 'Singapore (GMT+8)',
+                                'Asia/Hong_Kong' => 'Hong Kong (GMT+8)',
+                                'Asia/Tokyo' => 'Tokyo (GMT+9)',
+                                'Australia/Sydney' => 'Sydney (GMT+11)',
+                                'Europe/London' => 'London (GMT+0)',
+                                'America/New_York' => 'New York (GMT-5)',
+                                'America/Los_Angeles' => 'Los Angeles (GMT-8)'
+                            ];
+                            foreach ($timezones as $tz => $label) {
+                                $selected = ($company['timezone'] === $tz) ? 'selected' : '';
+                                echo "<option value=\"$tz\" $selected>$label</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label>Time In (Shift Start)</label>
                         <input type="time" name="workStart" value="<?php echo $company['work_start']; ?>">
                     </div>
@@ -38,6 +62,18 @@ $company = $stmt_company->fetch();
                             <span>to</span>
                             <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '11:00'; ?>">
                         </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lunch Buffer (Minutes)</label>
+                        <input type="number" name="lunchBuffer" value="<?php echo $company['lunch_buffer'] ?? '30'; ?>" min="0">
+                        <small class="text-muted">Min. time between Lunch Out and Lunch In</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Out Buffer (Minutes)</label>
+                        <input type="number" name="checkoutBuffer" value="<?php echo $company['checkout_buffer'] ?? '60'; ?>" min="0">
+                        <small class="text-muted">Min. time between Lunch In and Time Out</small>
                     </div>
                 </div>
                 <div class="form-row">

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALM Attendance Kiosk</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
     <style>
         :root {
@@ -454,14 +454,18 @@
         });
 
         let serverTimeOffsetMs = 0;
+        let serverTimezone = 'Asia/Manila';
         let currentCompanyId = null;
         let companyConfig = null;
 
         async function syncServerTime() {
             try {
-                const res = await fetch('backend/api.php?action=get_server_time');
+                const companyId = currentCompanyId || new URLSearchParams(window.location.search).get('company_id');
+                const url = companyId ? `backend/api.php?action=get_server_time&company_id=${companyId}` : 'backend/api.php?action=get_server_time';
+                const res = await fetch(url);
                 const data = await res.json();
                 if (data.server_ms) serverTimeOffsetMs = data.server_ms - Date.now();
+                if (data.timezone) serverTimezone = data.timezone;
             } catch (e) { console.error("Time sync error:", e); }
         }
 
@@ -509,7 +513,11 @@
         setInterval(refreshConfig, 300000);
         setInterval(() => {
             const now = getNow();
-            clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            clockEl.innerText = now.toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: serverTimezone
+            });
             updateCurrentAction();
         }, 1000);
 
@@ -521,7 +529,14 @@
             }
             
             const now = getNow();
-            const timeStr = now.toTimeString().split(' ')[0];
+            // Get time string in the server's timezone
+            const timeStr = now.toLocaleTimeString('en-GB', { 
+                timeZone: serverTimezone, 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
             let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
             
             const workStart = companyConfig.work_start || '08:00:00';

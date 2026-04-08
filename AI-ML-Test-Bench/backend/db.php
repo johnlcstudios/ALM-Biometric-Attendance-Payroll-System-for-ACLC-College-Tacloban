@@ -1,13 +1,24 @@
 <?php
 // db.php - MySQL Connection (XAMPP Default)
 
-// Ensure session starts before any output
-if (session_status() === PHP_SESSION_NONE) {
+// Ensure session starts before any output (only for non-CLI)
+if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 // Set default timezone for the system
 date_default_timezone_set('Asia/Manila');
+
+// Override with company-specific timezone if available in session
+if (isset($_SESSION['company_id'])) {
+    // Note: We don't want to query the DB on every single inclusion of db.php 
+    // for performance, but for settings consistency, it might be necessary.
+    // However, most pages will fetch company info anyway.
+    // A better approach is to set it when needed or cache it in session.
+    if (isset($_SESSION['company_timezone'])) {
+        date_default_timezone_set($_SESSION['company_timezone']);
+    }
+}
 
 // Error reporting - avoid leaking details in production
 error_reporting(E_ALL);

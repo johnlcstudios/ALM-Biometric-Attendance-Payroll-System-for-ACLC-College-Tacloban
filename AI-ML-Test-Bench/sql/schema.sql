@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS companies (
     lunch_out_end TIME DEFAULT '10:30:00',
     lunch_in_start TIME DEFAULT '10:30:00',
     lunch_in_end TIME DEFAULT '11:00:00',
+    lunch_buffer INT DEFAULT 30,
+    checkout_buffer INT DEFAULT 60,
     ot_percentage INT DEFAULT 25,
     deduction_per_sec DECIMAL(10, 4) DEFAULT 0.0083,
     deduction_per_min DECIMAL(10, 2) DEFAULT 0.50,
