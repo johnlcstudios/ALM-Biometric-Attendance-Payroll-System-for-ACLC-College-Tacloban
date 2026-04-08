@@ -97,7 +97,7 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
+            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, c.timezone as company_timezone, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
@@ -107,6 +107,7 @@ try {
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
+                $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
@@ -764,11 +765,21 @@ try {
 
             // Use provided scan time from kiosk if available, else use current server time
             $scan_time_input = $data['scan_time'] ?? null;
+            
+            // Set company-specific timezone if available
+            $cid_for_tz = $company_id ?? $_SESSION['company_id'] ?? null;
+            if ($cid_for_tz) {
+                $stmt_tz = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
+                $stmt_tz->execute([$cid_for_tz]);
+                $company_tz = $stmt_tz->fetchColumn();
+                if ($company_tz) date_default_timezone_set($company_tz);
+            }
+
             if ($scan_time_input) {
                 try {
                     $dt = new DateTime($scan_time_input);
                     // Ensure the timezone is correctly handled if the client sent an ISO string
-                    $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                    $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
                     $date = $dt->format('Y-m-d');
                     $time = $dt->format('H:i:s');
                 } catch (Exception $e) {
@@ -827,43 +838,73 @@ try {
             $lunch_out_end = $config['lunch_out_end'] ?: '10:30:00';
             $lunch_in_start = $config['lunch_in_start'] ?: '10:30:00';
             $lunch_in_end = $config['lunch_in_end'] ?: '11:00:00';
+            $lunch_buffer = $config['lunch_buffer'] ?? 30;
+            $checkout_buffer = $config['checkout_buffer'] ?? 60;
             $grace_period = 15; // Standard grace period
 
-            // Strict Time Window Logic for Auto-Detection
-            if ($time < $lunch_out_start) {
+            // Column Determination based on logical sequence and state
+            if (!$log || empty($log['check_in'])) {
                 $column = 'check_in';
-            } elseif ($time >= $lunch_out_start && $time < $lunch_out_end) {
-                $column = 'lunch_out';
-            } elseif ($time >= $lunch_in_start && $time < $lunch_in_end) {
-                $column = 'lunch_in';
-            } else {
+            } elseif (empty($log['lunch_out'])) {
+                 if ($time > $lunch_out_end) {
+                     $column = 'check_out';
+                 } else {
+                     $column = 'lunch_out';
+                 }
+             } elseif (empty($log['lunch_in'])) {
+                 if ($time > $lunch_in_end) {
+                     $column = 'check_out';
+                 } else {
+                     $column = 'lunch_in';
+                 }
+             } else {
                 $column = 'check_out';
             }
 
-            // SMART FALLBACK LOGIC: 
-            // If the determined slot is already filled, move to the next available slot in sequence.
-            if ($log) {
-                if ($column === 'check_in' && !empty($log['check_in'])) {
-                    // Already checked in. If it's been at least 15 mins, allow moving to lunch_out
-                    if ($time >= $lunch_out_start || $time > date('H:i:s', strtotime($log['check_in'] . ' + 15 minutes'))) {
-                        if (empty($log['lunch_out'])) $column = 'lunch_out';
-                        elseif (empty($log['lunch_in'])) $column = 'lunch_in';
-                        elseif (empty($log['check_out'])) $column = 'check_out';
-                    }
-                } elseif ($column === 'lunch_out' && !empty($log['lunch_out'])) {
-                    if (empty($log['lunch_in'])) $column = 'lunch_in';
-                    elseif (empty($log['check_out'])) $column = 'check_out';
-                } elseif ($column === 'lunch_in' && !empty($log['lunch_in'])) {
-                    if (empty($log['check_out'])) $column = 'check_out';
+            // Time Window Enforcement
+            if ($column === 'lunch_out') {
+                if ($time < $lunch_out_start) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR LUNCH OUT (Starts " . date('h:i A', strtotime($lunch_out_start)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
+                }
+                if ($time > $lunch_out_end) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "LUNCH OUT RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_out_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
                 }
             }
 
-            // LUNCH RULE ENFORCEMENT: Return no later than 10:30 AM
-            // If they return after 10:30, they are "Late" for their post
-            if ($column === 'lunch_in' && $time > $lunch_in_start) {
-                // Return after 10:30 AM is allowed but will be marked with a warning/late status if we had one for lunch
-                // However, the user said "Lunch must not be extended beyond 10:30 AM".
-                // We'll let them log in, but they've already violated the rule.
+            if ($column === 'lunch_in') {
+                if ($time < $lunch_in_start) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR LUNCH IN (Starts " . date('h:i A', strtotime($lunch_in_start)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
+                }
+                if ($time > $lunch_in_end) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "LUNCH IN RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_in_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
+                }
+                // Buffer check
+                if ($log && !empty($log['lunch_out'])) {
+                    $diff_minutes = round((strtotime($time) - strtotime($log['lunch_out'])) / 60);
+                    if ($diff_minutes < $lunch_buffer) {
+                        echo json_encode(array_merge(['success' => false, 'message' => "LUNCH BUFFER: Wait " . ($lunch_buffer - $diff_minutes) . " more mins.", 'action' => $column, 'server_time' => $time], $common_data));
+                        break;
+                    }
+                }
+            }
+
+            if ($column === 'check_out') {
+                if ($time < $work_end) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR TIME OUT (Shift ends " . date('h:i A', strtotime($work_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
+                }
+                // Buffer check
+                if ($log && !empty($log['lunch_in'])) {
+                    $diff_minutes = round((strtotime($time) - strtotime($log['lunch_in'])) / 60);
+                    if ($diff_minutes < $checkout_buffer) {
+                        echo json_encode(array_merge(['success' => false, 'message' => "TIME OUT BUFFER: Wait " . ($checkout_buffer - $diff_minutes) . " more mins.", 'action' => $column, 'server_time' => $time], $common_data));
+                        break;
+                    }
+                }
             }
 
             // Late status calculation (only for check_in)
@@ -876,7 +917,6 @@ try {
             }
 
             // GLOBAL VALIDATION: If the person has already clocked out, they are done for the day.
-            // This prevents "Already Check In" messages when they scan again after clocking out.
             if ($log && !empty($log['check_out'])) {
                 echo json_encode(array_merge([
                     'success' => false, 
@@ -887,7 +927,7 @@ try {
                 break;
             }
 
-            // Validation: Prevent duplicate logs for the same action today
+            // Validation: Prevent duplicate logs (redundant now but safe)
             if ($log && !empty($log[$column])) {
                 $labels = [
                     'check_in' => 'TIME IN (CHECK IN)',
@@ -905,28 +945,14 @@ try {
                 break;
             }
 
-            // Validation: Ensure logical sequence (e.g. must check-in before lunch-out)
-            if ($column === 'lunch_out') {
-                if (!$log || empty($log['check_in'])) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                if ($time < $lunch_out_start) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'TOO EARLY FOR LUNCH (Starts 10:00 AM)', 'action' => $column], $common_data));
-                    break;
-                }
+            // Logical sequence validation (redundant now but safe)
+            if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                break;
             }
-            
-            if ($column === 'lunch_in') {
-                if (!$log || empty($log['lunch_out'])) {
-                    echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
-                    break;
-                }
-                // Strict Lunch Return Policy: Return by 10:30 AM
-                if ($time > $lunch_in_start && $time < $lunch_in_end) {
-                    // Allow return but maybe we could log it. 
-                    // For now, let's just ensure they can't return too late if that's what's intended.
-                }
+            if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
+                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                break;
             }
             if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
                 echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
@@ -1220,12 +1246,15 @@ try {
 
             $stmt = $pdo->prepare("UPDATE companies SET 
                 name = ?, 
+                timezone = ?,
                 work_start = ?, 
                 work_end = ?, 
                 lunch_out_start = ?, 
                 lunch_out_end = ?, 
                 lunch_in_start = ?, 
                 lunch_in_end = ?, 
+                lunch_buffer = ?,
+                checkout_buffer = ?,
                 ot_percentage = ?, 
                 deduction_per_sec = ?, 
                 deduction_per_min = ?, 
@@ -1234,12 +1263,15 @@ try {
             
             $stmt->execute([
                 $data['companyName'], 
+                $data['timezone'] ?: 'Asia/Manila',
                 $data['workStart'] ?: '08:00:00', 
                 $data['workEnd'] ?: '17:00:00', 
                 $data['lunchOutStart'] ?: '10:00:00', 
                 $data['lunchOutEnd'] ?: '10:30:00', 
                 $data['lunchInStart'] ?: '10:30:00', 
                 $data['lunchInEnd'] ?: '11:00:00', 
+                (int)($data['lunchBuffer'] ?? 30),
+                (int)($data['checkoutBuffer'] ?? 60),
                 (int)($data['otPercentage'] ?? 25), 
                 (float)($data['deductionPerSec'] ?? 0.0083), 
                 (float)($data['deductionPerMin'] ?? 0.50), 
@@ -1248,6 +1280,7 @@ try {
             ]);
             
             $_SESSION['company_name'] = $data['companyName'];
+            $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
             echo json_encode(['success' => true]);
             break;
 
@@ -1456,12 +1489,20 @@ try {
             break;
 
         case 'get_server_time':
+            $cid = $_GET['company_id'] ?? $_SESSION['company_id'] ?? null;
+            if ($cid) {
+                $stmt = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
+                $stmt->execute([$cid]);
+                $tz = $stmt->fetchColumn();
+                if ($tz) date_default_timezone_set($tz);
+            }
             $server_ms = (int) round(microtime(true) * 1000);
             echo json_encode([
                 'server_ms' => $server_ms,
                 'date' => date('Y-m-d'),
                 'time' => date('H:i:s'),
-                'display_time' => date('h:i A')
+                'display_time' => date('h:i A'),
+                'timezone' => date_default_timezone_get()
             ]);
             break;
 

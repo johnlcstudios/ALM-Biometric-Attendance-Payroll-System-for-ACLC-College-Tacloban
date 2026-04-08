@@ -5,7 +5,7 @@
 class FaceManager {
     constructor(config = {}) {
         this.config = {
-            modelUrl: config.modelUrl || 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/',
+            modelUrl: config.modelUrl || 'models/',
             minConfidence: config.minConfidence || 0.5,
             stabilityThreshold: config.stabilityThreshold || 15,
             stabilityRequired: config.stabilityRequired || 6,

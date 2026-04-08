@@ -6,7 +6,7 @@
 
 require_once 'db.php';
 
-if (session_status() === PHP_SESSION_NONE) {
+if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
@@ -264,6 +264,16 @@ try {
     if (!$silent) echo "Relaxing Biometric Thresholds for better recognition... ";
     $pdo->exec("UPDATE companies SET biometric_match_threshold = 0.70, biometric_ambiguity_ratio = 1.25 WHERE biometric_match_threshold = 0.60");
     if (!$silent) echo "DONE\n";
+
+    // 19. Add buffer columns to 'companies' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'lunch_buffer'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'lunch_buffer' and 'checkout_buffer' to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies 
+            ADD COLUMN lunch_buffer INT DEFAULT 30, 
+            ADD COLUMN checkout_buffer INT DEFAULT 60");
+        if (!$silent) echo "DONE\n";
+    }
 
     // 8. Create 'subjects' master table
     $stmt = $pdo->query("SHOW TABLES LIKE 'subjects'");

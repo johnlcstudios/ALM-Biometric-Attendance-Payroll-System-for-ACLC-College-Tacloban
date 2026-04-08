@@ -26,7 +26,3 @@
         </table>
     </div>
 </section>
-
-<!-- Load FaceManager and main script -->
-<script src="../../../js/face-api-manager.js"></script>
-<script src="../../../js/script.js"></script>
