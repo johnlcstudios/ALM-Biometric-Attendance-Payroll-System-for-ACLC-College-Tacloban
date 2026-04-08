@@ -11,7 +11,7 @@ The project partners with ACLC College Tacloban, specifically its Payroll Office
 # April 30, 2026
 
 ---
-# DO NOT TOUCH ROOT FOLDER FILES ESPECIALLY R and RB FILES
+# DO NOT TOUCH 'main' BRANCH
 ## ALWAYS EDIT FILES ON 'AI-ML-Test-Bench' FOLDER
 ## See the [Changelog](Changelog.md) for a full list of recent updates.
 
