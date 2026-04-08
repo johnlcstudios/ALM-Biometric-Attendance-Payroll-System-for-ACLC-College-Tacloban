@@ -845,6 +845,8 @@ try {
             // Column Determination based on logical sequence and state
             if (!$log || empty($log['check_in'])) {
                 $column = 'check_in';
+            } elseif ($time < $work_start && $time < $lunch_out_start) {
+                $column = 'check_in';
             } elseif (empty($log['lunch_out'])) {
                  if ($time > $lunch_out_end) {
                      $column = 'check_out';
