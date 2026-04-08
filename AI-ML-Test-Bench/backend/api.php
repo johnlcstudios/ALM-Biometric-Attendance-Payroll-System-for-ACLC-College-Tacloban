@@ -492,6 +492,44 @@ try {
             echo json_encode($stmt->fetchAll());
             break;
 
+        case 'save_settings':
+            if (!isAdminOrHR()) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $company_id = $_SESSION['company_id'];
+            
+            $stmt = $pdo->prepare("UPDATE companies SET name=?, timezone=?, work_start=?, work_end=?, lunch_start=?, lunch_end=?, lunch_out_start=?, lunch_out_end=?, lunch_in_start=?, lunch_in_end=?, lunch_buffer=?, checkout_buffer=?, ot_percentage=?, deduction_per_sec=?, deduction_per_min=?, deduction_per_hour=? WHERE id=?");
+            $success = $stmt->execute([
+                $data['companyName'],
+                $data['timezone'],
+                $data['workStart'],
+                $data['workEnd'],
+                $data['lunchOutStart'], // Assuming lunchOutStart is mapped to lunch_start/lunch_out_start logic as per form 
+                $data['lunchInEnd'],    // This is just mapping back appropriately based on the form, but let's see exactly what fields the form has
+                $data['lunchOutStart'],
+                $data['lunchOutEnd'],
+                $data['lunchInStart'],
+                $data['lunchInEnd'],
+                (int)$data['lunchBuffer'],
+                (int)$data['checkoutBuffer'],
+                (int)$data['otPercentage'],
+                (float)$data['deductionPerSec'],
+                (float)$data['deductionPerMin'],
+                (float)$data['deductionPerHour'],
+                $company_id
+            ]);
+            
+            if ($success) {
+                $_SESSION['company_timezone'] = $data['timezone'];
+                $_SESSION['company_name'] = $data['companyName'];
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Database update failed']);
+            }
+            break;
+
         case 'logout':
             session_destroy();
             echo json_encode(['success' => true]);

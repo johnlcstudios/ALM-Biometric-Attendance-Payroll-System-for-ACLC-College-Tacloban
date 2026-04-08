@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS companies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     admin_email VARCHAR(255) UNIQUE NOT NULL,
+    timezone VARCHAR(100) DEFAULT 'Asia/Manila',
     work_start TIME DEFAULT '08:00:00',
     work_end TIME DEFAULT '17:00:00',
     lunch_start TIME DEFAULT '10:00:00',
