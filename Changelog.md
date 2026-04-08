@@ -171,22 +171,17 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
 
-- ***P0*** Enforce duplicate-face blocking everywhere: server-side duplicate check on enrollment, block ambiguous matches at kiosk, log attempts.
-- ***P0*** Improve enrollment quality: multi-sample descriptor averaging, stability checks, minimum confidence gating, “too dark/too far” guidance.
 - ***P0*** Time integrity: kiosk UI time sync to server, use server time for logs/windows/cutoffs.
 - ***P0*** Liveness hardening: multi-step liveness (blink + head turn + mouth), random prompts, anti-replay timing checks.
 - ***P1*** Matching calibration: tune thresholds per camera/site, store configurable thresholds per company, add test mode for calibration.
-- ***P1*** Multi-face handling: reject when >1 face detected, show instruction.
-- ***P1*** Device handling: camera selection UI, fallback strategies, better permission error UX, auto-stop streams.
 - ***P2*** Monitoring: track FAR/FRR metrics (false accept/reject), ambiguous rates, model load errors, device failures.
 - ***P2*** Performance: optimize inputSize dynamically, throttle detection, reduce CPU load on weaker devices.
 - ***P3*** Advanced improvements: optional higher-accuracy detector pipeline (if hardware allows), periodic re-enrollment prompts.
 
 ### Backend — Task Backlog (Priority-Ordered)
 
-- ***P0*** Authorization/RBAC audit: ensure company scoping on every endpoint, prevent data leakage, unify role checks (Admin/HR/Payroll Officer).
+
 - ***P0*** Data integrity & transactions: wrap bulk operations + payroll runs + “apply to all” in transactions, prevent partial writes.
-- ***P0*** Payroll correctness validation: unit-test payroll formulas (absences, late, OT, allowances, deductions, loans), consistent period handling.
 - ***P0*** “Latest period” + filtering consistency: standardize period keys, add “latest” fetch patterns to avoid empty exports/pages.
 - ***P1*** Input validation standard: centralized validation for dates, amounts, IDs; reject invalid payloads; consistent JSON shape.
 - ***P1*** Database indexing: company_id + employee_id + period + log_date indexes for attendance/payroll queries.
