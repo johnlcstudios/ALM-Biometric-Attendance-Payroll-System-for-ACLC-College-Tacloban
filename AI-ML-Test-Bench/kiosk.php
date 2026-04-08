@@ -461,6 +461,7 @@
     </div>
 
     <script>
+        
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
         const clockEl = document.getElementById('clock');
@@ -697,6 +698,7 @@
             statusEl.innerHTML = '';
         }
         init();
+
     </script>
 </body>
 
