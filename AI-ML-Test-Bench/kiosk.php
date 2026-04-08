@@ -503,8 +503,7 @@
             if (!currentCompanyId) return;
             fetch(`backend/api.php?action=get_company_info&company_id=${currentCompanyId}`)
                 .then(res => res.json())
-                .then(data => {
-                    document.getElementById('company-name').innerText = data.name.toUpperCase();
+                .then(data => {                    document.getElementById('company-name').innerText = data.name.toUpperCase();
                     companyConfig = data;
                     syncServerTime().then(() => updateCurrentAction());
                 });
@@ -537,8 +536,8 @@
                 minute: '2-digit', 
                 second: '2-digit' 
             });
-            let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
-            
+            let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)
+
             const workStart = companyConfig.work_start || '08:00:00';
             const workEnd = companyConfig.work_end || '17:00:00';
             const lOutS = companyConfig.lunch_out_start || '10:00:00';
