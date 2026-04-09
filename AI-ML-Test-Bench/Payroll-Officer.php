@@ -56,10 +56,11 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/chart.min.js"></script>
+    <script src="js/face-api.min.js"></script>
+    <script src="js/face-api-manager.js"></script>
+    <script src="js/jspdf.umd.min.js"></script>
+    <script src="js/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-payroll">
@@ -85,17 +86,6 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <!-- Shared Role-Based Access -->
                 <button class="nav-btn <?php echo $page === 'employees' ? 'active' : ''; ?>" data-page="employees" onclick="window.location.href='Payroll-Officer.php?page=employees'">
                     <i class="fas fa-users"></i> <span>Employees</span>
-                </button>
-                <button class="nav-btn <?php echo $page === 'subject_loads' ? 'active' : ''; ?>" data-page="subject_loads" onclick="window.location.href='Payroll-Officer.php?page=subject_loads'">
-                    <i class="fas fa-book"></i> <span>Subject Loads</span>
-                </button>
-
-                <!-- Payroll Officer / Admin Access -->
-                <button class="nav-btn <?php echo $page === 'biometrics' ? 'active' : ''; ?>" data-page="biometrics" onclick="window.location.href='Payroll-Officer.php?page=biometrics'">
-                    <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
-                </button>
-                <button class="nav-btn <?php echo $page === 'assign_payroll' ? 'active' : ''; ?>" data-page="assign_payroll" onclick="window.location.href='Payroll-Officer.php?page=assign_payroll'">
-                    <i class="fas fa-user-shield"></i> <span>Assign Payroll Officer</span>
                 </button>
 
                 <!-- Payroll Officer Access -->
@@ -124,6 +114,9 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 </button>
                 <button class="nav-btn <?php echo $page === 'loans' ? 'active' : ''; ?>" data-page="loans" onclick="window.location.href='Payroll-Officer.php?page=loans'">
                     <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'resignations' ? 'active' : ''; ?>" data-page="resignations" onclick="window.location.href='Payroll-Officer.php?page=resignations'">
+                    <i class="fas fa-user-minus"></i> <span>Resignations</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'reports' ? 'active' : ''; ?>" data-page="reports" onclick="window.location.href='Payroll-Officer.php?page=reports'">
                     <i class="fas fa-chart-bar"></i> <span>Reports</span>

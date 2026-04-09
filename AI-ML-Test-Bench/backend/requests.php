@@ -29,12 +29,20 @@ if (!$employee_id) {
 switch ($action) {
     case 'apply_leave':
         $data = json_decode(file_get_contents('php://input'), true);
-        if (empty($data['type']) || empty($data['duration']) || empty($data['reason'])) {
+        $leave_type = $data['leave_type'] ?? '';
+        $start_date = $data['start_date'] ?? '';
+        $end_date = $data['end_date'] ?? '';
+        $reason = $data['reason'] ?? '';
+
+        if (empty($leave_type) || empty($start_date) || empty($end_date) || empty($reason)) {
             echo json_encode(['success' => false, 'message' => 'All fields are required.']);
             break;
         }
+
+        $duration = $start_date . ' to ' . $end_date;
+
         $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, duration, reason) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$company_id, $employee_id, $data['type'], $data['duration'], $data['reason']]);
+        $stmt->execute([$company_id, $employee_id, $leave_type, $duration, $reason]);
         echo json_encode(['success' => true]);
         break;
 
