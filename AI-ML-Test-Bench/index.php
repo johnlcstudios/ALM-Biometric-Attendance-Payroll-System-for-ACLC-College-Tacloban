@@ -101,7 +101,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <!-- Role: Admin / HR / Payroll Officer -->
                 <?php if (in_array($role, ['HR', 'Admin', 'Payroll Officer'])): ?>
                 <button class="nav-btn <?php echo $page === 'biometrics' ? 'active' : ''; ?>" data-page="biometrics" onclick="window.location.href='index.php?page=biometrics'">
-                    <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
+                    <i class="fas fa-id-card"></i> <span>Face Registration</span>
                 </button>
                 <?php endif; ?>
 
