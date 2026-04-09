@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALM Attendance Kiosk</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
     <style>
         :root {
@@ -73,9 +74,17 @@
         }
 
         @keyframes scan {
-            0% { top: 0; }
-            50% { top: 100%; }
-            100% { top: 0; }
+            0% {
+                top: 0;
+            }
+
+            50% {
+                top: 100%;
+            }
+
+            100% {
+                top: 0;
+            }
         }
 
         .camera-circle.scanning .scanning-line {
@@ -101,7 +110,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror effect */
+            transform: scaleX(-1);
+            /* Mirror effect */
         }
 
         #overlay {
@@ -120,7 +130,10 @@
             z-index: 1;
         }
 
-        .camera-placeholder i { font-size: 5rem; margin-bottom: 1rem; }
+        .camera-placeholder i {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
 
         /* Right Side: Info Panel */
         .right-panel {
@@ -135,7 +148,7 @@
         }
 
         .school-logo {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             padding: 12px 40px;
             font-size: 0.9rem;
             font-weight: 600;
@@ -153,7 +166,7 @@
             font-size: 6rem;
             font-weight: 700;
             color: var(--bg-white);
-            text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
         /* Employee Summary Card */
@@ -166,7 +179,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
             color: var(--primary-blue);
         }
 
@@ -244,8 +257,13 @@
         }
 
         /* Status Colors */
-        .text-success { color: var(--primary-blue) !important; }
-        .text-danger { color: var(--accent-red) !important; }
+        .text-success {
+            color: var(--primary-blue) !important;
+        }
+
+        .text-danger {
+            color: var(--accent-red) !important;
+        }
 
         /* Selection Overlay */
         .selection-overlay {
@@ -269,7 +287,7 @@
             width: 90%;
             max-width: 500px;
             text-align: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
 
         .selection-card h2 {
@@ -308,7 +326,7 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
             padding: 10px 20px;
@@ -320,7 +338,7 @@
         }
 
         .change-company-btn:hover {
-            background: rgba(255,255,255,0.4);
+            background: rgba(255, 255, 255, 0.4);
         }
 
         /* New Responsive Design */
@@ -329,32 +347,40 @@
                 flex-direction: column;
                 height: auto;
             }
-            .left-panel, .right-panel {
+
+            .left-panel,
+            .right-panel {
                 flex: 1;
                 width: 100%;
                 min-height: 100vh;
                 padding: 2rem;
             }
+
             .camera-circle {
                 width: 60vmin;
                 height: 60vmin;
             }
+
             .clock {
                 font-size: 12vmin;
             }
+
             .summary-card {
                 width: 90%;
                 padding: 4vmin;
             }
+
             .employee-name {
                 font-size: 5vmin;
             }
+
             .stat-value {
                 font-size: 6vmin;
             }
         }
     </style>
 </head>
+
 <body>
     <!-- Company Selection Overlay -->
     <div id="companySelectionOverlay" class="selection-overlay" style="display: none;">
@@ -388,7 +414,7 @@
         <div class="right-panel">
             <div class="school-logo" id="company-name">ALM KIOSK</div>
             <div style="font-size: 0.7rem; opacity: 0.5;">Company ID: <span id="debug-company-id">1</span></div>
-            
+
             <div class="clock-container">
                 <div class="clock" id="clock">00:00 AM</div>
                 <div id="current-action-badge" style="
@@ -406,7 +432,7 @@
 
             <div class="summary-card">
                 <div class="summary-header">Employee Summary</div>
-                
+
                 <div class="employee-info" id="emp-info">
                     <div class="employee-name" id="display-name">---</div>
                     <div class="employee-role" id="display-role">---</div>
@@ -435,6 +461,7 @@
     </div>
 
     <script>
+        
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
         const clockEl = document.getElementById('clock');
@@ -446,7 +473,7 @@
         const statEmpId = document.getElementById('stat-empid');
         const cameraCircle = document.querySelector('.camera-circle');
         const actionBadge = document.getElementById('current-action-badge');
-        
+
         const faceManager = new FaceManager({
             stabilityRequired: 5,
             sampleCount: 3,
@@ -454,14 +481,18 @@
         });
 
         let serverTimeOffsetMs = 0;
+        let serverTimezone = 'Asia/Manila';
         let currentCompanyId = null;
         let companyConfig = null;
 
         async function syncServerTime() {
             try {
-                const res = await fetch('backend/api.php?action=get_server_time');
+                const companyId = currentCompanyId || new URLSearchParams(window.location.search).get('company_id');
+                const url = companyId ? `backend/api.php?action=get_server_time&company_id=${companyId}` : 'backend/api.php?action=get_server_time';
+                const res = await fetch(url);
                 const data = await res.json();
                 if (data.server_ms) serverTimeOffsetMs = data.server_ms - Date.now();
+                if (data.timezone) serverTimezone = data.timezone;
             } catch (e) { console.error("Time sync error:", e); }
         }
 
@@ -490,7 +521,7 @@
             document.getElementById('debug-company-id').innerText = id;
             document.getElementById('companySelectionOverlay').style.display = 'none';
             const newUrl = window.location.pathname + '?company_id=' + id;
-            window.history.pushState({path:newUrl},'',newUrl);
+            window.history.pushState({ path: newUrl }, '', newUrl);
             refreshConfig();
             if (!faceManager.stream) startKiosk();
         }
@@ -509,7 +540,11 @@
         setInterval(refreshConfig, 300000);
         setInterval(() => {
             const now = getNow();
-            clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            clockEl.innerText = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: serverTimezone
+            });
             updateCurrentAction();
         }, 1000);
 
@@ -519,35 +554,39 @@
                 actionBadge.style.background = "#7f8c8d";
                 return;
             }
-            
-            const now = getNow();
-            const timeStr = now.toTimeString().split(' ')[0]; // HH:MM:SS
-            let action = "SYSTEM LOCKED (OUTSIDE SCHEDULE)", color = "#7f8c8d";
-            
-            // Get precise windows from config
-            const ciS = companyConfig.check_in_start || '04:00:00';
-            const ciE = companyConfig.check_in_end || '10:00:00';
-            const loS = companyConfig.lunch_out_start || '12:00:00';
-            const loE = companyConfig.lunch_out_end || '12:30:00';
-            const liS = companyConfig.lunch_in_start || '12:30:00';
-            const liE = companyConfig.lunch_in_end || '13:30:00';
-            const coS = companyConfig.check_out_start || '16:00:00';
-            const coE = companyConfig.check_out_end || '23:00:00';
 
-            if (timeStr >= ciS && timeStr <= ciE) {
-                action = "TIME IN (CHECK IN)"; 
+            const now = getNow();
+            // Get time string in the server's timezone
+            const timeStr = now.toLocaleTimeString('en-GB', {
+                timeZone: serverTimezone,
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
+
+            const workStart = companyConfig.work_start || '08:00:00';
+            const workEnd = companyConfig.work_end || '17:00:00';
+            const lOutS = companyConfig.lunch_out_start || '10:00:00';
+            const lOutE = companyConfig.lunch_out_end || '10:30:00';
+            const lInS = companyConfig.lunch_in_start || '10:30:00';
+            const lInE = companyConfig.lunch_in_end || '11:00:00';
+
+            if (timeStr < lOutS) {
+                action = "TIME IN (CHECK IN)";
                 color = "var(--primary-blue)";
-            } else if (timeStr >= loS && timeStr <= loE) {
-                action = "LUNCH OUT"; 
-                color = "#f39c12"; 
-            } else if (timeStr >= liS && timeStr <= liE) {
-                action = "LUNCH IN"; 
-                color = "#27ae60"; 
-            } else if (timeStr >= coS && timeStr <= coE) {
-                action = "TIME OUT (CHECK OUT)";
-                color = "var(--accent-red)";
+            } else if (timeStr >= lOutS && timeStr < lOutE) {
+                action = "LUNCH OUT";
+                color = "#f39c12";
+            } else if (timeStr >= lInS && timeStr < lInE) {
+                action = "LUNCH IN";
+                color = "#27ae60";
+            } else {
+                action = timeStr < workEnd ? "TIME OUT (EARLY)" : "TIME OUT (CHECK OUT)";
+                color = timeStr < workEnd ? "#e67e22" : "var(--accent-red)";
             }
-            
+
             if (faceManager.isProcessing) {
                 actionBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESSING...';
                 actionBadge.style.background = "#34495e";
@@ -562,21 +601,21 @@
             try {
                 statusLabel.innerText = "Loading AI Models...";
                 await faceManager.loadModels();
-                
+
                 statusLabel.innerText = "Starting Camera...";
                 await faceManager.startCamera(video);
-                
+
                 document.getElementById('placeholder').style.display = 'none';
                 detectLoop();
-            } catch (err) { 
-                console.error(err); 
-                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`; 
+            } catch (err) {
+                console.error(err);
+                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`;
             }
         }
 
         async function detectLoop() {
             const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-            
+
             const loop = async () => {
                 if (!currentCompanyId || faceManager.isProcessing) {
                     requestAnimationFrame(loop);
@@ -613,22 +652,22 @@
             try {
                 const descriptor = await faceManager.captureSamples(video);
                 statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying Identity...</p>';
-                
+
                 const response = await fetch('backend/api.php?action=kiosk_scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        descriptor, 
+                    body: JSON.stringify({
+                        descriptor,
                         company_id: currentCompanyId,
                         scan_time: getNow().toISOString()
-                     })
+                    })
                 });
-                
+
                 const result = await response.json();
                 cameraCircle.classList.remove('scanning');
-                
+
                 if (result.success) {
-                    displayName.innerText = result.name; 
+                    displayName.innerText = result.name;
                     displayRole.innerText = result.position;
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
@@ -639,10 +678,10 @@
                     cameraCircle.className = 'camera-circle border-danger';
                     statusEl.innerHTML = `<h3 class="text-danger">${result.message}</h3>`;
                 }
-                
+
                 setTimeout(() => { resetUI(); faceManager.isProcessing = false; }, 4000);
-            } catch (err) { 
-                console.error(err); 
+            } catch (err) {
+                console.error(err);
                 statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`;
                 faceManager.isProcessing = false;
                 cameraCircle.classList.remove('scanning');
@@ -651,14 +690,16 @@
 
         function resetUI() {
             cameraCircle.className = 'camera-circle';
-            displayName.innerText = "---"; 
+            displayName.innerText = "---";
             displayRole.innerText = "---";
-            statAttendance.innerText = "00"; 
-            statAbsent.innerText = "00"; 
+            statAttendance.innerText = "00";
+            statAbsent.innerText = "00";
             statEmpId.innerText = "---";
             statusEl.innerHTML = '';
         }
         init();
+
     </script>
 </body>
+
 </html>

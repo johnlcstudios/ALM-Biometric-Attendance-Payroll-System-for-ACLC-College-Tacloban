@@ -909,6 +909,11 @@ tr:last-child td {
 .status-active { background-color: rgba(39, 174, 96, 0.15); color: #27ae60; }
 .status-inactive { background-color: rgba(192, 57, 43, 0.15); color: #c0392b; }
 .status-on-leave { background-color: rgba(243, 156, 18, 0.15); color: #f39c12; }
+.status-pending { background-color: rgba(243, 156, 18, 0.15); color: #f39c12; }
+.status-approved { background-color: rgba(30, 1, 120, 0.15); color: #1e0178; }
+.status-rejected { background-color: rgba(219, 38, 31, 0.15); color: #db261f; }
+.status-distributed { background-color: rgba(39, 174, 96, 0.15); color: #27ae60; }
+.status-paid { background-color: rgba(39, 174, 96, 0.15); color: #27ae60; }
 
 /* Buttons */
 .btn {
@@ -928,12 +933,6 @@ tr:last-child td {
 .btn-primary:hover { background-color: var(--primary-color); }
 .btn-success { background-color: var(--success-color); color: white; }
 .btn-secondary { background-color: var(--secondary-color); color: white; }
-.btn-warning { background-color: var(--warning-color); color: white; }
-.btn-danger { background-color: var(--danger-color); color: white; }
-.btn-dark { background-color: #2d3436; color: white; }
-
-.status-badge.face-enrolled { background-color: rgba(39, 174, 96, 0.15); color: #27ae60; }
-.status-badge.no-face { background-color: rgba(108, 117, 125, 0.15); color: #6c757d; }
 
 /* Modern Employee Modal Styling */
 .large-modal {

@@ -62,10 +62,11 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/chart.min.js"></script>
+    <script src="js/face-api.min.js"></script>
+    <script src="js/face-api-manager.js"></script>
+    <script src="js/jspdf.umd.min.js"></script>
+    <script src="js/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
@@ -134,6 +135,9 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'loans' ? 'active' : ''; ?>" data-page="loans" onclick="window.location.href='index.php?page=loans'">
                     <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
                 </button>
+                <button class="nav-btn <?php echo $page === 'resignations' ? 'active' : ''; ?>" data-page="resignations" onclick="window.location.href='index.php?page=resignations'">
+                    <i class="fas fa-user-minus"></i> <span>Resignations</span>
+                </button>
                 <button class="nav-btn <?php echo $page === 'reports' ? 'active' : ''; ?>" data-page="reports" onclick="window.location.href='index.php?page=reports'">
                     <i class="fas fa-chart-bar"></i> <span>Reports</span>
                 </button>
@@ -187,36 +191,6 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo $role; ?>";
     </script>
-    <!-- Force Password Change Modal -->
-    <div id="forcePasswordModal" class="modal" style="display: none; z-index: 10001; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);">
-        <div class="modal-content" style="max-width: 400px; margin: 10% auto; border-radius: 15px; border: 1px solid var(--primary-color);">
-            <div class="modal-header" style="background: var(--primary-color); color: white; border-top-left-radius: 14px; border-top-right-radius: 14px;">
-                <h3><i class="fas fa-shield-alt"></i> Security Update Required</h3>
-            </div>
-            <div class="modal-body" style="padding: 20px;">
-                <p>An administrator has reset your password. For your security, you <strong>must</strong> change it before proceeding.</p>
-                <form id="forcePasswordForm" onsubmit="handleForcePasswordChange(event)">
-                    <div class="form-group">
-                        <label>Current Password</label>
-                        <input type="password" id="forceOldPass" class="form-control" placeholder="Enter temporary password" required>
-                    </div>
-                    <div class="form-group">
-                        <label>New Password</label>
-                        <input type="password" id="forceNewPass" class="form-control" placeholder="Minimum 6 characters" required minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label>Confirm New Password</label>
-                        <input type="password" id="forceConfirmPass" class="form-control" placeholder="Re-type new password" required minlength="6">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block" style="width: 100%; margin-top: 10px;">
-                        Update Password & Continue
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/face-api-manager.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>

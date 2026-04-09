@@ -5,6 +5,87 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-04-09
+
+### Added
+- **Centralized Admin Hub**:
+    - Completed transition of administrative functions to the new centralized dashboard.
+    - Integrated Overtime approval workflow and legacy features fully operational within the new hub.
+    - Implemented a complete automated payroll calculation engine and robust PDF reporting tools.
+
+### New To Fix Tasks 
+    - Updated To Fix Tasks located at the bottom of the page. Under To Fix Section.
+    - Updated 04/09/26 01:57PM
+
+### Enhanced
+- **Merged All Branches**:
+    - All branches are now merged into a 'main' branch for easier management and development. 
+    - Edits and works of the following branches are now in the main branch:
+        - Backend
+        - Biometric
+
+- **System-Wide Stability**:
+    - Performed a comprehensive backend audit to secure API data handling, parameter validation, and access control logic.
+    - Made frontend biometric attendance logic fault-tolerant to gracefully handle unhandled exceptions and prevent runtime crashes.
+
+### Fixed
+- **Database Query Alignment**:
+    - Resolved critical `SQLSTATE[HY093]: Invalid parameter number` errors across the backend by auditing and correcting dynamic SQL queries, matching placeholders with bound parameters.
+- **Settings & UI Freezes**:
+    - Fixed a bug where the Settings page would become stuck in a loading state by fixing data fetching operations and ensuring `saveSettings` logic executes.
+- **Subject Load Management**:
+    - Fixed broken CRUD operations and non-functional buttons for Subject Loads by implementing missing Javascript glue code (`saveMasterSubject`, `editMasterSubject`, `deleteMasterSubject`, `saveSubjectLoad`, `deleteSubjectLoad`) to securely hit existing backend endpoints.
+
+## [1.4.0] - 2026-04-06
+
+### Added
+- **Multi-Stage Loan Workflow**:
+    - Implemented a new status-driven workflow for Loans: `Pending` -> `Approved`/`Rejected` -> `Distributed` -> `Paid`.
+    - Added role-based action buttons: HR/Admin handles approval, while Payroll Officer manages distribution and payment marking.
+- **Enhanced Status Styling**:
+    - Added dedicated CSS classes and color coding for new loan statuses (`Distributed`, `Paid`, `Approved`, `Rejected`) across the Admin, Payroll, and Employee portals.
+
+### Enhanced
+- **Payroll Officer Autonomy**:
+    - Enabled Payroll Officers to update loan statuses for approved requests, allowing them to track fund distribution and repayments independently of HR.
+- **Role-Based UI Logic**:
+    - Refined the loan management table to dynamically show or hide action buttons based on the current user's role and the loan's lifecycle stage.
+- **System Initialization**:
+    - Improved `script.js` to safer handle global variables like `USER_ROLE`, preventing initialization race conditions.
+
+### Fixed
+- **Critical Dashboard Loading Error**:
+    - Resolved `ReferenceError: FaceManager is not defined` that caused the Payroll Officer and Employee portals to hang on the loading screen.
+    - Fixed missing `face-api.js` and `face-api-manager.js` dependencies in `Payroll-Officer.php` and `ess.php`.
+- **RBAC Security**:
+    - Updated `isAdminOrHR()` in `api.php` to correctly authorize Payroll Officers for status updates, ensuring backend requests are no longer blocked as "Unauthorized".
+
+## [1.3.0] - 2026-04-04
+
+### Added
+- **Master Subject List**:
+    - Created a new `subjects` table to store master subject data (Code, Description, Units, Hours).
+    - Added a `subject_loads` table to manage faculty subject assignments.
+    - Implemented UI for managing master subjects and assigning loads to faculty members.
+- **CSRF Protection**:
+    - Implemented CSRF token validation for all POST requests in `api.php` and `requests.php` to enhance system security.
+- **Enhanced ESS Requests**:
+    - Added backend support for employees to apply for Loans and Resignations via the Employee Self-Service (ESS) portal.
+- **System Settings**:
+    - Added a "Configure Loads" shortcut in the settings page for quick access to subject management.
+
+### Changed
+- **Employee Management**:
+    - Updated the "Add Employee" flow to include a 4-step wizard with subject load assignment for Faculty positions.
+- **Database Schema**:
+    - Updated `update_db.php` to automatically create `subjects` and `subject_loads` tables if they don't exist.
+
+### Fixed
+- **Payroll Calculations**:
+    - Refined deduction logic in `run_specialized_payroll` to use company-specific `deduction_per_min` rates.
+- **Navigation**:
+    - Ensured "Subject Load Management" is accessible for both Admin/HR and Payroll Officer roles.
+
 ## [1.2.0] - 2026-04-02
 
 ### Added
@@ -117,59 +198,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --- 
 
 # To Fix
-Last Update: 04/02/26 03:50PM ***New Updated Tasks***
+Last Update: 04/09/26 01:57PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
-
-- ***P0*** Enforce duplicate-face blocking everywhere: server-side duplicate check on enrollment, block ambiguous matches at kiosk, log attempts.
-- ***P0*** Improve enrollment quality: multi-sample descriptor averaging, stability checks, minimum confidence gating, “too dark/too far” guidance.
-- ***P0*** Time integrity: kiosk UI time sync to server, use server time for logs/windows/cutoffs.
-- ***P0*** Liveness hardening: multi-step liveness (blink + head turn + mouth), random prompts, anti-replay timing checks.
-- ***P1*** Matching calibration: tune thresholds per camera/site, store configurable thresholds per company, add test mode for calibration.
-- ***P1*** Multi-face handling: reject when >1 face detected, show instruction.
-- ***P1*** Device handling: camera selection UI, fallback strategies, better permission error UX, auto-stop streams.
-- ***P2*** Monitoring: track FAR/FRR metrics (false accept/reject), ambiguous rates, model load errors, device failures.
-- ***P2*** Performance: optimize inputSize dynamically, throttle detection, reduce CPU load on weaker devices.
-- ***P3*** Advanced improvements: optional higher-accuracy detector pipeline (if hardware allows), periodic re-enrollment prompts.
+**P0** Fix face enrollment UI redundancy: remove duplicate text, clarify instructions, rename to “Face Registration”.
+**P0** Ensure enrollment flow stability: prevent broken states during face capture and submission.
+**P1** Improve enrollment UX: clearer feedback for successful/failed enrollment.
 
 ### Backend — Task Backlog (Priority-Ordered)
-
-- ***P0*** Authorization/RBAC audit: ensure company scoping on every endpoint, prevent data leakage, unify role checks (Admin/HR/Payroll Officer).
-- ***P0*** Data integrity & transactions: wrap bulk operations + payroll runs + “apply to all” in transactions, prevent partial writes.
-- ***P0*** Payroll correctness validation: unit-test payroll formulas (absences, late, OT, allowances, deductions, loans), consistent period handling.
-- ***P0*** “Latest period” + filtering consistency: standardize period keys, add “latest” fetch patterns to avoid empty exports/pages.
-- ***P1*** Input validation standard: centralized validation for dates, amounts, IDs; reject invalid payloads; consistent JSON shape.
-- ***P1*** Database indexing: company_id + employee_id + period + log_date indexes for attendance/payroll queries.
-- ***P1*** Audit trail: who changed settings, ran payroll, enrolled face, approved/denied leave/loans; immutable logs.  
-- ***P1*** Timezone standardization: set server timezone + store timestamps consistently; avoid client-time dependency.
-- ***P2*** Pagination + query optimization: attendance/employees/payroll endpoints support paging/filtering/search server-side.
-- ***P2*** Reliability: better error messages, retry-safe idempotent endpoints for payroll runs, rate limiting for kiosk scans.
-- ***P3*** Backup/restore tooling: scheduled backups, download/export, restore verification.
+**P0** Fix dashboard data mismatch: ensure attendance logs and dashboard graphs use same data source and queries.
+**P0** Fix empty report exports: ensure data is fetched before generating downloadable files.
+**P0** Fix data not loading on initial page load (Payroll, Deduction, Allowance, Faculty pages): enforce automatic data fetch on endpoint call.
+**P0** Fix export/print/PDF generation: ensure backend handlers return correct file output with valid data.
+**P0** Fix delayed data rendering issue: eliminate dependency on trigger actions (Export/Print) before data appears.
+**P1** Add pagination support: implement LIMIT/OFFSET for Employees, Payroll, Attendance, and Tables.
+**P1** Standardize API responses: consistent JSON format for all modules.
+**P1** Add error handling: return proper status codes and debug messages.
+**P2** Optimize queries: improve performance for large datasets.
 
 ### Frontend — Task Backlog (Priority-Ordered)
+**P0** Fix all non-functional buttons:
+- Attendance Logs (Action buttons)
+- Payroll (Export/Print)
+- PDF actions
+**P0** Fix data rendering issues: ensure tables load data on page initialization.
+**P0** Fix search functionality (Attendance Logs): restrict search to Name/ID only (exclude STATUS).
+**P0** Fix async handling: ensure proper fetch/await logic and prevent race conditions.
+**P0** Prevent double-trigger bugs: disable buttons during API calls.
+**P1** Implement pagination UI across all tables.
+**P1** Add table limits and consistent layouts.
+**P1** Remove redundant text across pages.
+**P1** Improve UI consistency (buttons, tables, labels).
+**P2** Improve loading states (spinners, skeletons).
+**P2** Enhance responsiveness for large tables.
 
-- ***P0*** Stability after page-splitting: guard DOM lookups, prevent null crashes, ensure each page initializes only its own widgets.
-- ***P0*** Data loading lifecycle: load the right datasets per page, show spinners, disable buttons while requests run, prevent double submits.
-- ***P0*** Export/Print reliability: ensure data is fetched before export, unify headers with table schema, handle “latest” automatically.
-- ***P1*** UX consistency: unify cards/tables/buttons styling across Admin/HR/Payroll Officer/Employee, consistent empty states.
-- ***P1*** Responsive wide tables: sticky columns, horizontal scroll UX, A3 print layouts, column grouping.
-- ***P1*** Better forms: validation messages, date-range helpers, safe defaults, confirmations, undo for bulk actions.
-- ***P2*** Performance: virtualized tables for large datasets, debounce search, caching (per page), reduce re-renders.
-- ***P2*** Accessibility: keyboard navigation, contrast, ARIA labels, focus management in modals.
-- ***P3*** Observability: frontend error boundary/log capture for crashes, user-friendly error banners.
+### Testing Team — Task Backlog (Priority-Ordered)
+**P0** Validate all CRUD operations:
+- Subject Load (Add/Edit/Delete)
+- Employee records
+**P0** Test data loading behavior:
+- Ensure all pages load data without manual triggers
+**P0** Verify export/print functionality:
+- Files contain correct and complete data
+**P0** Test dashboard accuracy:
+- Compare graphs vs attendance logs
+**P0** Validate button functionality across all modules
+**P1** Test pagination behavior:
+- Correct page counts and data consistency
+**P1** Verify search functionality (correct filtering fields)
+**P1** Regression testing across all modules after fixes
+**P2** Cross-browser testing (Chrome, Edge, Opera, Brave)
 
-### Testing Team — Task Backlog (Priority-Ordered)  
-- **P0** Build regression test checklist (manual) for every core flow: login/roles, employee CRUD, face enrollment, kiosk scan sequence, attendance logs, payroll runs, exports, settings.  
-- **P0** Validate RBAC + company isolation: try to access other company data, test Payroll Officer parity, verify “employee” cannot access admin endpoints/pages.  
-- **P0** Kiosk accuracy test plan: lighting scenarios, distance, angle, glasses/mask, multiple faces, replay attempts, duplicate enrollment attempts; record FAR/FRR observations.  
-- **P0** Time-window testing: work start/end + lunch windows + grace period; verify allowed/blocked actions and correct statuses (Late minutes, Lunch Out/In columns).  
-- **P0** Payroll correctness test cases: fixed salary, absences, late deductions, OT %, allowances/deductions/loans; verify period grouping and “latest” retrieval.  
-- **P1** Export/print verification: ensure exported tables match UI columns exactly (Faculty 17 / Utility 15), test exporting without visiting pages first, test “latest” auto-load.  
-- **P1** Data integrity testing: bulk “Apply to All” (allowance/deduction/leave) with failures/retries; ensure no partial updates; verify transaction safety.  
-- **P1** Cross-browser testing: Chrome/Edge + at least one other browser; camera permissions; print layout; PDF generation.  
-- **P2** Performance testing: large employee list, large attendance logs, repeated kiosk scans; measure load times and UI responsiveness.  
-- **P2** Security testing (basic): input fuzzing (dates/amounts), unauthorized POSTs, session expiry behavior, CSRF-like actions, rate-limit attempts for kiosk_scan.  
-- **P3** Automation roadmap: identify top 10 stable flows to automate first (API tests for backend, UI smoke tests if feasible).
 
 ### Administrative Team (HR/Admin/Payroll Operations) — Task Backlog (Priority-Ordered)  
 - **P0** Define official policies: work schedule, lunch windows, grace period rules, overtime policy, deduction rules, leave policies, loan policies.  
@@ -186,4 +265,3 @@ Last Update: 04/02/26 03:50PM ***New Updated Tasks***
 
 Definitions
 **SOP: Standard Operating Procedure**
-

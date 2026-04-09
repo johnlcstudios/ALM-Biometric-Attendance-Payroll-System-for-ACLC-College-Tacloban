@@ -2,44 +2,6 @@
  * Biometric Attendance & Payroll System - Core Logic (PHP/MySQL Version)
  */
 
-async function updateBiometricStatus(employeeId) {
-    const statusDiv = document.getElementById('biometricStatus');
-    const removeBtn = document.getElementById('removeFaceBtn');
-    const startBtn = document.getElementById('startEnrollBtn');
-    
-    if (!employeeId) {
-        statusDiv.innerHTML = '';
-        removeBtn.style.display = 'none';
-        startBtn.style.display = 'inline-block';
-        return;
-    }
-
-    try {
-        const res = await fetch(`backend/api.php?action=get_employee_biometric_status&id=${employeeId}`);
-        const data = await res.json();
-        
-        if (data.enrolled) {
-            statusDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> Biometrics Enrolled (${data.enrolled_at})</div>`;
-            removeBtn.style.display = 'inline-block';
-            startBtn.innerHTML = '<i class="fas fa-sync"></i> Re-enroll Face';
-        } else {
-            statusDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> No Biometrics Found</div>';
-            removeBtn.style.display = 'none';
-            startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Camera';
-            startBtn.style.display = 'inline-block';
-        }
-    } catch (err) {
-        console.error("Error checking biometric status:", err);
-    }
-}
-
-function handleUnenroll() {
-    const select = document.getElementById('enrollEmployeeSelect');
-    const id = select.value;
-    const name = select.options[select.selectedIndex].text.split(' (')[0];
-    if (id) unenrollFace(id, name);
-}
-
 // --- Dashboard Charts ---
 let attendanceChart = null;
 let pChart, aChart;
@@ -217,7 +179,28 @@ async function fetchData(specificPage = null) {
 }
 
 // --- Navigation ---
+function stopEnrollmentCamera() {
+    if (enrollmentStream) {
+        enrollmentStream.getTracks().forEach(track => track.stop());
+        enrollmentStream = null;
+    }
+    const video = document.getElementById('video');
+    if (video) video.srcObject = null;
+    
+    const placeholder = document.getElementById('camera-placeholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    
+    const startBtn = document.getElementById('startEnrollBtn');
+    if (startBtn) startBtn.style.display = 'inline-block';
+    
+    const captureBtn = document.getElementById('captureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
+}
+
 function showPage(pageId) {
+    if (currentPage === 'biometrics' && pageId !== 'biometrics') {
+        stopEnrollmentCamera();
+    }
     currentPage = pageId;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-btn, .nav-link').forEach(l => l.classList.remove('active'));
@@ -236,6 +219,7 @@ function showPage(pageId) {
         'payroll': 'Payroll Processing',
         'leave': 'Leave Management',
         'loans': 'Loan Management',
+        'resignations': 'Resignations',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
         'settings': 'Company Settings'
@@ -249,6 +233,7 @@ function showPage(pageId) {
     if (pageId === 'payroll') renderPayrollTable();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
+    if (pageId === 'resignations') renderResignationTable();
     if (pageId === 'subject_loads') renderMasterSubjects();
     if (pageId === 'biometrics') populateEnrollmentSelect();
     if (pageId === 'dashboard') initCharts();
@@ -260,44 +245,52 @@ function populateEnrollmentSelect() {
     
     select.innerHTML = '<option value="">Select Employee...</option>' + 
         employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
-
-    // Add listener to update status
-    select.onchange = () => updateBiometricStatus(select.value);
-}
-
-function updateBiometricStatus(empId) {
-    const statusDiv = document.getElementById('biometricStatus');
-    const startBtn = document.getElementById('startEnrollBtn');
-    const removeBtn = document.getElementById('removeFaceBtn');
-    if (!statusDiv) return;
-
-    if (!empId) {
-        statusDiv.innerHTML = '';
-        if (removeBtn) removeBtn.style.display = 'none';
-        return;
-    }
-
-    const emp = employees.find(e => e.id == empId);
-    if (emp && emp.face_descriptor) {
-        statusDiv.innerHTML = '<div class="alert alert-success" style="padding: 10px; margin: 10px 0;"><i class="fas fa-check-circle"></i> This employee is already enrolled in Face Biometrics.</div>';
-        if (removeBtn) removeBtn.style.display = 'inline-block';
-        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera"></i> Re-enroll Face';
-    } else {
-        statusDiv.innerHTML = '<div class="alert alert-info" style="padding: 10px; margin: 10px 0;"><i class="fas fa-info-circle"></i> No biometric data found. Please enroll this employee.</div>';
-        if (removeBtn) removeBtn.style.display = 'none';
-        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Enrollment';
-    }
-}
-
-function handleUnenroll() {
-    const select = document.getElementById('enrollEmployeeSelect');
-    if (!select || !select.value) return;
-    const emp = employees.find(e => e.id == select.value);
-    if (!emp) return;
-    unenrollFace(emp.id, emp.full_name);
 }
 
 // --- Render Functions ---
+function renderEmployeeTable() {
+    const tbody = document.getElementById('employeeTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = employees.map(emp => {
+        const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
+        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        
+        const actionHtml = isFaculty ? `
+            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
+                <i class="fas fa-book"></i> View (${loadCount})
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="addSubjectLoadModal('${emp.id}')">
+                <i class="fas fa-plus"></i> Add Load
+            </button>
+        ` : '---';
+
+        return `
+            <tr>
+                <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
+                <td>
+                    <div class="user-info">
+                        <div class="user-details">
+                            <span class="name">${escapeHTML(emp.full_name)}</span>
+                            <span class="email">${escapeHTML(emp.email)}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>${escapeHTML(emp.position)}</td>
+                <td>${escapeHTML(emp.department)}</td>
+                <td>${actionHtml}</td>
+                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
+}
+
 function renderMasterSubjects() {
     const subjectTbody = document.getElementById('subjectsTableBody');
     if (subjectTbody) {
@@ -461,7 +454,6 @@ function renderEmployeeTable() {
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
         const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
         const statusClass = statusLabel.toLowerCase().replace(' ', '-');
-        const hasFace = emp.face_descriptor !== null;
         
         return `
         <tr id="row-${emp.id}">
@@ -479,26 +471,15 @@ function renderEmployeeTable() {
                     </span>
                 ` : '<span class="text-muted">---</span>'}
             </td>
+            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
             <td>
-                <span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span>
-                <br>
-                <div style="margin-top: 5px;">
-                    ${hasFace ? 
-                        '<span class="badge badge-success" style="font-size: 0.7rem;"><i class="fas fa-user-check"></i> Face Enrolled</span>' : 
-                        '<span class="badge badge-secondary" style="font-size: 0.7rem;"><i class="fas fa-user-slash"></i> No Face Data</span>'}
-                </div>
-            </td>
-            <td>
-                <div class="action-buttons">
-                    <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-                    <button class="btn btn-warning btn-sm" onclick="resetPasswordModal('${emp.id}')" title="Reset Password"><i class="fas fa-key"></i></button>
-                    ${hasFace ? `<button class="btn btn-dark btn-sm" onclick="unenrollFace('${emp.id}', '${escapeHTML(emp.full_name)}')" title="Unenroll Face"><i class="fas fa-user-minus"></i></button>` : ''}
-                    ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
-                </div>
+                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
+                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
             </td>
         </tr>
-    `; }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
+    `; }).join('');
 }
 
 function openAddLoadModal(empId) {
@@ -628,9 +609,7 @@ async function saveEmployee() {
     try {
         const response = await fetch('backend/api.php?action=save_employee', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         
@@ -1014,9 +993,7 @@ async function runPayroll() {
         try {
             const response = await fetch('backend/api.php?action=run_payroll', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ start_date, end_date, category })
             });
             
@@ -1122,9 +1099,8 @@ function renderLeaveTable() {
     tbody.innerHTML = leaveRequests.map(req => `
         <tr>
             <td>${escapeHTML(req.full_name)}</td>
-            <td>${escapeHTML(req.leave_type || req.type)}</td>
-            <td>${escapeHTML(req.start_date || '-')}</td>
-            <td>${escapeHTML(req.end_date || '-')}</td>
+            <td>${escapeHTML(req.type)}</td>
+            <td>${escapeHTML(req.duration || '-')}</td>
             <td>${escapeHTML(req.reason)}</td>
             <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
             <td>
@@ -1134,7 +1110,7 @@ function renderLeaveTable() {
                 ` : '<span class="text-muted">Processed</span>'}
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="7" class="text-center">No leave requests found.</td></tr>';
+    `).join('') || '<tr><td colspan="6" class="text-center">No leave requests found.</td></tr>';
 }
 
 async function applyLeaveBalanceToAll() {
@@ -1182,26 +1158,60 @@ async function updateLeaveStatus(id, status) {
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
 function renderLoanTable() {
     const tbody = document.getElementById('loanTableBody');
     if (!tbody) return;
-    tbody.innerHTML = loanRequests.map(req => `
-        <tr>
-            <td>${escapeHTML(req.full_name)}</td>
-            <td>₱${parseFloat(req.amount).toLocaleString()}</td>
-            <td>${escapeHTML(req.reason)}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
-            <td>
-                ${req.status === 'Pending' ? `
-                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')"><i class="fas fa-check"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="updateLoanStatus(${req.id}, 'Rejected')"><i class="fas fa-times"></i></button>
-                ` : (req.status === 'Approved' ? '<span class="text-info">Awaiting Payroll</span>' : '<span class="text-muted">Processed</span>')}
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = loanRequests.map(req => {
+        let actionButtons = '';
+        const role = USER_ROLE.toLowerCase();
+        
+        if (req.status === 'Pending') {
+            // HR and Admin can Approve/Reject
+            if (role === 'admin' || role === 'hr') {
+                actionButtons = `
+                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Approved')" title="Approve"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="updateLoanStatus(${req.id}, 'Rejected')" title="Reject"><i class="fas fa-times"></i></button>
+                `;
+            } else {
+                actionButtons = '<span class="text-muted">Awaiting HR Approval</span>';
+            }
+        } else if (req.status === 'Approved') {
+            // Payroll can Distribute
+            if (role === 'payroll' || role === 'payroll officer' || role === 'admin') {
+                actionButtons = `
+                    <button class="btn btn-primary btn-sm" onclick="updateLoanStatus(${req.id}, 'Distributed')" title="Mark as Distributed"><i class="fas fa-hand-holding-usd"></i> Distribute</button>
+                `;
+            } else {
+                actionButtons = '<span class="text-info">Awaiting Distribution</span>';
+            }
+        } else if (req.status === 'Distributed') {
+            // Payroll can mark as Paid
+            if (role === 'payroll' || role === 'payroll officer' || role === 'admin') {
+                actionButtons = `
+                    <button class="btn btn-success btn-sm" onclick="updateLoanStatus(${req.id}, 'Paid')" title="Mark as Paid"><i class="fas fa-money-bill-wave"></i> Mark Paid</button>
+                `;
+            } else {
+                actionButtons = '<span class="text-primary">Distributed</span>';
+            }
+        } else {
+            actionButtons = `<span class="text-muted">${req.status}</span>`;
+        }
+
+        return `
+            <tr>
+                <td>${escapeHTML(req.full_name)}</td>
+                <td>₱${parseFloat(req.amount).toLocaleString()}</td>
+                <td>${escapeHTML(req.reason)}</td>
+                <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+                <td>${actionButtons}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function updateLoanStatus(id, status) {
@@ -1213,6 +1223,8 @@ async function updateLoanStatus(id, status) {
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
@@ -1243,6 +1255,8 @@ async function updateResignationStatus(id, status) {
     const result = await response.json();
     if (result.success) {
         fetchData();
+    } else {
+        alert(result.message || "Failed to update status.");
     }
 }
 
@@ -1575,35 +1589,48 @@ async function deleteEmployeeDeduction(id) {
 
 // --- Settings ---
 async function saveSettings() {
+    const form = document.getElementById('settingsForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    const btn = document.getElementById('saveSettingsBtn');
+    const msg = document.getElementById('settings-msg');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+    
     try {
-        const form = document.getElementById('settingsForm');
-        if (!form) throw new Error("Settings form not found");
-        
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-        
-        console.log("Saving settings with data:", data);
-        
         const response = await fetch('backend/api.php?action=save_settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
         const result = await response.json();
-        console.log("Save result:", result);
-        
         if (result.success) {
-            alert(result.message || 'Settings updated successfully!');
-            window.location.reload();
+            if (msg) {
+                msg.style.display = 'block';
+                msg.innerHTML = '<div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Settings saved successfully! Updating UI...</div>';
+            }
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         } else {
-            alert('Failed to save settings: ' + (result.message || 'Unknown error'));
+            if (msg) {
+                msg.style.display = 'block';
+                msg.innerHTML = `<div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Error: ${result.message}</div>`;
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
+            }
         }
     } catch (err) {
-        console.error("Error saving settings:", err);
-        alert('An error occurred while saving: ' + err.message);
+        console.error(err);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
+        }
     }
 }
 
@@ -1684,60 +1711,173 @@ function viewFacultyLoads(empId) {
     openModal('viewLoadsModal');
 }
 
+async function deleteSubjectLoad(id) {
+    if (confirm('Are you sure you want to delete this subject load?')) {
+        try {
+            const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
+            const result = await response.json();
+            if (result.success) {
+                showToast('Subject load deleted successfully', 'success');
+                await fetchData('employees'); // Refresh since it can affect modals
+            } else {
+                showToast('Error: ' + result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to connect to the server.', 'error');
+        }
+    }
+}
+
+async function saveSubjectLoad() {
+    const form = document.getElementById('subjectLoadForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        faculty_id: document.getElementById('loadFacultyId').value,
+        code: document.getElementById('loadSubjectCode').value,
+        description: document.getElementById('loadDescription').value,
+        units: document.getElementById('loadUnits').value,
+        hours: document.getElementById('loadHours').value
+    };
+
+    try {
+        const response = await fetch('backend/api.php?action=save_subject_load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            closeModal('addLoadModal');
+            document.getElementById('subjectLoadForm').reset();
+            showToast('Subject load saved successfully!', 'success');
+            fetchData('employees');
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Failed to connect to the server.', 'error');
+    }
+}
+
+function openAddSubjectModal() {
+    document.getElementById('masterSubjectForm').reset();
+    document.getElementById('subjectId').value = '';
+    document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
+    openModal('subjectModal');
+}
+
+function editMasterSubject(id) {
+    const subject = masterSubjects.find(s => s.id == id);
+    if (!subject) return;
+
+    document.getElementById('subjectId').value = subject.id;
+    document.getElementById('subjectCode').value = subject.code;
+    document.getElementById('subjectDescription').value = subject.description;
+    document.getElementById('subjectUnits').value = subject.units;
+    document.getElementById('subjectHours').value = subject.hours;
+
+    document.getElementById('subjectModalTitle').innerText = 'Edit Subject';
+    openModal('subjectModal');
+}
+
+async function deleteMasterSubject(id) {
+    if (confirm('Are you sure you want to delete this subject?')) {
+        try {
+            const response = await fetch(`backend/api.php?action=delete_subject&id=${id}`);
+            const result = await response.json();
+            if (result.success) {
+                showToast('Subject deleted successfully', 'success');
+                fetchData('subject_loads');
+            } else {
+                showToast('Error: ' + result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to connect to the server.', 'error');
+        }
+    }
+}
+
+async function saveMasterSubject() {
+    const form = document.getElementById('masterSubjectForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        id: document.getElementById('subjectId').value,
+        code: document.getElementById('subjectCode').value,
+        description: document.getElementById('subjectDescription').value,
+        units: document.getElementById('subjectUnits').value,
+        hours: document.getElementById('subjectHours').value
+    };
+
+    try {
+        const response = await fetch('backend/api.php?action=save_subject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            closeModal('subjectModal');
+            document.getElementById('masterSubjectForm').reset();
+            document.getElementById('subjectId').value = '';
+            document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
+            showToast('Subject saved successfully!', 'success');
+            fetchData('subject_loads');
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Failed to connect to the server.', 'error');
+    }
+}
+
 // --- Biometrics Enrollment ---
-const faceManager = new FaceManager({
-    stabilityRequired: 5,
-    sampleCount: 5,
-    minConfidence: 0.6
-});
 let enrolledFaceMatcher = null;
-let isEnrollingBiometrics = false;
+const faceManager = new FaceManager({ 
+    stabilityRequired: 8, 
+    sampleCount: 5,
+    stabilityThreshold: 12
+});
 
 async function initFaceEnrollment() {
     const select = document.getElementById('enrollEmployeeSelect');
     const employeeId = select.value;
-    if (!employeeId) return alert("Select an employee first");
+    if (!employeeId) return alert("Please select an employee before starting enrollment.");
 
     const video = document.getElementById('video');
+    const canvas = document.getElementById('overlay');
     const captureBtn = document.getElementById('captureBtn');
     const startBtn = document.getElementById('startEnrollBtn');
-    const previewContainer = document.querySelector('.camera-preview');
-    const canvas = document.getElementById('overlay');
+    const placeholder = document.getElementById('camera-placeholder');
+    const placeholderText = placeholder.querySelector('p');
     
-    document.getElementById('camera-placeholder').style.display = 'none';
+    placeholder.style.display = 'flex';
+    placeholderText.innerText = "Initializing AI Models...";
     
     try {
-        console.log("Loading face-api models & starting camera...");
-        await Promise.all([
-            faceManager.loadModels(),
-            faceManager.startCamera(video)
-        ]);
+        await faceManager.loadModels();
+        placeholderText.innerText = "Starting Camera...";
         
-        // Fetch existing faces to check for duplicates
-        try {
-            const res = await fetch('backend/api.php?action=get_enrolled_faces');
-            const data = await res.json();
-            if (data.success && data.faces.length > 0) {
-                const labeledDescriptors = data.faces.map(f => {
-                    const desc = JSON.parse(f.face_descriptor);
-                    return new faceapi.LabeledFaceDescriptors(f.full_name, [new Float32Array(desc)]);
-                });
-                enrolledFaceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
-            }
-        } catch (e) {
-            console.error("Error loading enrolled faces:", e);
-        }
-
+        await faceManager.startCamera(video);
+        placeholder.style.display = 'none';
+        
+        startBtn.style.display = 'none';
         captureBtn.style.display = 'inline-block';
         captureBtn.disabled = true;
-        startBtn.style.display = 'none';
+
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
         
-        isEnrollingBiometrics = false;
-        const detectorOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-        
-        // Preview loop
-        const onPlay = async () => {
-            if (!video.srcObject || isEnrollingBiometrics) return;
+        const loop = async () => {
+            if (!faceManager.stream || faceManager.isProcessing) return;
             
             const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
             const ctx = canvas.getContext('2d');
@@ -1745,39 +1885,29 @@ async function initFaceEnrollment() {
 
             if (detection) {
                 const isStable = faceManager.checkStability(detection.detection.box);
+                const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
+                const color = isStable ? "#27ae60" : "#f39c12";
                 
-                // Duplicate check
-                let duplicateName = null;
-                if (enrolledFaceMatcher) {
-                    const fullD = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks().withFaceDescriptor();
-                    if (fullD) {
-                        const match = enrolledFaceMatcher.findBestMatch(fullD.descriptor);
-                        if (match.label !== 'unknown') duplicateName = match.label;
-                    }
-                }
-
-                const status = duplicateName ? `ALREADY REGISTERED: ${duplicateName}` : (isStable ? "VERIFIED! SAVING..." : "HOLD STILL...");
-                const color = duplicateName ? "#db261f" : (isStable ? "#27ae60" : "#f39c12");
-
                 faceManager.drawDetection(canvas, video, detection, status, color);
                 
-                if (isStable && !duplicateName) {
+                if (isStable) {
+                    faceManager.isProcessing = true;
+                    setTimeout(() => saveFaceEnrollment(), 300);
+                } else {
                     captureBtn.disabled = false;
-                    isEnrollingBiometrics = true;
-                    saveFaceEnrollment();
                 }
             } else {
                 faceManager.stabilityCounter = 0;
+                captureBtn.disabled = true;
             }
-            if (!isEnrollingBiometrics) requestAnimationFrame(onPlay);
+            requestAnimationFrame(loop);
         };
-        
-        requestAnimationFrame(onPlay);
+        loop();
 
     } catch (err) {
-        console.error("Biometrics initialization error:", err);
-        alert(err.message || "Failed to initialize biometrics.");
-        document.getElementById('camera-placeholder').style.display = 'block';
+        console.error("Enrollment Error:", err);
+        alert(err.message);
+        stopEnrollmentCamera();
     }
 }
 
@@ -1785,51 +1915,64 @@ async function saveFaceEnrollment() {
     const employeeId = document.getElementById('enrollEmployeeSelect').value;
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
     
-    if (!employeeId) return alert("Please select an employee first");
-    
-    isEnrollingBiometrics = true;
+    if (!employeeId) return;
+    faceManager.isProcessing = true;
 
     if (captureBtn) {
         captureBtn.disabled = true;
-        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     }
 
     try {
-        console.log("Collecting biometric samples...");
-        const descriptor = await faceManager.captureSamples(video, (count, total) => {
-            if (captureBtn) captureBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Sampling ${count}/${total}`;
+        const averagedDescriptor = await faceManager.captureSamples(video, (current, total) => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#27ae60";
+            ctx.font = "bold 24px Inter";
+            ctx.textAlign = "center";
+            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, canvas.width/2, canvas.height/2);
         });
 
-        console.log("Saving biometric data to server...");
+        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving...';
+
         const response = await fetch('backend/api.php?action=save_face_descriptor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: employeeId, descriptor })
+            body: JSON.stringify({ id: employeeId, descriptor: averagedDescriptor })
         });
         
         const result = await response.json();
         if (result.success) {
-            alert("Face enrolled successfully!");
-            faceManager.stopCamera();
-            window.location.reload();
+            alert("Enrollment Complete! Face data saved securely.");
+            location.reload();
         } else {
-            alert("Error saving biometric data: " + result.message);
-            isEnrollingBiometrics = false;
-            if (captureBtn) {
-                captureBtn.disabled = false;
-                captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
-            }
+            throw new Error(result.message);
         }
     } catch (err) {
-        console.error("Capture Error:", err);
-        alert(err.message || "An error occurred during capture.");
-        isEnrollingBiometrics = false;
+        alert("Enrollment Failed: " + err.message);
+        faceManager.isProcessing = false;
         if (captureBtn) {
             captureBtn.disabled = false;
-            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Capture & Save';
+            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Retry Enrollment';
         }
     }
+}
+
+function stopEnrollmentCamera() {
+    faceManager.stopCamera();
+    const video = document.getElementById('video');
+    if (video) video.srcObject = null;
+    
+    const placeholder = document.getElementById('camera-placeholder');
+    if (placeholder) placeholder.style.display = 'flex';
+    
+    const startBtn = document.getElementById('startEnrollBtn');
+    if (startBtn) startBtn.style.display = 'inline-block';
+    
+    const captureBtn = document.getElementById('captureBtn');
+    if (captureBtn) captureBtn.style.display = 'none';
 }
 
 // --- Charts ---
@@ -1909,124 +2052,16 @@ function initCharts() {
     });
 }
 
-// --- Administrative Controls ---
-async function unenrollFace(id, name) {
-    if (!confirm(`Are you sure you want to REMOVE biometric data for ${name}?\n\nThis action cannot be undone and they will no longer be able to use face recognition until re-enrolled.`)) {
-        return;
-    }
-
-    try {
-        const res = await fetch(`backend/api.php?action=unenroll_face&id=${id}`);
-        const data = await res.json();
-        if (data.success) {
-            showToast("Face data removed successfully", 'success');
-            fetchData('employees'); // Refresh
-            if (currentPage === 'biometrics') {
-                const select = document.getElementById('enrollEmployeeSelect');
-                if (select && select.value == id) updateBiometricStatus(id);
-            }
-        } else {
-            showToast(data.message || "Failed to remove face data", 'error');
-        }
-    } catch (err) {
-        showToast("An error occurred during unenrollment", 'error');
-    }
-}
-
-function resetPasswordModal(employeeId) {
-    const emp = employees.find(e => e.id == employeeId);
-    if (!emp) return;
-
-    const newPass = prompt(`Enter new password for ${emp.full_name}:\n(Leave blank to auto-generate)`, "");
-    if (newPass === null) return; // Cancelled
-
-    const mustChange = confirm("Require user to change password on next login?");
-
-    resetPassword(employeeId, newPass, mustChange);
-}
-
-async function resetPassword(id, password, mustChange) {
-    try {
-        const res = await fetch('backend/api.php?action=reset_password', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id, password, must_change: mustChange })
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert(`Password reset successful!\n\nNew Password: ${data.new_password}\n\nPlease provide this to the employee.`);
-            showToast("Password reset successfully", 'success');
-        } else {
-            showToast(data.message || "Failed to reset password", 'error');
-        }
-    } catch (err) {
-        showToast("An error occurred during password reset", 'error');
-    }
-}
-
-async function handleForcePasswordChange(event) {
-    event.preventDefault();
-    const oldPass = document.getElementById('forceOldPass').value;
-    const newPass = document.getElementById('forceNewPass').value;
-    const confirmPass = document.getElementById('forceConfirmPass').value;
-
-    if (newPass !== confirmPass) {
-        return alert("New passwords do not match.");
-    }
-    
-    if (newPass === oldPass) {
-        return alert("New password cannot be the same as the current password.");
-    }
-
-    try {
-        const res = await fetch('backend/api.php?action=change_password', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ oldPass, newPass })
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert("Security update complete. You may now continue.");
-            sessionStorage.removeItem('force_password_change');
-            document.getElementById('forcePasswordModal').style.display = 'none';
-        } else {
-            alert(data.message || "Invalid current password.");
-        }
-    } catch (err) {
-        alert("An error occurred during password change.");
+// --- Auth ---
+async function logout() {
+    if (confirm("Are you sure you want to logout?")) {
+        await fetch('backend/api.php?action=logout');
+        window.location.href = 'login.php';
     }
 }
 
 // Initialize on Load
 window.onload = () => {
-    // Expose functions globally for dynamic HTML
-    window.unenrollFace = unenrollFace;
-    window.handleUnenroll = handleUnenroll;
-    window.updateBiometricStatus = updateBiometricStatus;
-    window.resetPasswordModal = resetPasswordModal;
-    window.handleForcePasswordChange = handleForcePasswordChange;
-    window.saveSettings = saveSettings;
-    
-    // Check for forced password change
-    if (sessionStorage.getItem('force_password_change') === 'true') {
-        const modal = document.getElementById('forcePasswordModal');
-        if (modal) {
-            modal.style.display = 'block';
-            // Disable background closing
-            window.onclick = (e) => {
-                if (e.target.id === 'forcePasswordModal') return;
-                // Original click handler logic
-                if (e.target.classList.contains('modal') && e.target.id !== 'forcePasswordModal') {
-                    e.target.style.display = 'none';
-                }
-            };
-        }
-    }
-    
     fetchData();
     const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
