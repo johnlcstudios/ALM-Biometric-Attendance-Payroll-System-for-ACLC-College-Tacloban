@@ -60,9 +60,35 @@ function logAction($pdo, $action_type, $target_employee_id = null, $details = nu
     }
 }
 
+function checkRateLimit($action, $limit = 5, $window = 60) {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $key = sys_get_temp_dir() . '/rates/' . md5($ip . '_' . $action) . '.json';
+    $dir = dirname($key);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $now = time();
+    $data = [];
+    if (file_exists($key)) {
+        $json = file_get_contents($key);
+        $data = $json ? json_decode($json, true) ?: [] : [];
+    }
+    $data = array_filter($data, function($timestamp) use ($now, $window) {
+        return $now - $timestamp < $window;
+    });
+    if (count($data) >= $limit) {
+        echo json_encode(['success' => false, 'message' => 'Too many requests. Please try again later.']);
+        exit;
+    }
+    $data[] = $now;
+    file_put_contents($key, json_encode($data));
+    return true;
+}
+
 try {
     switch ($action) {
         case 'login':
+            checkRateLimit('login');
             $data = json_decode(file_get_contents('php://input'), true);
             $username = $data['username'] ?? '';
             $password = $data['password'] ?? '';
@@ -121,8 +147,9 @@ try {
                 $pdo->commit();
                 echo json_encode(['success' => true]);
             } catch (Exception $e) {
+                error_log("Signup error: " . $e->getMessage());
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Signup failed: ' . $e->getMessage()]);
+                echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
             }
             break;
 
@@ -209,7 +236,7 @@ try {
             $employee_ids = array_column($employees, 'id');
 
             // Pre-fetch all attendance logs to avoid N+1 query problem
-            $logs_by_emp = [];
+$logs_by_emp = [];
             if (!empty($employee_ids)) {
                 $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
                 $stmt_all_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ?");
@@ -217,6 +244,16 @@ try {
                 while ($row = $stmt_all_att->fetch()) {
                     $logs_by_emp[$row['employee_id']][] = $row;
                 }
+            }
+
+            // Idempotency check: Skip if payroll already processed for this period
+            $payroll_type_check = ($type === 'faculty') ? 'Faculty' : 'Utility';
+            $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM payroll WHERE company_id = ? AND period = ? AND payroll_type = ?");
+            $stmt_check->execute([$company_id, $period, $payroll_type_check]);
+            $existing_count = $stmt_check->fetchColumn();
+            if ($existing_count >= count($employees)) {
+echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll already processed for this period.', 'period' => $period]);
+                exit;
             }
 
             $pdo->beginTransaction();
@@ -777,6 +814,7 @@ try {
             break;
 
         case 'kiosk_scan':
+            checkRateLimit('kiosk_scan');
             $data = json_decode(file_get_contents('php://input'), true);
             $company_id = $data['company_id'] ?? null;
             if (!$company_id) {
@@ -1033,9 +1071,19 @@ try {
                 }
             }
 
-            $stmt_deductions = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ? AND is_active = true");
+$stmt_deductions = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ? AND is_active = true");
             $stmt_deductions->execute([$_SESSION['company_id']]);
             $deductions_config = $stmt_deductions->fetchAll();
+
+            // Idempotency check: Skip if payroll already processed for this period across all categories
+            $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM payroll WHERE company_id = ? AND period = ?");
+            $stmt_check->execute([$_SESSION['company_id'], $period]);
+            $existing_count = $stmt_check->fetchColumn();
+            if ($existing_count >= count($employees)) {
+                $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
+echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period already processed."]);
+                exit;
+            }
 
             $pdo->beginTransaction();
             try {
@@ -1155,8 +1203,9 @@ try {
                 $pdo->commit();
                 echo json_encode(['success' => true]);
             } catch (Exception $e) {
+                error_log("Status update error: " . $e->getMessage());
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Failed to update status: ' . $e->getMessage()]);
+                echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
             }
             break;
 
