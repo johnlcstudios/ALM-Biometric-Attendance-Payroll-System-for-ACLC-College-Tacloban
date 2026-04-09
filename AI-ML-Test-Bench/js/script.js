@@ -161,6 +161,8 @@ async function fetchData(specificPage = null) {
         } else if (page === 'subject_loads' || page === 'employees') {
             masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
             subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
+        } else if (page === 'allowances' || page === 'deductions') {
+            // Already handled by their respective render functions called in showPage
         }
 
         showPage(page);
@@ -179,18 +181,20 @@ async function fetchData(specificPage = null) {
 }
 
 // --- Navigation ---
-function stopEnrollmentCamera() {
-    if (enrollmentStream) {
-        enrollmentStream.getTracks().forEach(track => track.stop());
-        enrollmentStream = null;
+function stopRegistrationCamera() {
+    if (window.faceManager) {
+        faceManager.stopCamera();
+        faceManager.isProcessing = false;
+        faceManager.registrationActive = false;
     }
+    
     const video = document.getElementById('video');
     if (video) video.srcObject = null;
     
     const placeholder = document.getElementById('camera-placeholder');
     if (placeholder) placeholder.style.display = 'flex';
     
-    const startBtn = document.getElementById('startEnrollBtn');
+    const startBtn = document.getElementById('startRegBtn');
     if (startBtn) startBtn.style.display = 'inline-block';
     
     const captureBtn = document.getElementById('captureBtn');
@@ -199,7 +203,7 @@ function stopEnrollmentCamera() {
 
 function showPage(pageId) {
     if (currentPage === 'biometrics' && pageId !== 'biometrics') {
-        stopEnrollmentCamera();
+        stopRegistrationCamera();
     }
     currentPage = pageId;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -217,12 +221,17 @@ function showPage(pageId) {
         'employees': 'Employee Directory',
         'attendance': 'Attendance Tracking',
         'payroll': 'Payroll Processing',
+        'faculty_payroll': 'Faculty Payroll',
+        'utility_payroll': 'Utility Payroll',
+        'allowances': 'Allowances & Benefits',
+        'deductions': 'Deductions Management',
         'leave': 'Leave Management',
         'loans': 'Loan Management',
         'resignations': 'Resignations',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
-        'settings': 'Company Settings'
+        'settings': 'Company Settings',
+        'biometrics': 'Face Registration'
     };
     const titleEl = document.getElementById('current-page-title');
     if (titleEl) titleEl.innerText = titles[pageId] || 'Admin Hub';
@@ -231,19 +240,23 @@ function showPage(pageId) {
     if (pageId === 'employees') renderEmployeeTable();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
+    if (pageId === 'faculty_payroll') loadFacultyPayroll('latest');
+    if (pageId === 'utility_payroll') loadUtilityPayroll('latest');
+    if (pageId === 'allowances') renderAllowances();
+    if (pageId === 'deductions') renderDeductions();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
     if (pageId === 'subject_loads') renderMasterSubjects();
-    if (pageId === 'biometrics') populateEnrollmentSelect();
+    if (pageId === 'biometrics') populateRegistrationSelect();
     if (pageId === 'dashboard') initCharts();
 }
 
-function populateEnrollmentSelect() {
-    const select = document.getElementById('enrollEmployeeSelect');
+function populateRegistrationSelect() {
+    const select = document.getElementById('regEmployeeSelect');
     if (!select) return;
     
-    select.innerHTML = '<option value="">Select Employee...</option>' + 
+    select.innerHTML = '<option value="">Choose Employee...</option>' + 
         employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
 }
 
@@ -1450,6 +1463,7 @@ async function deleteAllowanceCategory(id) {
     if (confirm("Delete this category? This will also remove assignments.")) {
         const response = await fetch(`backend/api.php?action=delete_allowance_category&id=${id}`);
         const result = await response.json();
+        alert(result.message);
         if (result.success) renderAllowances();
     }
 }
@@ -1469,6 +1483,7 @@ async function addDeductionCategory() {
         body: JSON.stringify({ name, type, value, description, is_active: true, is_government: false })
     });
     const result = await response.json();
+    alert(result.message);
     if (result.success) {
         document.getElementById('deductionName').value = '';
         document.getElementById('deductionRate').value = '';
@@ -1575,6 +1590,7 @@ async function deleteDeductionCategory(id) {
     if (confirm("Delete this category?")) {
         const response = await fetch(`backend/api.php?action=delete_deduction&id=${id}`);
         const result = await response.json();
+        alert(result.message);
         if (result.success) renderDeductions();
     }
 }
@@ -1841,22 +1857,22 @@ async function saveMasterSubject() {
 }
 
 // --- Biometrics Enrollment ---
-let enrolledFaceMatcher = null;
+let registeredFaceMatcher = null;
 const faceManager = new FaceManager({ 
     stabilityRequired: 8, 
     sampleCount: 5,
     stabilityThreshold: 12
 });
 
-async function initFaceEnrollment() {
-    const select = document.getElementById('enrollEmployeeSelect');
+async function initFaceRegistration() {
+    const select = document.getElementById('regEmployeeSelect');
     const employeeId = select.value;
-    if (!employeeId) return alert("Please select an employee before starting enrollment.");
+    if (!employeeId) return showToast("Please select an employee before starting registration.", "error");
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('overlay');
     const captureBtn = document.getElementById('captureBtn');
-    const startBtn = document.getElementById('startEnrollBtn');
+    const startBtn = document.getElementById('startRegBtn');
     const placeholder = document.getElementById('camera-placeholder');
     const placeholderText = placeholder.querySelector('p');
     
@@ -1874,45 +1890,50 @@ async function initFaceEnrollment() {
         captureBtn.style.display = 'inline-block';
         captureBtn.disabled = true;
 
+        faceManager.registrationActive = true;
+        faceManager.isProcessing = false;
+
         const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
         
         const loop = async () => {
-            if (!faceManager.stream || faceManager.isProcessing) return;
+            if (!faceManager.stream || !faceManager.registrationActive) return;
             
-            const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!faceManager.isProcessing) {
+                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (detection) {
-                const isStable = faceManager.checkStability(detection.detection.box);
-                const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
-                const color = isStable ? "#27ae60" : "#f39c12";
-                
-                faceManager.drawDetection(canvas, video, detection, status, color);
-                
-                if (isStable) {
-                    faceManager.isProcessing = true;
-                    setTimeout(() => saveFaceEnrollment(), 300);
+                if (detection) {
+                    const isStable = faceManager.checkStability(detection.detection.box);
+                    const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
+                    const color = isStable ? "#27ae60" : "#f39c12";
+                    
+                    faceManager.drawDetection(canvas, video, detection, status, color);
+                    
+                    if (isStable) {
+                        faceManager.isProcessing = true;
+                        setTimeout(() => saveFaceRegistration(), 300);
+                    } else {
+                        captureBtn.disabled = false;
+                    }
                 } else {
-                    captureBtn.disabled = false;
+                    faceManager.stabilityCounter = 0;
+                    captureBtn.disabled = true;
                 }
-            } else {
-                faceManager.stabilityCounter = 0;
-                captureBtn.disabled = true;
             }
             requestAnimationFrame(loop);
         };
         loop();
 
     } catch (err) {
-        console.error("Enrollment Error:", err);
-        alert(err.message);
-        stopEnrollmentCamera();
+        console.error("Registration Error:", err);
+        showToast(err.message, "error");
+        stopRegistrationCamera();
     }
 }
 
-async function saveFaceEnrollment() {
-    const employeeId = document.getElementById('enrollEmployeeSelect').value;
+async function saveFaceRegistration() {
+    const employeeId = document.getElementById('regEmployeeSelect').value;
     const video = document.getElementById('video');
     const captureBtn = document.getElementById('captureBtn');
     const canvas = document.getElementById('overlay');
@@ -1935,9 +1956,9 @@ async function saveFaceEnrollment() {
             ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, canvas.width/2, canvas.height/2);
         });
 
-        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving...';
+        if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving Data...';
 
-        const response = await fetch('backend/api.php?action=save_face_descriptor', {
+        const response = await fetch('backend/api.php?action=save_face_registration', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: employeeId, descriptor: averagedDescriptor })
@@ -1945,36 +1966,26 @@ async function saveFaceEnrollment() {
         
         const result = await response.json();
         if (result.success) {
-            alert("Enrollment Complete! Face data saved securely.");
-            location.reload();
+            showToast("Registration Complete! Face data saved securely.", "success");
+            setTimeout(() => {
+                stopRegistrationCamera();
+                // Optionally reload or just reset the select
+                document.getElementById('regEmployeeSelect').value = '';
+            }, 1500);
         } else {
             throw new Error(result.message);
         }
     } catch (err) {
-        alert("Enrollment Failed: " + err.message);
+        showToast("Registration Failed: " + err.message, "error");
         faceManager.isProcessing = false;
         if (captureBtn) {
             captureBtn.disabled = false;
-            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Retry Enrollment';
+            captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Retry Registration';
         }
     }
 }
 
-function stopEnrollmentCamera() {
-    faceManager.stopCamera();
-    const video = document.getElementById('video');
-    if (video) video.srcObject = null;
-    
-    const placeholder = document.getElementById('camera-placeholder');
-    if (placeholder) placeholder.style.display = 'flex';
-    
-    const startBtn = document.getElementById('startEnrollBtn');
-    if (startBtn) startBtn.style.display = 'inline-block';
-    
-    const captureBtn = document.getElementById('captureBtn');
-    if (captureBtn) captureBtn.style.display = 'none';
-}
-
+// Consolidating stop camera logic above, removing duplicate here
 // --- Charts ---
 function initCharts() {
     const ctxP = document.getElementById('payrollChart')?.getContext('2d');
