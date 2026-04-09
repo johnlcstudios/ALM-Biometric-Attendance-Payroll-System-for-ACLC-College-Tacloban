@@ -202,52 +202,89 @@ Last Update: 04/09/26 01:57PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
 **P0** Fix face enrollment UI redundancy: remove duplicate text, clarify instructions, rename to “Face Registration”.
+
 **P0** Ensure enrollment flow stability: prevent broken states during face capture and submission.
+
 **P1** Improve enrollment UX: clearer feedback for successful/failed enrollment.
+
+--- 
 
 ### Backend — Task Backlog (Priority-Ordered)
 **P0** Fix dashboard data mismatch: ensure attendance logs and dashboard graphs use same data source and queries.
+
 **P0** Fix empty report exports: ensure data is fetched before generating downloadable files.
+
 **P0** Fix data not loading on initial page load (Payroll, Deduction, Allowance, Faculty pages): enforce automatic data fetch on endpoint call.
+
 **P0** Fix export/print/PDF generation: ensure backend handlers return correct file output with valid data.
+
 **P0** Fix delayed data rendering issue: eliminate dependency on trigger actions (Export/Print) before data appears.
+
 **P1** Add pagination support: implement LIMIT/OFFSET for Employees, Payroll, Attendance, and Tables.
+
 **P1** Standardize API responses: consistent JSON format for all modules.
+
 **P1** Add error handling: return proper status codes and debug messages.
+
 **P2** Optimize queries: improve performance for large datasets.
+
+--- 
 
 ### Frontend — Task Backlog (Priority-Ordered)
 **P0** Fix all non-functional buttons:
-- Attendance Logs (Action buttons)
-- Payroll (Export/Print)
-- PDF actions
+    - Attendance Logs (Action buttons)
+    - Payroll (Export/Print)
+    - PDF actions
+
 **P0** Fix data rendering issues: ensure tables load data on page initialization.
+
 **P0** Fix search functionality (Attendance Logs): restrict search to Name/ID only (exclude STATUS).
+
 **P0** Fix async handling: ensure proper fetch/await logic and prevent race conditions.
+
 **P0** Prevent double-trigger bugs: disable buttons during API calls.
+
 **P1** Implement pagination UI across all tables.
+
 **P1** Add table limits and consistent layouts.
+
 **P1** Remove redundant text across pages.
+
 **P1** Improve UI consistency (buttons, tables, labels).
+
 **P2** Improve loading states (spinners, skeletons).
+
 **P2** Enhance responsiveness for large tables.
 
+--- 
+
 ### Testing Team — Task Backlog (Priority-Ordered)
+
 **P0** Validate all CRUD operations:
-- Subject Load (Add/Edit/Delete)
-- Employee records
+    - Subject Load (Add/Edit/Delete)
+    - Employee records
+
 **P0** Test data loading behavior:
-- Ensure all pages load data without manual triggers
+    - Ensure all pages load data without manual triggers
+
 **P0** Verify export/print functionality:
-- Files contain correct and complete data
+    - Files contain correct and complete data
+
 **P0** Test dashboard accuracy:
-- Compare graphs vs attendance logs
+    - Compare graphs vs attendance logs
+
 **P0** Validate button functionality across all modules
+
 **P1** Test pagination behavior:
-- Correct page counts and data consistency
+    - Correct page counts and data consistency
+
 **P1** Verify search functionality (correct filtering fields)
+
 **P1** Regression testing across all modules after fixes
+
 **P2** Cross-browser testing (Chrome, Edge, Opera, Brave)
+
+--- 
 
 
 ### Administrative Team (HR/Admin/Payroll Operations) — Task Backlog (Priority-Ordered)  
