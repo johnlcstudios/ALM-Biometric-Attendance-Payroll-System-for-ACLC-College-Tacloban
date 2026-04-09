@@ -2,6 +2,13 @@
 // api.php - Core Backend Logic
 header('Content-Type: application/json');
 
+// ============================================================================
+// P1 TIMEZONE STANDARDIZATION
+// ============================================================================
+// Set default server timezone - critical for all timestamp operations
+// This ensures all date(), time(), and strtotime() operations use the correct timezone
+date_default_timezone_set('UTC');
+
 // Biometric Constants
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
@@ -15,6 +22,87 @@ try {
 }
 
 $action = $_GET['action'] ?? '';
+
+/**
+ * Get current UTC timestamp for consistent database storage
+ * All timestamps in database should be stored in UTC
+ * @return string Current timestamp in ISO 8601 format (UTC)
+ */
+function getCurrentUTCTimestamp() {
+    return date('Y-m-d H:i:s', time());
+}
+
+/**
+ * Convert UTC timestamp to company-specific timezone for display
+ * @param string $utcTimestamp UTC timestamp (Y-m-d H:i:s format)
+ * @param string $timezone Timezone to convert to (e.g., 'Asia/Manila')
+ * @return string Formatted time in the target timezone
+ */
+function convertUTCToTimezone($utcTimestamp, $timezone = 'UTC') {
+    try {
+        $utcDate = new DateTime($utcTimestamp, new DateTimeZone('UTC'));
+        $utcDate->setTimezone(new DateTimeZone($timezone));
+        return $utcDate->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        return $utcTimestamp; // Return original if conversion fails
+    }
+}
+
+/**
+ * Convert any timezone timestamp to UTC for database storage
+ * @param string $timestamp Timestamp in any format
+ * @param string $timezone Timezone of the input timestamp
+ * @return string UTC timestamp in Y-m-d H:i:s format
+ */
+function convertTimestampToUTC($timestamp, $timezone = 'UTC') {
+    try {
+        $dt = new DateTime($timestamp, new DateTimeZone($timezone));
+        $dt->setTimezone(new DateTimeZone('UTC'));
+        return $dt->format('Y-m-d H:i:s');
+    } catch (Exception $e) {
+        return getCurrentUTCTimestamp(); // Return current UTC if conversion fails
+    }
+}
+
+/**
+ * Get current server time with company timezone awareness
+ * Returns both UTC for storage and timezone-adjusted for display
+ * @param int $companyId Optional company ID to fetch timezone
+ * @param mysqli|PDO $dbConnection Optional database connection for company lookup
+ * @return array {utc: string, display: string, date: string, time: string, timezone: string}
+ */
+function getServerTime($companyId = null, $dbConnection = null) {
+    global $pdo;
+    
+    $timezone = 'UTC'; // Default to UTC
+    
+    // Fetch company timezone if provided
+    if ($companyId && ($dbConnection || isset($pdo))) {
+        try {
+            $db = $dbConnection ?? $pdo;
+            $stmt = $db->prepare("SELECT timezone FROM companies WHERE id = ?");
+            $stmt->execute([$companyId]);
+            $result = $stmt->fetchColumn();
+            if ($result) $timezone = $result;
+        } catch (Exception $e) {
+            // Default to UTC on error
+        }
+    }
+    
+    $utcNow = new DateTime('now', new DateTimeZone('UTC'));
+    $displayNow = clone $utcNow;
+    $displayNow->setTimezone(new DateTimeZone($timezone));
+    
+    return [
+        'utc' => $utcNow->format('Y-m-d H:i:s'),
+        'display' => $displayNow->format('Y-m-d H:i:s'),
+        'date' => $displayNow->format('Y-m-d'),
+        'time' => $displayNow->format('H:i:s'),
+        'display_time' => $displayNow->format('h:i A'),
+        'timezone' => $timezone,
+        'server_ms' => (int)round(microtime(true) * 1000)
+    ];
+}
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR() {
@@ -107,7 +195,12 @@ try {
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
+                
+                // P1: Set company timezone in session - ensures all subsequent operations use this timezone
                 $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
+                // Apply timezone immediately so all operations use the correct timezone
+                date_default_timezone_set($_SESSION['company_timezone']);
+                
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
@@ -391,7 +484,8 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $category_id = $data['category_id'];
             $override_amount = $data['override_amount'] ?: null;
-            $effective_date = $data['effective_date'] ?: date('Y-m-d');
+            // P1: Use server-time helper instead of raw date() call
+            $effective_date = $data['effective_date'] ?: getServerTime($_SESSION['company_id'], $pdo)['date'];
             
             $pdo->beginTransaction();
             try {
@@ -441,7 +535,8 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $deduction_id = $data['deduction_id'];
             $override_amount = $data['override_amount'] ?: null;
-            $effective_date = $data['effective_date'] ?: date('Y-m-d');
+            // P1: Use server-time helper instead of raw date() call
+            $effective_date = $data['effective_date'] ?: getServerTime($_SESSION['company_id'], $pdo)['date'];
             
             $pdo->beginTransaction();
             try {
@@ -738,6 +833,12 @@ try {
                  break;
             }
 
+            // P1: Fetch company timezone and set it for this operation
+            $stmt_company_tz = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
+            $stmt_company_tz->execute([$company_id]);
+            $company_tz = $stmt_company_tz->fetchColumn() ?: 'UTC';
+            date_default_timezone_set($company_tz);
+
             // Fetch company-specific biometric thresholds
             $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
@@ -801,30 +902,31 @@ try {
             $match_percentage = max(0, round(100 - ($best_distance * 125), 2));
             $employee_id = $best_match['id'];
 
-            // Use provided scan time from kiosk if available, else use current server time
+            // P1: TIMEZONE STANDARDIZATION - Convert client time to server timezone
+            // Client may send time from different timezone, convert to company timezone
             $scan_time_input = $data['scan_time'] ?? null;
             
-            // Set company-specific timezone if available
-            $cid_for_tz = $company_id ?? $_SESSION['company_id'] ?? null;
-            if ($cid_for_tz) {
-                $stmt_tz = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
-                $stmt_tz->execute([$cid_for_tz]);
-                $company_tz = $stmt_tz->fetchColumn();
-                if ($company_tz) date_default_timezone_set($company_tz);
-            }
-
             if ($scan_time_input) {
                 try {
                     $dt = new DateTime($scan_time_input);
-                    // Ensure the timezone is correctly handled if the client sent an ISO string
-                    $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                    // Ensure the timezone is correctly handled
+                    // If client sent an ISO string, try to parse timezone info
+                    if (strpos($scan_time_input, '+') !== false || strpos($scan_time_input, 'Z') !== false) {
+                        // ISO 8601 with timezone - good, just convert to company timezone
+                        $dt->setTimezone(new DateTimeZone($company_tz));
+                    } else {
+                        // No timezone info - assume client sent local time, treat as company timezone
+                        $dt = new DateTime($scan_time_input, new DateTimeZone($company_tz));
+                    }
                     $date = $dt->format('Y-m-d');
                     $time = $dt->format('H:i:s');
                 } catch (Exception $e) {
+                    // If parsing fails, use server time
                     $date = date('Y-m-d');
                     $time = date('H:i:s');
                 }
             } else {
+                // No client time provided, use server time
                 $date = date('Y-m-d');
                 $time = date('H:i:s');
             }
@@ -1327,7 +1429,8 @@ try {
         case 'get_dashboard_stats':
             if (!isset($_SESSION['company_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $cid = $_SESSION['company_id'];
-            $today = date('Y-m-d');
+            // P1: Use server-time helper to get today's date in correct timezone
+            $today = getServerTime($cid, $pdo)['date'];
             $stats = [];
             
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM employees WHERE company_id = ?");
@@ -1530,20 +1633,9 @@ try {
 
         case 'get_server_time':
             $cid = $_GET['company_id'] ?? $_SESSION['company_id'] ?? null;
-            if ($cid) {
-                $stmt = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
-                $stmt->execute([$cid]);
-                $tz = $stmt->fetchColumn();
-                if ($tz) date_default_timezone_set($tz);
-            }
-            $server_ms = (int) round(microtime(true) * 1000);
-            echo json_encode([
-                'server_ms' => $server_ms,
-                'date' => date('Y-m-d'),
-                'time' => date('H:i:s'),
-                'display_time' => date('h:i A'),
-                'timezone' => date_default_timezone_get()
-            ]);
+            // P1: Use new timezone-aware server-time helper function
+            $serverTime = getServerTime($cid, $pdo);
+            echo json_encode($serverTime);
             break;
 
         default:
