@@ -1711,6 +1711,135 @@ function viewFacultyLoads(empId) {
     openModal('viewLoadsModal');
 }
 
+async function deleteSubjectLoad(id) {
+    if (confirm('Are you sure you want to delete this subject load?')) {
+        try {
+            const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
+            const result = await response.json();
+            if (result.success) {
+                showToast('Subject load deleted successfully', 'success');
+                await fetchData('employees'); // Refresh since it can affect modals
+            } else {
+                showToast('Error: ' + result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to connect to the server.', 'error');
+        }
+    }
+}
+
+async function saveSubjectLoad() {
+    const form = document.getElementById('subjectLoadForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        faculty_id: document.getElementById('loadFacultyId').value,
+        code: document.getElementById('loadSubjectCode').value,
+        description: document.getElementById('loadDescription').value,
+        units: document.getElementById('loadUnits').value,
+        hours: document.getElementById('loadHours').value
+    };
+
+    try {
+        const response = await fetch('backend/api.php?action=save_subject_load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            closeModal('addLoadModal');
+            document.getElementById('subjectLoadForm').reset();
+            showToast('Subject load saved successfully!', 'success');
+            fetchData('employees');
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Failed to connect to the server.', 'error');
+    }
+}
+
+function openAddSubjectModal() {
+    document.getElementById('masterSubjectForm').reset();
+    document.getElementById('subjectId').value = '';
+    document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
+    openModal('subjectModal');
+}
+
+function editMasterSubject(id) {
+    const subject = masterSubjects.find(s => s.id == id);
+    if (!subject) return;
+
+    document.getElementById('subjectId').value = subject.id;
+    document.getElementById('subjectCode').value = subject.code;
+    document.getElementById('subjectDescription').value = subject.description;
+    document.getElementById('subjectUnits').value = subject.units;
+    document.getElementById('subjectHours').value = subject.hours;
+
+    document.getElementById('subjectModalTitle').innerText = 'Edit Subject';
+    openModal('subjectModal');
+}
+
+async function deleteMasterSubject(id) {
+    if (confirm('Are you sure you want to delete this subject?')) {
+        try {
+            const response = await fetch(`backend/api.php?action=delete_subject&id=${id}`);
+            const result = await response.json();
+            if (result.success) {
+                showToast('Subject deleted successfully', 'success');
+                fetchData('subject_loads');
+            } else {
+                showToast('Error: ' + result.message, 'error');
+            }
+        } catch (error) {
+            showToast('Failed to connect to the server.', 'error');
+        }
+    }
+}
+
+async function saveMasterSubject() {
+    const form = document.getElementById('masterSubjectForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        id: document.getElementById('subjectId').value,
+        code: document.getElementById('subjectCode').value,
+        description: document.getElementById('subjectDescription').value,
+        units: document.getElementById('subjectUnits').value,
+        hours: document.getElementById('subjectHours').value
+    };
+
+    try {
+        const response = await fetch('backend/api.php?action=save_subject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            closeModal('subjectModal');
+            document.getElementById('masterSubjectForm').reset();
+            document.getElementById('subjectId').value = '';
+            document.getElementById('subjectModalTitle').innerText = 'Create New Subject';
+            showToast('Subject saved successfully!', 'success');
+            fetchData('subject_loads');
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Failed to connect to the server.', 'error');
+    }
+}
+
 // --- Biometrics Enrollment ---
 let enrolledFaceMatcher = null;
 const faceManager = new FaceManager({ 
