@@ -34,7 +34,8 @@
         <div class="control-group">
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="attendanceSearch" placeholder="Search by name or ID..." oninput="filterTable(this, 'attendanceTable')">
+                <input type="text" id="attendanceSearch" placeholder="Search by name or ID..." oninput="attendanceFilter(this)">
+
             </div>
         </div>
         <div class="control-group right">
