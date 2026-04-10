@@ -52,7 +52,7 @@
                     </div>
                     
                     <div class="form-group-custom">
-                        <label>Deduction Types</label>
+                        <label>Allowance Types</label>
                         <div class="selection-box-gray" id="allowanceTypesList">
                         </div>
                     </div>

@@ -1,27 +1,41 @@
 <section id="biometrics" class="page">
     <div class="biometrics-container">
-        <div class="enrollment-controls">
+        <div class="registration-controls">
             <h3>Face Registration</h3>
-            <p>Select an employee to link biometric data.</p>
+            <div class="instruction-box box-type">
+                <p><strong>How to Register:</strong></p>
+                <ul>
+                    <li>Select an employee from the list.</li>
+                    <li>Ensure good lighting and remove glasses/masks.</li>
+                    <li>Hold still when the indicator turns green.</li>
+                </ul>
+            </div>
+            
             <div class="form-group">
-                <label>Employee Name</label>
-                <select id="enrollEmployeeSelect" class="form-control">
-                    <option value="">Select Employee...</option>
+                <label>Target Employee</label>
+                <select id="regEmployeeSelect" class="form-control">
+                    <option value="">Choose Employee...</option>
                 </select>
             </div>
-            <button id="startEnrollBtn" class="btn btn-primary" onclick="initFaceEnrollment()">
-                <i class="fas fa-camera"></i> Start Camera
-            </button>
-            <button id="captureBtn" class="btn btn-success" style="display:none;" onclick="saveFaceEnrollment()">
-                <i class="fas fa-user-plus"></i> Capture & Save
-            </button>
+
+            <div class="action-buttons-group">
+                <button id="startRegBtn" class="btn btn-primary btn-lg" onclick="initFaceRegistration()">
+                    <i class="fas fa-camera"></i> Start Registration
+                </button>
+                <button id="captureBtn" class="btn btn-success btn-lg" style="display:none;" onclick="saveFaceRegistration()">
+                    <i class="fas fa-user-plus"></i> Manual Capture
+                </button>
+            </div>
         </div>
         <div class="camera-preview">
             <video id="video" autoplay muted style="transform: scaleX(-1);"></video>
             <canvas id="overlay" style="transform: scaleX(-1);"></canvas>
             <div id="camera-placeholder">
-                <i class="fas fa-camera-retro"></i>
-                <p>Camera Preview Not Started</p>
+                <div class="placeholder-content">
+                    <i class="fas fa-video-slash"></i>
+                    <p>Camera is currently inactive</p>
+                    <small>Select an employee and click "Start Registration"</small>
+                </div>
             </div>
         </div>
     </div>
