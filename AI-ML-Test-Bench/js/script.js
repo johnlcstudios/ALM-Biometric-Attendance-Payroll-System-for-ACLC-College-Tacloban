@@ -113,18 +113,6 @@ async function fetchData(specificPage = null) {
     const page = specificPage || urlParams.get('page') || 'dashboard';
 
     try {
-        const fetchJSON = async (url) => {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const text = await res.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                console.error("Malformed JSON from " + url + ":", text);
-                return null;
-            }
-        };
-
         const getArray = (data) => Array.isArray(data) ? data : [];
         
         // Always fetch employees as they are used globally

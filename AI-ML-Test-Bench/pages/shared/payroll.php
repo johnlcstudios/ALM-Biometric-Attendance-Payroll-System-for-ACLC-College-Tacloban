@@ -4,24 +4,16 @@
             <h2>Payroll History</h2>
             <p>View and manage past payroll disbursements and processing runs.</p>
         </div>
-        <div class="header-right" style="display: flex; gap: 10px;">
+<div class="header-right" style="display: flex; gap: 10px;">
             <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle">
-                    <i class="fas fa-print"></i> Print Report
+                <button class="btn btn-secondary dropdown-toggle" onclick="printPayrollHistory(); return false;">
+                    <i class="fas fa-print"></i> Print Payroll History
                 </button>
-                <div class="dropdown-content">
-                    <a href="#" onclick="printSpecializedPayroll('facultyPayrollTable', 'FACULTY PAYROLL')">Faculty Payroll</a>
-                    <a href="#" onclick="printSpecializedPayroll('utilityPayrollTable', 'UTILITY PAYROLL')">Utility Payroll</a>
-                </div>
             </div>
             <div class="dropdown">
-                <button class="btn btn-success dropdown-toggle">
-                    <i class="fas fa-download"></i> Export Excel
+                <button class="btn btn-success dropdown-toggle" onclick="exportPayrollHistory(); return false;">
+                    <i class="fas fa-download"></i> Export Payroll History
                 </button>
-                <div class="dropdown-content">
-                    <a href="#" onclick="exportFacultyPayroll()">Faculty Payroll</a>
-                    <a href="#" onclick="exportUtilityPayroll()">Utility Payroll</a>
-                </div>
             </div>
             <button class="btn-process-payroll" onclick="showPayrollModal()">
                 + Process New Payroll
