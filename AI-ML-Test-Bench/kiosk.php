@@ -293,42 +293,46 @@
         .selection-card h2 {
             color: var(--primary-blue);
             margin-bottom: 2rem;
-            font-size: 2rem;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
         .company-list {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.2rem;
             max-height: 400px;
             overflow-y: auto;
             padding: 10px;
         }
 
         .company-item {
-            padding: 1.2rem;
-            background: #f0f0f0;
-            border-radius: 16px;
+            padding: 1.4rem;
+            background: #f8f9fa;
+            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 700;
             color: var(--primary-blue);
-            border: 2px solid transparent;
+            border: 2px solid #e9ecef;
         }
 
         .company-item:hover {
-            background: var(--primary-blue);
-            color: white;
-            transform: translateY(-2px);
+            background: white;
+            color: var(--primary-blue);
+            transform: translateY(-3px);
+            border-color: var(--primary-blue);
+            box-shadow: 0 10px 20px rgba(30, 1, 120, 0.1);
         }
 
         .change-company-btn {
             position: fixed;
             top: 20px;
             left: 20px;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(191, 31, 31, 0.2);
             border: none;
-            color: white;
+            color: #372222;
             padding: 10px 20px;
             border-radius: 30px;
             cursor: pointer;
@@ -338,7 +342,19 @@
         }
 
         .change-company-btn:hover {
-            background: rgba(255, 255, 255, 0.4);
+            background: var(--primary-blue);
+            color: white;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(30, 1, 120, 0.3);
+        }
+
+        .change-company-btn i {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .change-company-btn:hover i {
+            opacity: 1;
         }
 
         /* New Responsive Design */
