@@ -1217,6 +1217,68 @@ tr:last-child td {
 }
 
 /* Biometrics Camera Area */
+/* Biometrics Styling */
+.instruction-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.instruction-box.box-type {
+    background: #eef2ff;
+    border: 2px solid #c7d2fe;
+    position: relative;
+    padding-left: 3rem;
+}
+
+.instruction-box.box-type::before {
+    content: "\f129";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 1rem;
+    top: 1.25rem;
+    color: var(--primary-color);
+    font-size: 1.25rem;
+}
+
+.instruction-box p {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.instruction-box ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.instruction-box li {
+    position: relative;
+    padding-left: 1.25rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.instruction-box li::before {
+    content: "\f00c";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    color: var(--success-color);
+    font-size: 0.75rem;
+}
+
 .biometrics-container {
     display: grid;
     grid-template-columns: 350px 1fr;

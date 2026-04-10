@@ -657,7 +657,7 @@ try {
             echo json_encode(['success' => true]);
             break;
 
-        case 'get_enrolled_faces':
+        case 'get_registered_faces':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
             $stmt->execute([$_SESSION['company_id']]);
@@ -665,7 +665,7 @@ try {
             echo json_encode(['success' => true, 'faces' => $faces]);
             break;
 
-        case 'save_face_descriptor':
+        case 'save_face_registration':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['id']) || empty($data['descriptor'])) {
@@ -680,11 +680,11 @@ try {
 
             $new_descriptor = array_map('floatval', $data['descriptor']);
             foreach ($existing_faces as $face) {
-                $enrolled_descriptor = json_decode($face['face_descriptor'], true);
-                if (is_array($enrolled_descriptor) && count($enrolled_descriptor) === 128) {
+                $registered_descriptor = json_decode($face['face_descriptor'], true);
+                if (is_array($registered_descriptor) && count($registered_descriptor) === 128) {
                     $sum = 0;
                     for ($i = 0; $i < 128; $i++) {
-                        $diff = $new_descriptor[$i] - (float)$enrolled_descriptor[$i];
+                        $diff = $new_descriptor[$i] - (float)$registered_descriptor[$i];
                         $sum += $diff * $diff;
                     }
                     $distance = sqrt($sum);
@@ -750,10 +750,10 @@ try {
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
 
-            // Fetch active enrolled faces for this company
+            // Fetch active registered faces for this company
             $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
             $stmt_faces->execute([$company_id]);
-            $enrolled_faces = $stmt_faces->fetchAll();
+            $registered_faces = $stmt_faces->fetchAll();
 
             $best_match = null;
             $best_distance = 999;
@@ -761,12 +761,12 @@ try {
             
             $input_desc = array_map('floatval', $descriptor);
 
-            foreach ($enrolled_faces as $face) {
-                $enrolled_desc = json_decode($face['face_descriptor'], true);
-                if (is_array($enrolled_desc) && count($enrolled_desc) === 128) {
+            foreach ($registered_faces as $face) {
+                $registered_desc = json_decode($face['face_descriptor'], true);
+                if (is_array($registered_desc) && count($registered_desc) === 128) {
                     $sum = 0;
                     for ($i = 0; $i < 128; $i++) {
-                        $diff = $input_desc[$i] - (float)$enrolled_desc[$i];
+                        $diff = $input_desc[$i] - (float)$registered_desc[$i];
                         $sum += $diff * $diff;
                     }
                     
@@ -1263,7 +1263,7 @@ try {
                 $stmt = $pdo->prepare("INSERT INTO deductions (company_id, name, type, value, is_active, is_government) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['value'], $data['is_active'], $data['is_government']]);
             }
-            echo json_encode(['success' => true]);
+            echo json_encode(['success' => true, 'message' => 'Deduction category saved successfully']);
             break;
 
         case 'delete_deduction':
@@ -1271,7 +1271,7 @@ try {
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            echo json_encode(['success' => true, 'message' => 'Deduction category deleted']);
             break;
 
         case 'save_settings':

@@ -1,6 +1,6 @@
 /**
  * FaceManager - A robust utility for Face Recognition using face-api.js
- * Redesigned for production-ready enrollment and kiosk scanning.
+ * Redesigned for production-ready registration and kiosk scanning.
  */
 class FaceManager {
     constructor(config = {}) {
