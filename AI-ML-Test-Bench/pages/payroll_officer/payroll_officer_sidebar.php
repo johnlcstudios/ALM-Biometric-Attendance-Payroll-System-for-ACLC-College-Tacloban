@@ -16,7 +16,7 @@
             <i class="fas fa-users"></i> <span>Employees</span>
         </button>
         <button class="nav-btn <?php echo $page === 'biometrics' ? 'active' : ''; ?>" data-page="biometrics" onclick="window.location.href='index.php?page=biometrics'">
-            <i class="fas fa-id-card"></i> <span>Face Enrollment</span>
+            <i class="fas fa-id-card"></i> <span>Face Registration</span>
         </button>
         <button class="nav-btn <?php echo $page === 'attendance' ? 'active' : ''; ?>" data-page="attendance" onclick="window.location.href='index.php?page=attendance'">
             <i class="fas fa-calendar-alt"></i> <span>Attendance Logs</span>
