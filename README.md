@@ -114,7 +114,7 @@ If others pushed while you were working, pull before you push:
 ```bash
 git pull origin Frontend
 ```
-Resolve any conflicts, then push again.
+Resolve any conflicts by entering rebase ```bash git rebase ``` and check files to accept current and incomming changes, then push again.
 
 ### **8️⃣ Create Pull Request (When Ready to Merge to `main`)**
 1. Go to GitHub → **Pull requests** → **New pull request**
