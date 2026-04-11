@@ -105,6 +105,18 @@ function filterTable(input, tableId) {
 }
 
 // --- Data Fetching ---
+const fetchJSON = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Malformed JSON from " + url + ":", text);
+        return null;
+    }
+};
+
 async function fetchData(specificPage = null) {
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
