@@ -9,9 +9,9 @@ define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
 
 try {
     require_once 'db.php';
-    require_once 'api_helpers.php';
 } catch (Exception $e) {
-    apiError('Database connection failed: ' . $e->getMessage(), [], 500);
+    echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
+    exit;
 }
 
 $action = $_GET['action'] ?? '';
@@ -72,6 +72,17 @@ function validateDateRange($startDate, $endDate) {
         $errors[] = 'Start date cannot be after end date';
     }
     return $errors;
+}
+
+function rejectInvalidPayload($errors) {
+    if (!empty($errors)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $errors
+        ]);
+        exit;
+    }
 }
 
 try {
@@ -341,7 +352,6 @@ try {
             break;
 
         case 'get_employee_allowances':
-        case 'get_allowance_breakdown':
             if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
@@ -1110,16 +1120,9 @@ try {
 
                     $net_pay = $earned_pay - $total_deductions;
 
-                    $payroll_type = 'General';
-                    if ($category === 'Faculty' || $emp['position'] === 'Faculty') {
-                        $payroll_type = 'Faculty';
-                    } elseif ($category === 'Utility' || $emp['position'] === 'Utility') {
-                        $payroll_type = 'Utility';
-                    }
-
                     $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', ?)");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $payroll_type]);
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
