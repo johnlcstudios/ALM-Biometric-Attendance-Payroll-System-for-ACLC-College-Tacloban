@@ -9,9 +9,9 @@ define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
 
 try {
     require_once 'db.php';
+    require_once 'api_helpers.php';
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
-    exit;
+    apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
 
 $action = $_GET['action'] ?? '';
@@ -72,17 +72,6 @@ function validateDateRange($startDate, $endDate) {
         $errors[] = 'Start date cannot be after end date';
     }
     return $errors;
-}
-
-function rejectInvalidPayload($errors) {
-    if (!empty($errors)) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Validation failed',
-            'errors' => $errors
-        ]);
-        exit;
-    }
 }
 
 try {

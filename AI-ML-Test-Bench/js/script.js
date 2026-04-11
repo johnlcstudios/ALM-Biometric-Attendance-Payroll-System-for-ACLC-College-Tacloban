@@ -105,6 +105,18 @@ function filterTable(input, tableId) {
 }
 
 // --- Data Fetching ---
+const fetchJSON = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Malformed JSON from " + url + ":", text);
+        return null;
+    }
+};
+
 async function fetchData(specificPage = null) {
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
@@ -177,16 +189,40 @@ function stopRegistrationCamera() {
     }
     
     const video = document.getElementById('video');
+    const canvas = document.getElementById('overlay');
     if (video) video.srcObject = null;
     
+    // Clear the canvas explicitly
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
     const placeholder = document.getElementById('camera-placeholder');
-    if (placeholder) placeholder.style.display = 'flex';
+    if (placeholder) {
+        placeholder.style.display = 'flex';
+        // Reset placeholder text to default state
+        const p = placeholder.querySelector('p');
+        const small = placeholder.querySelector('small');
+        const icon = placeholder.querySelector('i');
+        if (p) p.innerText = "Camera is currently inactive";
+        if (small) small.innerText = 'Select an employee and click "Start Registration"';
+        if (icon) icon.className = "fas fa-video-slash";
+    }
     
     const startBtn = document.getElementById('startRegBtn');
-    if (startBtn) startBtn.style.display = 'inline-block';
+    if (startBtn) {
+        startBtn.style.display = 'inline-block';
+        startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Registration';
+        startBtn.disabled = false;
+    }
     
     const captureBtn = document.getElementById('captureBtn');
-    if (captureBtn) captureBtn.style.display = 'none';
+    if (captureBtn) {
+        captureBtn.style.display = 'none';
+        captureBtn.disabled = false;
+        captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Manual Capture';
+    }
 }
 
 function showPage(pageId) {
@@ -311,6 +347,119 @@ function renderMasterSubjects() {
 }
 
 // --- Reports & Export ---
+
+// Payroll History Print/Export Functions (NEW - Fixes broken buttons)
+async function printPayrollHistory() {
+    const tableRows = document.querySelectorAll("#payrollTableBody tr");
+    if (tableRows.length === 0 || tableRows[0].textContent.includes("No data")) {
+        showToast("No payroll history data available to print.", 'error');
+        return;
+    }
+
+    const totalBatchesEl = document.getElementById('stat-total-batches');
+    const totalDisbursedEl = document.getElementById('stat-total-disbursed');
+    const lastRunEl = document.getElementById('stat-last-run');
+
+    const printWindow = window.open('', '', 'height=800,width=1200');
+    
+    printWindow.document.write('<html><head><title>Payroll History Report</title>');
+    printWindow.document.write('<style>');
+    printWindow.document.write('@page { size: landscape; margin: 10mm; }');
+    printWindow.document.write('body { font-family: "Inter", sans-serif; color: #333; margin: 0; padding: 20px; }');
+    printWindow.document.write('h1 { color: #1e0178; margin-bottom: 5px; font-size: 24px; text-align: center; }');
+    printWindow.document.write('.stats { display: flex; gap: 20px; margin-bottom: 30px; }');
+    printWindow.document.write('.stat { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; flex: 1; }');
+    printWindow.document.write('.stat-label { font-size: 12px; color: #666; }');
+    printWindow.document.write('.stat-value { font-size: 18px; font-weight: bold; color: #1e0178; }');
+    printWindow.document.write('table { width: 100%; border-collapse: collapse; font-size: 11px; }');
+    printWindow.document.write('th { background-color: #1e0178 !important; color: white !important; -webkit-print-color-adjust: exact; padding: 12px 8px; border: 1px solid #444; }');
+    printWindow.document.write('td { border: 1px solid #ddd; padding: 10px 8px; }');
+    printWindow.document.write('tr:nth-child(even) { background-color: #f9f9f9; }');
+    printWindow.document.write('.status-active { color: #27ae60; font-weight: bold; }');
+    printWindow.document.write('</style></head><body>');
+    
+    printWindow.document.write('<h1>PAYROLL HISTORY REPORT</h1>');
+    
+    // Print Stats Summary
+    printWindow.document.write('<div class="stats">');
+    printWindow.document.write(`<div class="stat"><div class="stat-label">Total Batches</div><div class="stat-value">${totalBatchesEl?.textContent || '0'}</div></div>`);
+    printWindow.document.write(`<div class="stat"><div class="stat-label">Total Disbursed</div><div class="stat-value">${totalDisbursedEl?.textContent || '₱0.00'}</div></div>`);
+    printWindow.document.write(`<div class="stat"><div class="stat-label">Last Run</div><div class="stat-value">${lastRunEl?.textContent || '---'}</div></div>`);
+    printWindow.document.write('</div>');
+    
+    // Clone table
+    const table = document.getElementById('payrollTable').cloneNode(true);
+    table.querySelectorAll('button, .btn').forEach(el => el.remove());
+    printWindow.document.write(table.outerHTML);
+    
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    
+    printWindow.onload = () => {
+        printWindow.print();
+    };
+    
+    showToast('Print preview opened. Use browser print dialog to print/save PDF.', 'success');
+}
+
+async function exportPayrollHistory() {
+    const { jsPDF } = window.jspdf;
+    
+    const tableRows = document.querySelectorAll("#payrollTableBody tr");
+    if (tableRows.length === 0 || tableRows[0].textContent.includes("No data")) {
+        showToast("No payroll history data available to export.", 'error');
+        return;
+    }
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const totalBatchesEl = document.getElementById('stat-total-batches');
+    const totalDisbursedEl = document.getElementById('stat-total-disbursed');
+    const lastRunEl = document.getElementById('stat-last-run');
+    
+    // Header
+    doc.setFontSize(18);
+    doc.text('PAYROLL HISTORY SUMMARY', 14, 15);
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-PH')} ${new Date().toLocaleTimeString('en-PH')}`, 14, 25);
+    
+    // Stats
+    doc.setFontSize(10);
+    doc.text(`Total Batches: ${totalBatchesEl?.textContent || '0'} | Total Disbursed: ${totalDisbursedEl?.textContent || '₱0.00'} | Last Run: ${lastRunEl?.textContent || '---'}`, 14, 35);
+
+    // Table data
+    const rows = [];
+    tableRows.forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll('td'));
+        if (cells.length >= 6) {
+            rows.push([
+                cells[0].textContent.trim(),
+                cells[1].textContent.trim(),
+                cells[2].textContent.replace('₱', '').trim(),
+                cells[3].textContent.trim(),
+                cells[4].textContent.trim(),
+                cells[5].textContent.trim()
+            ]);
+        }
+    });
+
+    doc.autoTable({
+        head: [['PAYROLL BATCH', 'PERIOD', 'TOTAL DISBURSED', 'PROCESSING DATE', 'CREATED BY', 'STATUS']],
+        body: rows,
+        startY: 45,
+        styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+        headStyles: { 
+            fillColor: [30, 1, 120], 
+            textColor: 255, 
+            fontStyle: 'bold',
+            halign: 'center'
+        },
+        columnStyles: { 2: { halign: 'right' } }, // Right-align amounts
+        margin: { top: 45 }
+    });
+
+    doc.save(`Payroll_History_${new Date().toISOString().split('T')[0]}.pdf`);
+    showToast('Payroll history exported as PDF!', 'success');
+}// --- Reports & Export ---
 async function exportFacultyPayroll() {
     const { jsPDF } = window.jspdf;
     
@@ -1864,6 +2013,12 @@ async function initFaceRegistration() {
     const placeholder = document.getElementById('camera-placeholder');
     const placeholderText = placeholder.querySelector('p');
     
+    // Reset UI state before starting
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
     placeholder.style.display = 'flex';
     placeholderText.innerText = "Initializing AI Models...";
     
@@ -1939,10 +2094,18 @@ async function saveFaceRegistration() {
         const averagedDescriptor = await faceManager.captureSamples(video, (current, total) => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#27ae60";
-            ctx.font = "bold 24px Inter";
+            ctx.font = "bold 24px Inter, sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, canvas.width/2, canvas.height/2);
+            
+            // Un-mirror the text since the canvas is mirrored via CSS
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, -canvas.width/2, canvas.height/2);
+            ctx.restore();
         });
+
+        // Clear canvas after capture loop finishes
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving Data...';
 
