@@ -1,6 +1,7 @@
 <?php
 
-function apiResponse($payload = null, $success = true, $message = '', $statusCode = 200) {
+function apiResponse($payload = null, $success = true, $message = '', $statusCode = 200)
+{
     if (!headers_sent()) {
         header('Content-Type: application/json');
     }
@@ -24,23 +25,27 @@ function apiResponse($payload = null, $success = true, $message = '', $statusCod
     exit;
 }
 
-function apiSuccess($payload = null, $message = '', $statusCode = 200) {
+function apiSuccess($payload = null, $message = '', $statusCode = 200)
+{
     apiResponse($payload, true, $message, $statusCode);
 }
 
-function apiError($message = 'An error occurred', $errors = [], $statusCode = 400, $payload = null) {
+function apiError($message = 'An error occurred', $errors = [], $statusCode = 400, $payload = null)
+{
     $responsePayload = $payload;
     if (!empty($errors)) {
-        $responsePayload = array_merge((array)$responsePayload, ['errors' => $errors]);
+        $responsePayload = array_merge((array) $responsePayload, ['errors' => $errors]);
     }
     apiResponse($responsePayload, false, $message, $statusCode);
 }
 
-function apiData($data, $message = '', $statusCode = 200) {
+function apiData($data, $message = '', $statusCode = 200)
+{
     apiResponse($data, true, $message, $statusCode);
 }
 
-function rejectInvalidPayload($errors) {
+function rejectInvalidPayload($errors)
+{
     if (!empty($errors)) {
         apiError('Validation failed', $errors, 422);
     }
