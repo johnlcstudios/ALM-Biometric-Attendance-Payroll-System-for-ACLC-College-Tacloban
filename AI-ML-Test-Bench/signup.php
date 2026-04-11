@@ -33,23 +33,10 @@ body {
 /* CARD */
 .login-card {
     width: 450px;
-    padding: 40px;
-
-    /* GLASS EFFECT */
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 15px;
-
-    /* SOFT BORDER + INNER LIGHT */
-    border: 1px solid rgba(255, 255, 255, 0.25);
-
-    /* DEPTH SHADOW */
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.25),
-        inset 0 1px 1px rgba(255, 255, 255, 0.36);
-    
+    padding: 40px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
 /* LOGO */
@@ -58,7 +45,7 @@ body {
     margin: 0 auto 10px auto;
     width: 100px;
     height: 100px;
-    border-radius: 75%;
+    radius: 75%;
 }
 
 /* TITLE */
@@ -80,17 +67,9 @@ body {
 .input-wrapper input {
     width: 100%;
     padding: 12px 40px 12px 15px;
-
     border-radius: 25px;
-    
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255,255,255,0.3);
-
-    color: #fff;
+    border: 1px solid #ccc;
     outline: none;
-
-    backdrop-filter; blur(10px);
-    
 }
 
 .input-wrapper input:focus {
