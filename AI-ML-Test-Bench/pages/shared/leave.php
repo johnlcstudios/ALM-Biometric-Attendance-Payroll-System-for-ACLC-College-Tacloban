@@ -2,13 +2,11 @@
     <?php if (in_array($role, ['Admin', 'HR', 'Payroll Officer'])): ?>
     <div class="payroll-header">
         <div class="header-left">
-            <h2>Leave Request Management</h2>
-            <p>Review and manage employee leave applications.</p>
         </div>
     </div>
     
     <div class="card" style="margin-bottom: 2rem;">
-        <h3>Manage Leave Balances</h3>
+        <h3>Manage Leave Balances</h3> <br>
         <div class="allowance-form-row">
             <select id="leaveBalanceEmployeeSelect" class="form-control-gray">
                 <option value="">Select Employee...</option>
