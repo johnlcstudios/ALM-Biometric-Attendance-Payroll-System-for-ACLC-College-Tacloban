@@ -14,6 +14,7 @@ if (isset($_SESSION['user_id'])) {
     <title>Sign Up - ALM Biometric Attendance</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         * {
@@ -90,8 +91,7 @@ if (isset($_SESSION['user_id'])) {
             color: #fff;
             outline: none;
 
-            backdrop-filter;
-            blur(10px);
+            backdrop-filter: blur(10px);
 
         }
 
@@ -204,7 +204,11 @@ if (isset($_SESSION['user_id'])) {
             const data = Object.fromEntries(formData);
 
             if (data.password !== data.confirm_password) {
-                alert("Passwords do not match!");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'Passwords do not match!'
+                });
                 return;
             }
 
@@ -217,10 +221,19 @@ if (isset($_SESSION['user_id'])) {
             const result = await response.json();
 
             if (result.success) {
-                alert("Registration successful! You can now login.");
-                window.location.href = 'login.php';
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Registration successful! You can now login.'
+                }).then(() => {
+                    window.location.href = 'login.php';
+                });
             } else {
-                alert(result.message || "Registration failed.");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Registration Failed',
+                    text: result.message || "Registration failed."
+                });
             }
         };
     </script>

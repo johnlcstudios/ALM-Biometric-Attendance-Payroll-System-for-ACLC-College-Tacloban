@@ -20,6 +20,7 @@ if (isset($_SESSION['user_id'])) {
 <title>Login - ALM Biometric Attendance</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
 * {
@@ -245,7 +246,11 @@ document.getElementById('loginForm').onsubmit = async (e) => {
             window.location.href = 'ess.php';
         }
     } else {
-        alert(result.message);
+        Swal.fire({
+            icon: 'error',
+            title: 'Login Failed',
+            text: result.message || 'Invalid credentials'
+        });
     }
 };
 </script>
