@@ -173,6 +173,33 @@ function rejectInvalidPayload($errors) {
     }
 }
 
+// AUDIT TRAIL HELPER
+/**
+ * Log an administrative action to the audit_logs table.
+ *
+ * @param string $action      Short action name, e.g. 'signup', 'save_employee'
+ * @param string $description Human-readable description of what was done
+ * @param int|null $targetId  Optional ID of the record that was affected
+ */
+function logAction($action, $description, $targetId = null) {
+    global $pdo;
+    try {
+        $userId    = $_SESSION['user_id']    ?? null;
+        $companyId = $_SESSION['company_id'] ?? null;
+        $username  = $_SESSION['username']   ?? 'system';
+        $ip        = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO audit_logs
+                (company_id, user_id, username, action, description, target_id, ip_address, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
+        );
+        $stmt->execute([$companyId, $userId, $username, $action, $description, $targetId, $ip]);
+    } catch (Exception $e) {
+        error_log('logAction failed: ' . $e->getMessage());
+    }
+}
+
 try {
     switch ($action) {
         case 'login':
@@ -232,6 +259,7 @@ try {
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
 
                 $pdo->commit();
+                logAction('signup', "New company registered: {$company_name}, admin user: {$username}");
                 echo json_encode(['success' => true]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -422,6 +450,7 @@ try {
                     }
                 }
                 $pdo->commit();
+                logAction('run_specialized_payroll', ucfirst($type) . " payroll processed for period: {$period} (" . count($employees) . " employees)")
                 echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully', 'period' => $period]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -619,6 +648,7 @@ try {
             if ($success) {
                 $_SESSION['company_timezone'] = $data['timezone'];
                 $_SESSION['company_name'] = $data['companyName'];
+                logAction('save_settings', "Company settings updated: name={$data['companyName']}, timezone={$data['timezone']}");
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Database update failed']);
@@ -674,6 +704,7 @@ try {
                     $data['id'], 
                     $_SESSION['company_id']
                 ]);
+                logAction('save_employee', "Employee updated: {$data['fullName']} (ID: {$data['id']})", (int)$data['id']);
             } else {
                 // Create new employee
                 $pdo->beginTransaction();
@@ -734,6 +765,7 @@ try {
                     }
 
                     $pdo->commit();
+                    logAction('save_employee', "New employee created: {$data['fullName']} ({$emp_id})", $new_emp_id);
                 } catch (Exception $e) {
                     $pdo->rollBack();
                     exit(json_encode(['success' => false, 'message' => $e->getMessage()]));
@@ -747,8 +779,17 @@ try {
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
+            // Fetch name before deletion for a meaningful audit entry
+            $stmt_name = $pdo->prepare("SELECT full_name, employee_id FROM employees WHERE id = ? AND company_id = ?");
+            $stmt_name->execute([$id, $_SESSION['company_id']]);
+            $emp_info = $stmt_name->fetch();
+
             $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
+
+            $label = $emp_info ? "{$emp_info['full_name']} ({$emp_info['employee_id']})" : "ID {$id}";
+            logAction('delete_employee', "Employee deleted: {$label}", (int)$id);
+
             echo json_encode(['success' => true]);
             break;
 
@@ -1228,6 +1269,7 @@ try {
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
+                logAction('run_payroll', "General payroll run for {$cat_msg}, period: {$period} (" . count($employees) . " employees)");
                 echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period run successfully."]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -1423,6 +1465,7 @@ try {
             
             $_SESSION['company_name'] = $data['companyName'];
             $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
+            logAction('save_settings', "Company settings updated: name={$data['companyName']}, timezone={$data['timezone']}");
             echo json_encode(['success' => true]);
             break;
 
@@ -1638,6 +1681,20 @@ try {
             echo json_encode($serverTime);
             break;
 
+        case 'get_audit_logs':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $limit  = max(1, min(500, (int)($_GET['limit'] ?? 100)));
+            $offset = max(0, (int)($_GET['offset'] ?? 0));
+            $stmt = $pdo->prepare(
+                "SELECT * FROM audit_logs
+                  WHERE company_id = ?
+                  ORDER BY created_at DESC
+                  LIMIT ? OFFSET ?"
+            );
+            $stmt->execute([$_SESSION['company_id'], $limit, $offset]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
+            break;
+            
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
             break;
