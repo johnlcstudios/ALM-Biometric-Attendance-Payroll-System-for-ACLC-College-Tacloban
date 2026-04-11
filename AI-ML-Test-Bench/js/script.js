@@ -105,6 +105,18 @@ function filterTable(input, tableId) {
 }
 
 // --- Data Fetching ---
+const fetchJSON = async (url) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Malformed JSON from " + url + ":", text);
+        return null;
+    }
+};
+
 async function fetchData(specificPage = null) {
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
@@ -177,16 +189,40 @@ function stopRegistrationCamera() {
     }
     
     const video = document.getElementById('video');
+    const canvas = document.getElementById('overlay');
     if (video) video.srcObject = null;
     
+    // Clear the canvas explicitly
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
     const placeholder = document.getElementById('camera-placeholder');
-    if (placeholder) placeholder.style.display = 'flex';
+    if (placeholder) {
+        placeholder.style.display = 'flex';
+        // Reset placeholder text to default state
+        const p = placeholder.querySelector('p');
+        const small = placeholder.querySelector('small');
+        const icon = placeholder.querySelector('i');
+        if (p) p.innerText = "Camera is currently inactive";
+        if (small) small.innerText = 'Select an employee and click "Start Registration"';
+        if (icon) icon.className = "fas fa-video-slash";
+    }
     
     const startBtn = document.getElementById('startRegBtn');
-    if (startBtn) startBtn.style.display = 'inline-block';
+    if (startBtn) {
+        startBtn.style.display = 'inline-block';
+        startBtn.innerHTML = '<i class="fas fa-camera"></i> Start Registration';
+        startBtn.disabled = false;
+    }
     
     const captureBtn = document.getElementById('captureBtn');
-    if (captureBtn) captureBtn.style.display = 'none';
+    if (captureBtn) {
+        captureBtn.style.display = 'none';
+        captureBtn.disabled = false;
+        captureBtn.innerHTML = '<i class="fas fa-user-plus"></i> Manual Capture';
+    }
 }
 
 function showPage(pageId) {
@@ -1864,6 +1900,12 @@ async function initFaceRegistration() {
     const placeholder = document.getElementById('camera-placeholder');
     const placeholderText = placeholder.querySelector('p');
     
+    // Reset UI state before starting
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
     placeholder.style.display = 'flex';
     placeholderText.innerText = "Initializing AI Models...";
     
@@ -1939,10 +1981,18 @@ async function saveFaceRegistration() {
         const averagedDescriptor = await faceManager.captureSamples(video, (current, total) => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#27ae60";
-            ctx.font = "bold 24px Inter";
+            ctx.font = "bold 24px Inter, sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, canvas.width/2, canvas.height/2);
+            
+            // Un-mirror the text since the canvas is mirrored via CSS
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.fillText(`CAPTURING SAMPLE ${current}/${total}...`, -canvas.width/2, canvas.height/2);
+            ctx.restore();
         });
+
+        // Clear canvas after capture loop finishes
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (captureBtn) captureBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Saving Data...';
 
