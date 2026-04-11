@@ -49,35 +49,22 @@ window.onclick = (event) => {
 };
 
 function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
 
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.style.cssText = `
-        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: slideIn 0.3s ease-out;
-        font-weight: 500;
-        min-width: 250px;
-    `;
-
-    const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
-    toast.innerHTML = `<i class="fas fa-${icon}"></i> <span>${escapeHTML(message)}</span>`;
-
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease-in forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    Toast.fire({
+        icon: type,
+        title: message
+    });
 }
 
 // Add keyframes for animations if not in CSS
@@ -558,7 +545,7 @@ async function printSpecializedPayroll(tableId, title) {
 
     const period = document.getElementById(periodId).innerText;
     if (period === '---') {
-        return alert("No payroll data available to print.");
+        return showToast("No payroll data available to print.", 'error');
     }
 
     const printWindow = window.open('', '', 'height=800,width=1200');
@@ -668,7 +655,18 @@ function onLoadSubjectChange(subjectId) {
 
 async function resetPassword(userId) {
     if (!userId) return showToast('This employee does not have a user account.', 'error');
-    if (confirm("Are you sure you want to reset this employee's password to 'welcome123'?")) {
+    
+    const confirmResult = await Swal.fire({
+        title: 'Reset Password?',
+        text: "Are you sure you want to reset this employee's password to 'welcome123'?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#1e0178',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, reset it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
@@ -705,11 +703,24 @@ function editEmployee(id) {
 }
 
 async function deleteEmployee(id) {
-    if (confirm(`Are you sure you want to delete this employee?`)) {
+    const confirmResult = await Swal.fire({
+        title: 'Delete Employee?',
+        text: "Are you sure you want to delete this employee? This action cannot be undone.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_employee&id=${id}`);
         const result = await response.json();
         if (result.success) {
+            showToast('Employee deleted successfully.', 'success');
             fetchData();
+        } else {
+            showToast(result.message || 'Failed to delete employee.', 'error');
         }
     }
 }
@@ -1008,47 +1019,87 @@ function formatTime(timeStr) {
 
 // --- Specialized Payroll ---
 async function showRunFacultyPayroll() {
-    const start = prompt("Enter Cut-off Start (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!start) return;
-    const end = prompt("Enter Cut-off End (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!end) return;
+    const { value: formValues } = await Swal.fire({
+        title: 'Run Faculty Payroll',
+        html:
+            '<label>Cut-off Start</label><input id="swal-input1" class="swal2-input" type="date" value="' + new Date().toISOString().split('T')[0] + '">' +
+            '<label>Cut-off End</label><input id="swal-input2" class="swal2-input" type="date" value="' + new Date().toISOString().split('T')[0] + '">',
+        focusConfirm: false,
+        preConfirm: () => {
+            return [
+                document.getElementById('swal-input1').value,
+                document.getElementById('swal-input2').value
+            ]
+        }
+    });
 
-    if (confirm(`Run Faculty Payroll for ${start} to ${end}?`)) {
-        const response = await fetch('backend/api.php?action=run_specialized_payroll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'faculty', start_date: start, end_date: end })
+    if (formValues) {
+        const [start, end] = formValues;
+        const result = await Swal.fire({
+            title: 'Confirm Action',
+            text: `Run Faculty Payroll for ${start} to ${end}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, run it!'
         });
-        const result = await response.json();
-        alert(result.message);
-        if (result.success) {
-            const period = `${new Date(start).toLocaleDateString('en-US')} - ${new Date(end).toLocaleDateString('en-US')}`;
-            document.getElementById('faculty-payroll-period').innerText = period;
-            document.getElementById('faculty-cutoff-period').innerText = period;
-            loadFacultyPayroll(period);
+
+        if (result.isConfirmed) {
+            const response = await fetch('backend/api.php?action=run_specialized_payroll', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'faculty', start_date: start, end_date: end })
+            });
+            const resultData = await response.json();
+            showToast(resultData.message, resultData.success ? 'success' : 'error');
+            if (resultData.success) {
+                const period = `${new Date(start).toLocaleDateString('en-US')} - ${new Date(end).toLocaleDateString('en-US')}`;
+                document.getElementById('faculty-payroll-period').innerText = period;
+                document.getElementById('faculty-cutoff-period').innerText = period;
+                loadFacultyPayroll(period);
+            }
         }
     }
 }
 
 async function showRunUtilityPayroll() {
-    const start = prompt("Enter Cut-off Start (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!start) return;
-    const end = prompt("Enter Cut-off End (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if (!end) return;
+    const { value: formValues } = await Swal.fire({
+        title: 'Run Utility Payroll',
+        html:
+            '<label>Cut-off Start</label><input id="swal-input1" class="swal2-input" type="date" value="' + new Date().toISOString().split('T')[0] + '">' +
+            '<label>Cut-off End</label><input id="swal-input2" class="swal2-input" type="date" value="' + new Date().toISOString().split('T')[0] + '">',
+        focusConfirm: false,
+        preConfirm: () => {
+            return [
+                document.getElementById('swal-input1').value,
+                document.getElementById('swal-input2').value
+            ]
+        }
+    });
 
-    if (confirm(`Run Utility Payroll for ${start} to ${end}?`)) {
-        const response = await fetch('backend/api.php?action=run_specialized_payroll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'utility', start_date: start, end_date: end })
+    if (formValues) {
+        const [start, end] = formValues;
+        const result = await Swal.fire({
+            title: 'Confirm Action',
+            text: `Run Utility Payroll for ${start} to ${end}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, run it!'
         });
-        const result = await response.json();
-        alert(result.message);
-        if (result.success) {
-            const period = `${new Date(start).toLocaleDateString('en-US')} - ${new Date(end).toLocaleDateString('en-US')}`;
-            document.getElementById('utility-payroll-period').innerText = period;
-            document.getElementById('utility-cutoff-period').innerText = period;
-            loadUtilityPayroll(period);
+
+        if (result.isConfirmed) {
+            const response = await fetch('backend/api.php?action=run_specialized_payroll', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'utility', start_date: start, end_date: end })
+            });
+            const resultData = await response.json();
+            showToast(resultData.message, resultData.success ? 'success' : 'error');
+            if (resultData.success) {
+                const period = `${new Date(start).toLocaleDateString('en-US')} - ${new Date(end).toLocaleDateString('en-US')}`;
+                document.getElementById('utility-payroll-period').innerText = period;
+                document.getElementById('utility-cutoff-period').innerText = period;
+                loadUtilityPayroll(period);
+            }
         }
     }
 }
@@ -1136,7 +1187,17 @@ async function runPayroll() {
     const runBtn = document.querySelector('button[onclick="runPayroll()"]');
     const categoryText = category === 'all' ? 'all employees' : `${category} staff`;
 
-    if (confirm(`Run payroll for ${categoryText} from ${start_date} to ${end_date}?`)) {
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: `Run payroll for ${categoryText} from ${start_date} to ${end_date}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1e0178',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, run it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         if (runBtn) {
             runBtn.disabled = true;
             runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
@@ -1220,22 +1281,36 @@ async function runPayrollDirect(start_date, end_date) {
         body: JSON.stringify({ start_date, end_date })
     });
     const result = await response.json();
-    alert(result.message);
+    showToast(result.message, result.success ? 'success' : 'error');
     fetchData();
 }
 
 function viewBatch(period) {
     const records = payrollHistory.filter(p => p.period === period);
-    if (records.length === 0) return alert("No records found for this batch.");
+    if (records.length === 0) return showToast("No records found for this batch.", 'error');
 
-    let report = `Payroll Details for ${period}\n\n`;
-    report += "Name".padEnd(30) + "Net Pay".padStart(15) + "\n";
-    report += "-".repeat(45) + "\n";
+    let report = `<div style="text-align: left; font-family: monospace;">
+        <p><strong>Payroll Details for ${period}</strong></p>
+        <hr>
+        <div style="display: flex; justify-content: space-between;">
+            <span><strong>Name</strong></span>
+            <span><strong>Net Pay</strong></span>
+        </div>
+        <hr>`;
+    
     records.forEach(r => {
-        report += `${r.full_name.padEnd(30)} ${('₱' + parseFloat(r.net_pay).toLocaleString()).padStart(15)}\n`;
+        report += `<div style="display: flex; justify-content: space-between;">
+            <span>${escapeHTML(r.full_name)}</span>
+            <span>₱${parseFloat(r.net_pay).toLocaleString()}</span>
+        </div>`;
     });
+    report += `</div>`;
 
-    alert(report);
+    Swal.fire({
+        title: 'Batch Report',
+        html: report,
+        confirmButtonColor: '#1e0178'
+    });
 }
 
 // --- Leave ---
@@ -1266,38 +1341,49 @@ function renderLeaveTable() {
 }
 
 async function applyLeaveBalanceToAll() {
-    const balance = document.getElementById('newLeaveBalance')?.value;
-    if (balance === undefined || balance === null || balance === '') return alert("Please enter a leave balance first.");
-    if (!confirm("Apply this leave balance to ALL active employees?")) return;
-
-    const response = await fetch('backend/api.php?action=bulk_update_leave_balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance })
+    const balanceInput = document.getElementById('newLeaveBalance');
+    const balance = balanceInput?.value;
+    if (balance === undefined || balance === null || balance === '') return showToast("Please enter a leave balance first.", 'error');
+    
+    const result = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Apply this leave balance to ALL active employees?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, apply it!'
     });
-    const result = await response.json();
-    alert(result.message || (result.success ? "Leave balance applied to all employees." : "Failed to apply leave balance."));
-    if (result.success) {
-        document.getElementById('newLeaveBalance').value = '';
-        fetchData();
+
+    if (result.isConfirmed) {
+        const response = await fetch('backend/api.php?action=bulk_update_leave_balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ balance })
+        });
+        const resultData = await response.json();
+        showToast(resultData.message || (resultData.success ? "Leave balance applied to all employees." : "Failed to apply leave balance."), resultData.success ? 'success' : 'error');
+        if (resultData.success) {
+            if (balanceInput) balanceInput.value = '';
+            fetchData();
+        }
     }
 }
 
 async function updateLeaveBalance() {
     const employeeId = document.getElementById('leaveBalanceEmployeeSelect').value;
-    const balance = document.getElementById('newLeaveBalance').value;
+    const balanceInput = document.getElementById('newLeaveBalance');
+    const balance = balanceInput.value;
 
-    if (!employeeId || !balance) return alert("Please select an employee and enter a balance.");
+    if (!employeeId || !balance) return showToast("Please select an employee and enter a balance.", 'error');
 
     const response = await fetch(`backend/api.php?action=update_leave_balance&employee_id=${employeeId}&balance=${balance}`);
     const result = await response.json();
 
     if (result.success) {
-        alert("Leave balance updated successfully.");
-        document.getElementById('newLeaveBalance').value = '';
+        showToast("Leave balance updated successfully.", 'success');
+        if (balanceInput) balanceInput.value = '';
         fetchData();
     } else {
-        alert("Error: " + (result.message || "Failed to update balance."));
+        showToast("Error: " + (result.message || "Failed to update balance."), 'error');
     }
 }
 
@@ -1309,9 +1395,10 @@ async function updateLeaveStatus(id, status) {
     });
     const result = await response.json();
     if (result.success) {
+        showToast(`Leave request ${status.toLowerCase()} successfully.`, 'success');
         fetchData();
     } else {
-        alert(result.message || "Failed to update status.");
+        showToast(result.message || "Failed to update status.", 'error');
     }
 }
 
@@ -1374,9 +1461,10 @@ async function updateLoanStatus(id, status) {
     });
     const result = await response.json();
     if (result.success) {
+        showToast(`Loan status updated to ${status}.`, 'success');
         fetchData();
     } else {
-        alert(result.message || "Failed to update status.");
+        showToast(result.message || "Failed to update status.", 'error');
     }
 }
 
@@ -1406,9 +1494,10 @@ async function updateResignationStatus(id, status) {
     });
     const result = await response.json();
     if (result.success) {
+        showToast(`Resignation ${status.toLowerCase()} successfully.`, 'success');
         fetchData();
     } else {
-        alert(result.message || "Failed to update status.");
+        showToast(result.message || "Failed to update status.", 'error');
     }
 }
 
@@ -1445,29 +1534,62 @@ function renderDeductions() {
 
 
 async function deleteDeduction(id) {
-    if (confirm("Are you sure you want to delete this deduction?")) {
+    const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: "You won't be able to revert this!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_deduction&id=${id}`);
-        const result = await response.json();
-        if (result.success) {
+        const resultData = await response.json();
+        if (resultData.success) {
+            showToast("Deduction deleted successfully.", 'success');
             fetchData();
+        } else {
+            showToast(resultData.message || "Failed to delete deduction.", 'error');
         }
     }
 }
 
-function editDeduction(id) {
+async function editDeduction(id) {
     const deduction = deductionsConfig.find(d => d.id == id);
     if (!deduction) return;
 
-    const name = prompt("Enter new name:", deduction.name);
-    if (name === null) return;
-    const type = prompt("Enter new type (percentage or fixed):", deduction.type);
-    if (type === null) return;
-    const value = parseFloat(prompt("Enter new value:", deduction.value));
-    if (isNaN(value)) return;
-    const is_active = confirm("Is this deduction active?");
-    const is_government = confirm("Is this a government mandated deduction?");
+    const { value: formValues } = await Swal.fire({
+        title: 'Edit Deduction',
+        html:
+            `<label>Name</label><input id="swal-input1" class="swal2-input" value="${deduction.name}">` +
+            `<label>Type</label><select id="swal-input2" class="swal2-input">
+                <option value="percentage" ${deduction.type === 'percentage' ? 'selected' : ''}>Percentage</option>
+                <option value="fixed" ${deduction.type === 'fixed' ? 'selected' : ''}>Fixed</option>
+            </select>` +
+            `<label>Value</label><input id="swal-input3" class="swal2-input" type="number" step="0.01" value="${deduction.value}">` +
+            `<div style="margin-top: 10px;">
+                <input id="swal-input4" type="checkbox" ${deduction.is_active ? 'checked' : ''}> <label for="swal-input4">Active</label>
+            </div>` +
+            `<div style="margin-top: 5px;">
+                <input id="swal-input5" type="checkbox" ${deduction.is_government ? 'checked' : ''}> <label for="swal-input5">Government Mandated</label>
+            </div>`,
+        focusConfirm: false,
+        preConfirm: () => {
+            return {
+                name: document.getElementById('swal-input1').value,
+                type: document.getElementById('swal-input2').value,
+                value: parseFloat(document.getElementById('swal-input3').value),
+                is_active: document.getElementById('swal-input4').checked ? 1 : 0,
+                is_government: document.getElementById('swal-input5').checked ? 1 : 0
+            }
+        }
+    });
 
-    saveDeduction({ ...deduction, name, type, value, is_active, is_government });
+    if (formValues) {
+        saveDeduction({ ...deduction, ...formValues });
+    }
 }
 
 // --- Allowances ---
@@ -1477,7 +1599,7 @@ async function addAllowanceCategory() {
     const rate = document.getElementById('allowanceRate').value;
     const description = document.getElementById('allowanceDesc').value;
 
-    if (!name || !rate) return alert("Please enter a name and rate.");
+    if (!name || !rate) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=add_allowance_category', {
         method: 'POST',
@@ -1485,7 +1607,7 @@ async function addAllowanceCategory() {
         body: JSON.stringify({ name, type, rate, description })
     });
     const result = await response.json();
-    alert(result.message);
+    showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('allowanceName').value = '';
         document.getElementById('allowanceRate').value = '';
@@ -1500,7 +1622,7 @@ async function assignAllowance() {
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!employee_id || !category_id) return alert("Please select an employee and an allowance category.");
+    if (!employee_id || !category_id) return showToast("Please select an employee and an allowance category.", 'error');
 
     const response = await fetch('backend/api.php?action=assign_employee_allowance', {
         method: 'POST',
@@ -1508,7 +1630,7 @@ async function assignAllowance() {
         body: JSON.stringify({ employee_id, category_id, override_amount, effective_date })
     });
     const result = await response.json();
-    alert(result.message);
+    showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         renderAllowances();
     }
@@ -1519,17 +1641,26 @@ async function applyAllowanceToAll() {
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!category_id) return alert("Please select an allowance category first.");
-    if (!confirm("Are you sure you want to apply this allowance to ALL active employees?")) return;
-
-    const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category_id, override_amount, effective_date })
+    if (!category_id) return showToast("Please select an allowance category first.", 'error');
+    
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Are you sure you want to apply this allowance to ALL active employees?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, apply it!'
     });
-    const result = await response.json();
-    alert(result.message);
-    if (result.success) renderAllowances();
+
+    if (confirmResult.isConfirmed) {
+        const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category_id, override_amount, effective_date })
+        });
+        const result = await response.json();
+        showToast(result.message, result.success ? 'success' : 'error');
+        if (result.success) renderAllowances();
+    }
 }
 
 async function renderAllowances() {
@@ -1591,18 +1722,43 @@ async function renderAllowances() {
 }
 
 async function deleteEmployeeAllowance(id) {
-    if (confirm("Remove this allowance assignment?")) {
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Remove this allowance assignment?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, remove it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_employee_allowance&id=${id}`);
         const result = await response.json();
-        if (result.success) renderAllowances();
+        if (result.success) {
+            showToast("Allowance removed successfully.", 'success');
+            renderAllowances();
+        } else {
+            showToast(result.message || "Failed to remove allowance.", 'error');
+        }
     }
 }
 
 async function deleteAllowanceCategory(id) {
-    if (confirm("Delete this category? This will also remove assignments.")) {
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Delete this category? This will also remove assignments.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_allowance_category&id=${id}`);
         const result = await response.json();
-        alert(result.message);
+        showToast(result.message, result.success ? 'success' : 'error');
         if (result.success) renderAllowances();
     }
 }
@@ -1614,7 +1770,7 @@ async function addDeductionCategory() {
     const value = document.getElementById('deductionRate').value;
     const description = document.getElementById('deductionDesc').value;
 
-    if (!name || !value) return alert("Please enter a name and rate.");
+    if (!name || !value) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=save_deduction', {
         method: 'POST',
@@ -1622,7 +1778,7 @@ async function addDeductionCategory() {
         body: JSON.stringify({ name, type, value, description, is_active: true, is_government: false })
     });
     const result = await response.json();
-    alert(result.message);
+    showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('deductionName').value = '';
         document.getElementById('deductionRate').value = '';
@@ -1637,7 +1793,7 @@ async function assignDeduction() {
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!employee_id || !deduction_id) return alert("Please select an employee and a deduction category.");
+    if (!employee_id || !deduction_id) return showToast("Please select an employee and a deduction category.", 'error');
 
     const response = await fetch('backend/api.php?action=assign_employee_deduction', {
         method: 'POST',
@@ -1645,7 +1801,7 @@ async function assignDeduction() {
         body: JSON.stringify({ employee_id, deduction_id, override_amount, effective_date })
     });
     const result = await response.json();
-    alert(result.message);
+    showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) renderDeductions();
 }
 
@@ -1654,17 +1810,26 @@ async function applyDeductionToAll() {
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!deduction_id) return alert("Please select a deduction category first.");
-    if (!confirm("Are you sure you want to apply this deduction to ALL active employees?")) return;
-
-    const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deduction_id, override_amount, effective_date })
+    if (!deduction_id) return showToast("Please select a deduction category first.", 'error');
+    
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Are you sure you want to apply this deduction to ALL active employees?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, apply it!'
     });
-    const result = await response.json();
-    alert(result.message);
-    if (result.success) renderDeductions();
+
+    if (confirmResult.isConfirmed) {
+        const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deduction_id, override_amount, effective_date })
+        });
+        const result = await response.json();
+        showToast(result.message, result.success ? 'success' : 'error');
+        if (result.success) renderDeductions();
+    }
 }
 
 async function renderDeductions() {
@@ -1726,19 +1891,44 @@ async function renderDeductions() {
 }
 
 async function deleteDeductionCategory(id) {
-    if (confirm("Delete this category?")) {
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Delete this category?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_deduction&id=${id}`);
         const result = await response.json();
-        alert(result.message);
+        showToast(result.message, result.success ? 'success' : 'error');
         if (result.success) renderDeductions();
     }
 }
 
 async function deleteEmployeeDeduction(id) {
-    if (confirm("Remove this deduction assignment?")) {
+    const confirmResult = await Swal.fire({
+        title: 'Confirm Action',
+        text: "Remove this deduction assignment?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, remove it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_employee_deduction&id=${id}`);
         const result = await response.json();
-        if (result.success) renderDeductions();
+        if (result.success) {
+            showToast("Deduction removed successfully.", 'success');
+            renderDeductions();
+        } else {
+            showToast(result.message || "Failed to remove deduction.", 'error');
+        }
     }
 }
 
@@ -1748,7 +1938,6 @@ async function saveSettings() {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
     const btn = document.getElementById('saveSettingsBtn');
-    const msg = document.getElementById('settings-msg');
 
     if (btn) {
         btn.disabled = true;
@@ -1763,18 +1952,17 @@ async function saveSettings() {
         });
         const result = await response.json();
         if (result.success) {
-            if (msg) {
-                msg.style.display = 'block';
-                msg.innerHTML = '<div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Settings saved successfully! Updating UI...</div>';
-            }
-            setTimeout(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Settings saved successfully! Updating UI...',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
                 location.reload();
-            }, 1000);
+            });
         } else {
-            if (msg) {
-                msg.style.display = 'block';
-                msg.innerHTML = `<div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 10px;">Error: ${result.message}</div>`;
-            }
+            showToast("Error: " + result.message, 'error');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
@@ -1782,6 +1970,7 @@ async function saveSettings() {
         }
     } catch (err) {
         console.error(err);
+        showToast("An error occurred while saving settings.", 'error');
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-save"></i> Save System Settings';
@@ -1795,7 +1984,7 @@ async function changePassword() {
     const confirmPass = document.getElementById('confirmPass').value;
 
     if (newPass !== confirmPass) {
-        alert("New passwords do not match!");
+        showToast("New passwords do not match!", 'error');
         return;
     }
 
@@ -1807,10 +1996,16 @@ async function changePassword() {
 
     const result = await response.json();
     if (result.success) {
-        alert("Password updated successfully!");
-        closeModal('passwordModal');
+        Swal.fire({
+            icon: 'success',
+            title: 'Password Updated',
+            text: 'Your password has been changed successfully.',
+            confirmButtonColor: '#1e0178'
+        }).then(() => {
+            closeModal('passwordModal');
+        });
     } else {
-        alert(result.message);
+        showToast(result.message, 'error');
     }
 }
 
@@ -1867,7 +2062,17 @@ function viewFacultyLoads(empId) {
 }
 
 async function deleteSubjectLoad(id) {
-    if (confirm('Are you sure you want to delete this subject load?')) {
+    const confirmResult = await Swal.fire({
+        title: 'Delete Load?',
+        text: 'Are you sure you want to delete this subject load?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         try {
             const response = await fetch(`backend/api.php?action=delete_subject_load&id=${id}`);
             const result = await response.json();
@@ -1941,7 +2146,17 @@ function editMasterSubject(id) {
 }
 
 async function deleteMasterSubject(id) {
-    if (confirm('Are you sure you want to delete this subject?')) {
+    const confirmResult = await Swal.fire({
+        title: 'Delete Subject?',
+        text: 'Are you sure you want to delete this subject?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        cancelButtonColor: '#1e0178',
+        confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (confirmResult.isConfirmed) {
         try {
             const response = await fetch(`backend/api.php?action=delete_subject&id=${id}`);
             const result = await response.json();
@@ -2218,7 +2433,17 @@ function initCharts() {
 
 // --- Auth ---
 async function logout() {
-    if (confirm("Are you sure you want to logout?")) {
+    const confirmResult = await Swal.fire({
+        title: 'Logout?',
+        text: "Are you sure you want to logout?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1e0178',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, logout'
+    });
+
+    if (confirmResult.isConfirmed) {
         await fetch('backend/api.php?action=logout');
         window.location.href = 'login.php';
     }

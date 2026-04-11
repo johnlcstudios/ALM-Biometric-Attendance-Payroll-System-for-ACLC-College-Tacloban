@@ -44,7 +44,22 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => $message]);
     } else {
-        echo "<div style='background: #fee; border: 1px solid #f99; padding: 10px; margin: 10px; border-radius: 5px; color: #a33;'>$message</div>";
+        // Use SweetAlert2 if possible, otherwise fallback to styled div
+        echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'System Error',
+                        text: '" . addslashes($message) . "',
+                        confirmButtonColor: '#1e0178'
+                    });
+                }
+            });
+        </script>";
+        echo "<div id='error-fallback' style='background: #fee; border: 1px solid #f99; padding: 10px; margin: 10px; border-radius: 5px; color: #a33;'>$message</div>";
+        echo "<script>document.addEventListener('DOMContentLoaded', function() { if(typeof Swal !== 'undefined') document.getElementById('error-fallback').style.display = 'none'; });</script>";
     }
     exit;
 });

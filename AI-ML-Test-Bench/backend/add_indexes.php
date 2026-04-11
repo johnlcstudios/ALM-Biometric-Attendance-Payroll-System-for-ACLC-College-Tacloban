@@ -1,6 +1,7 @@
 <?php
 // add_indexes.php - Add performance indexes to existing database
 require_once 'db.php';
+require_once 'notifications.php';
 
 try {
     // Attendance indexes
@@ -9,8 +10,16 @@ try {
     // Payroll indexes
     $pdo->exec("ALTER TABLE payroll ADD INDEX IF NOT EXISTS idx_payroll_company_type_period (company_id, payroll_type, period);");
 
-    echo "Indexes added successfully!\n";
+    if (php_sapi_name() === 'cli') {
+        echo "Indexes added successfully!\n";
+    } else {
+        showNotification("Performance indexes added successfully!", "success");
+    }
 } catch (Exception $e) {
-    echo "Error adding indexes: " . $e->getMessage() . "\n";
+    if (php_sapi_name() === 'cli') {
+        echo "Error adding indexes: " . $e->getMessage() . "\n";
+    } else {
+        showNotification("Error adding indexes: " . $e->getMessage(), "error");
+    }
 }
 ?>
