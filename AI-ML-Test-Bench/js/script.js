@@ -1457,7 +1457,7 @@ async function renderAllowances() {
     }
 
     // 4. Render Breakdown Table
-    const breakdownResponse = await fetch('backend/api.php?action=get_allowance_breakdown');
+    const breakdownResponse = await fetch('backend/api.php?action=get_employee_allowances');
     const breakdown = await breakdownResponse.json();
     const breakdownBody = document.getElementById('allowanceBreakdownBody');
     if (breakdownBody) {
