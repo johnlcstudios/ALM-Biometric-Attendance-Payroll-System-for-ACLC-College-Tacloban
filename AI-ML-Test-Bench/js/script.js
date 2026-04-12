@@ -82,6 +82,185 @@ function formatCurrency(amount) {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount);
 }
 
+// --- Modal Functions ---
+function showAddEmployeeModal() {
+    document.getElementById('employeeModalTitle').textContent = 'Add Employee';
+    document.getElementById('employeeForm').reset();
+    document.getElementById('employeeId').value = '';
+    openModal('employeeModal');
+}
+
+function editEmployee(id) {
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+    
+    document.getElementById('employeeModalTitle').textContent = 'Edit Employee';
+    document.getElementById('employeeId').value = emp.id;
+    document.getElementById('fullName').value = emp.full_name;
+    document.getElementById('dob').value = emp.dob;
+    document.getElementById('email').value = emp.email;
+    document.getElementById('position').value = emp.position;
+    document.getElementById('department').value = emp.department;
+    document.getElementById('basicSalary').value = emp.basic_salary;
+    document.getElementById('sss').value = emp.sss || '';
+    document.getElementById('tin').value = emp.tin || '';
+    document.getElementById('philhealth').value = emp.philhealth || '';
+    document.getElementById('pagibig').value = emp.pagibig || '';
+    document.getElementById('empStatus').value = emp.status;
+    
+    openModal('employeeModal');
+}
+
+function deleteEmployee(id) {
+    Swal.fire({
+        title: 'Delete Employee?',
+        text: 'This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`backend/api.php?action=delete_employee&id=${id}`);
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Employee deleted successfully', 'success');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to delete employee', 'error');
+                }
+            } catch (error) {
+                showToast('Error deleting employee', 'error');
+            }
+        }
+    });
+}
+
+function showAddDeductionModal() {
+    document.getElementById('deductionModalTitle').textContent = 'Add Deduction';
+    document.getElementById('deductionForm').reset();
+    document.getElementById('deductionId').value = '';
+    document.getElementById('deductionActive').checked = true;
+    openModal('deductionModal');
+}
+
+function editDeduction(id) {
+    // Fetch and edit deduction - implement based on your data structure
+    showToast('Edit deduction feature coming soon', 'info');
+}
+
+function deleteDeduction(id) {
+    Swal.fire({
+        title: 'Delete Deduction?',
+        text: 'This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`backend/api.php?action=delete_deduction&id=${id}`);
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Deduction deleted successfully', 'success');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to delete deduction', 'error');
+                }
+            } catch (error) {
+                showToast('Error deleting deduction', 'error');
+            }
+        }
+    });
+}
+
+function showRunPayrollModal(type) {
+    document.getElementById('payrollType').value = type;
+    document.getElementById('payrollForm').reset();
+    
+    // Set default date range (current month)
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    document.getElementById('payrollStartDate').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('payrollEndDate').value = lastDay.toISOString().split('T')[0];
+    
+    openModal('payrollModal');
+}
+
+function showAssignPayrollModal() {
+    showToast('Assign payroll feature coming soon', 'info');
+}
+
+function updateLoanStatus(id, status) {
+    Swal.fire({
+        title: `Mark as ${status}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: status === 'Approved' ? '#27ae60' : '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: `Yes, ${status}!`
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch('backend/api.php?action=update_loan_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, status })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`Loan ${status.toLowerCase()} successfully`, 'success');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to update loan', 'error');
+                }
+            } catch (error) {
+                showToast('Error updating loan', 'error');
+            }
+        }
+    });
+}
+
+function updateResignationStatus(id, status) {
+    Swal.fire({
+        title: `Mark as ${status}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#27ae60',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: `Yes, ${status}!`
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch('backend/api.php?action=update_resignation_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, status })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(`Resignation ${status.toLowerCase()} successfully`, 'success');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to update resignation', 'error');
+                }
+            } catch (error) {
+                showToast('Error updating resignation', 'error');
+            }
+        }
+    });
+}
+
+function captureFace() {
+    showToast('Face capture feature coming soon', 'info');
+}
+
 function filterTable(input, tableId) {
     const filter = input.value.toLowerCase();
     const rows = document.getElementById(tableId).getElementsByTagName('tr');
@@ -2448,6 +2627,176 @@ async function logout() {
         window.location.href = 'login.php';
     }
 }
+
+// Form Submission Handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Employee Form
+    const employeeForm = document.getElementById('employeeForm');
+    if (employeeForm) {
+        employeeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Convert checkbox values
+            data.status = document.getElementById('empStatus').value;
+            
+            try {
+                const response = await fetch('backend/api.php?action=save_employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Employee saved successfully', 'success');
+                    closeModal('employeeModal');
+                    loadAllData();
+                    
+                    // Show generated password if new employee
+                    if (result.generated_password) {
+                        Swal.fire({
+                            title: 'Employee Created',
+                            html: `<p>Employee created successfully!</p>
+                                   <p><strong>Generated Password:</strong> <code>${result.generated_password}</code></p>
+                                   <p class="text-danger">Please share this password securely with the employee.</p>`,
+                            icon: 'success',
+                            confirmButtonColor: '#1e0178'
+                        });
+                    }
+                } else {
+                    showToast(result.message || 'Failed to save employee', 'error');
+                }
+            } catch (error) {
+                showToast('Error saving employee', 'error');
+            }
+        });
+    }
+    
+    // Deduction Form
+    const deductionForm = document.getElementById('deductionForm');
+    if (deductionForm) {
+        deductionForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            data.is_active = document.getElementById('deductionActive').checked ? 1 : 0;
+            data.is_government = document.getElementById('deductionGovernment').checked ? 1 : 0;
+            
+            try {
+                const response = await fetch('backend/api.php?action=save_deduction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Deduction saved successfully', 'success');
+                    closeModal('deductionModal');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to save deduction', 'error');
+                }
+            } catch (error) {
+                showToast('Error saving deduction', 'error');
+            }
+        });
+    }
+    
+    // Payroll Form
+    const payrollForm = document.getElementById('payrollForm');
+    if (payrollForm) {
+        payrollForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('backend/api.php?action=run_specialized_payroll', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(result.message || 'Payroll processed successfully', 'success');
+                    closeModal('payrollModal');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to process payroll', 'error');
+                }
+            } catch (error) {
+                showToast('Error processing payroll', 'error');
+            }
+        });
+    }
+    
+    // Leave Form
+    const leaveForm = document.getElementById('leaveForm');
+    if (leaveForm) {
+        leaveForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('backend/api.php?action=apply_leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Leave request submitted successfully', 'success');
+                    closeModal('leaveModal');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to submit leave request', 'error');
+                }
+            } catch (error) {
+                showToast('Error submitting leave request', 'error');
+            }
+        });
+    }
+    
+    // Loan Form
+    const loanForm = document.getElementById('loanForm');
+    if (loanForm) {
+        loanForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            try {
+                const response = await fetch('backend/api.php?action=apply_loan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Loan request submitted successfully', 'success');
+                    closeModal('loanModal');
+                    loadAllData();
+                } else {
+                    showToast(result.message || 'Failed to submit loan request', 'error');
+                }
+            } catch (error) {
+                showToast('Error submitting loan request', 'error');
+            }
+        });
+    }
+});
 
 // Initialize on Load
 window.onload = () => {
