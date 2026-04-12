@@ -120,6 +120,14 @@ $company = $stmt_company->fetch();
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="showPage('subject_loads')">Configure Loads</button>
             </div>
+            <div class="setting-item">
+                <div>
+                    <strong>Company Code</strong>
+                    <p class="small text-muted">Unique identifier for your company.</p>
+                </div>
+                </div>
+                <input type="text" value="<?php echo htmlspecialchars($company['company_code'], ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+            </div>
         </div>
         <?php endif; ?>
 

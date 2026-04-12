@@ -658,7 +658,7 @@ async function resetPassword(userId) {
     
     const confirmResult = await Swal.fire({
         title: 'Reset Password?',
-        text: "Are you sure you want to reset this employee's password to 'welcome123'?",
+        text: "Are you sure you want to reset this employee's password? A new secure password will be generated.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#1e0178',
@@ -670,7 +670,13 @@ async function resetPassword(userId) {
         const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
-            showToast(result.message || 'Password reset successful!', 'success');
+            // Show the new password in a secure alert
+            Swal.fire({
+                icon: 'success',
+                title: 'Password Reset Successful',
+                html: `<p>${result.message}</p><p class="mt-2"><strong>Please share this password securely with the employee.</strong></p>`,
+                confirmButtonColor: '#1e0178'
+            });
         } else {
             showToast('Error: ' + (result.message || 'Failed to reset password.'), 'error');
         }

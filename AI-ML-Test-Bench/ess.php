@@ -25,7 +25,7 @@ if ($is_management) {
 
 // Fetch employee profile on server-side for initial load
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email, c.name as company_name 
+$stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email, c.name as company_name, c.company_code 
                      FROM employees e 
                      JOIN users u ON e.user_id = u.id 
                      JOIN companies c ON e.company_id = c.id 
@@ -36,6 +36,7 @@ $emp = $stmt->fetch();
 $full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
 $emp_id = $emp['employee_id'] ?? '---';
 $company_name = $emp['company_name'] ?? $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+$company_code = $emp['company_code'] ?? $_SESSION['company_code'] ?? 'N/A';
 $position = $emp['position'] ?? 'Staff';
 ?>
 <!DOCTYPE html>
@@ -43,7 +44,7 @@ $position = $emp['position'] ?? 'Staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Portal - <?php echo $company_name; ?></title>
+    <title>Employee Portal - <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></title>
     
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,8 +136,8 @@ $position = $emp['position'] ?? 'Staff';
                     <div class="profile-info">
                         <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&background=random" alt="User">
                         <div class="profile-text">
-                            <span class="name"><?php echo $full_name; ?></span>
-                            <span class="role"><?php echo $position; ?></span>
+                            <span class="name"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="role"><?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
                     </div>
                 </div>
@@ -145,6 +146,13 @@ $position = $emp['position'] ?? 'Staff';
             <!-- Dashboard Page -->
             <section id="dashboard" class="page active">
                 <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-building"></i></div>
+                        <div class="stat-info">
+                            <h3>Company Code</h3>
+                            <div class="stat-value" style="font-size: 1.2rem;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
+                        </div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-icon blue"><i class="fas fa-user-clock"></i></div>
                         <div class="stat-info">
@@ -388,12 +396,13 @@ $position = $emp['position'] ?? 'Staff';
                 <div class="profile-grid">
                     <div class="profile-card">
                         <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&size=150&background=random" alt="Avatar" style="width:120px; border-radius:50%; margin-bottom:1rem; border: 4px solid #eee;">
-                        <h2 style="margin-bottom:0.2rem;"><?php echo $full_name; ?></h2>
-                        <p class="text-muted" style="margin-bottom:1.5rem;"><?php echo $position; ?></p>
+                        <h2 style="margin-bottom:0.2rem;"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></h2>
+                        <p class="text-muted" style="margin-bottom:1.5rem;"><?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?></p>
                         
-                        <div class="info-row"><span class="info-label">Employee ID</span> <span class="info-value"><?php echo $emp_id; ?></span></div>
-                        <div class="info-row"><span class="info-label">Department</span> <span class="info-value"><?php echo $emp['department']; ?></span></div>
-                        <div class="info-row"><span class="info-label">Status</span> <span class="status-tag status-approved"><?php echo $emp['status']; ?></span></div>
+                        <div class="info-row"><span class="info-label">Employee ID</span> <span class="info-value"><?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Company Code</span> <span class="info-value" style="color: var(--primary-color); font-weight: 700;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Department</span> <span class="info-value"><?php echo htmlspecialchars($emp['department'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Status</span> <span class="status-tag status-approved"><?php echo htmlspecialchars($emp['status'] ?? 'Active', ENT_QUOTES, 'UTF-8'); ?></span></div>
                     </div>
                     
                     <div class="profile-details-card">
@@ -405,32 +414,42 @@ $position = $emp['position'] ?? 'Staff';
                         <div id="profile-info" class="profile-tab-section active">
                             <div class="form-row-custom">
                                 <div class="form-group-custom">
+                                    <label>Employee ID</label>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                </div>
+                                <div class="form-group-custom">
+                                    <label>Company Code</label>
+                                    <input type="text" value="<?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+                                </div>
+                            </div>
+                            <div class="form-row-custom">
+                                <div class="form-group-custom">
                                     <label>Email Address</label>
-                                    <input type="text" value="<?php echo $emp['email']; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Date of Birth</label>
-                                    <input type="text" value="<?php echo $emp['dob'] ?? 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['dob'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                             </div>
                             <div class="form-row-custom">
                                 <div class="form-group-custom">
                                     <label>SSS No.</label>
-                                    <input type="text" value="<?php echo $emp['sss'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['sss'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>PhilHealth No.</label>
-                                    <input type="text" value="<?php echo $emp['philhealth'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['philhealth'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                             </div>
                             <div class="form-row-custom">
                                 <div class="form-group-custom">
                                     <label>TIN</label>
-                                    <input type="text" value="<?php echo $emp['tin'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['tin'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Pag-IBIG No.</label>
-                                    <input type="text" value="<?php echo $emp['pagibig'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                    <input type="text" value="<?php echo htmlspecialchars($emp['pagibig'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                 </div>
                             </div>
                             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">

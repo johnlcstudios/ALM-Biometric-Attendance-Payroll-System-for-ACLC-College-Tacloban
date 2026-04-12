@@ -64,12 +64,24 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     exit;
 });
 
+// Load environment variables
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+            list($key, $value) = explode('=', $line, 2);
+            putenv(trim($key) . '=' . trim($value));
+        }
+    }
+}
+
 // Database Configuration - IMPORTANT: Change these in production!
-$host = 'localhost';
-$db   = 'alm_biometrics';
-$user = 'root';
-$pass = ''; // Default XAMPP password is empty
-$charset = 'utf8mb4';
+$host = getenv('DB_HOST') ?: 'localhost';
+$db = getenv('DB_NAME') ?: 'alm_biometrics';
+$user = getenv('DB_USER') ?: 'root';
+$pass = getenv('DB_PASS') ?: '';
+$charset = getenv('DB_CHARSET') ?: 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 $options = [

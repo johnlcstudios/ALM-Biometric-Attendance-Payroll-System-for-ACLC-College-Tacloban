@@ -1,66 +1,80 @@
 <?php
-/**
- * Helper functions for GUI-based popup notifications using SweetAlert2.
- */
+// Email notification system using Brevo (free API - 300 emails/day)
 
-/**
- * Display a SweetAlert2 notification.
- * 
- * @param string $message The message to display.
- * @param string $type The type of notification: 'success', 'error', 'warning', 'info', 'question'.
- * @param string $redirect Optional URL to redirect to after the alert is closed.
- */
-function showNotification($message, $type = 'info', $redirect = null) {
-    $title = ucfirst($type);
-    $icon = $type;
+function sendEmailNotification($to, $subject, $htmlBody) {
+    $apiKey = getenv('BREVO_API_KEY');
+    if (!$apiKey) {
+        error_log("Brevo API key not configured");
+        return false;
+    }
     
-    // Sanitize message for JS
-    $message = addslashes($message);
-    $message = str_replace(["\r", "\n"], ' ', $message);
-
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Swal.fire({
-                title: '$title',
-                text: '$message',
-                icon: '$icon',
-                confirmButtonColor: '#1e0178',
-                timer: " . ($type === 'success' || $type === 'info' ? '3000' : 'null') . ",
-                timerProgressBar: " . ($type === 'success' || $type === 'info' ? 'true' : 'false') . ",
-            }).then((result) => {
-                " . ($redirect ? "window.location.href = '$redirect';" : "") . "
-            });
-        });
-    </script>";
+    $fromEmail = getenv('FROM_EMAIL') ?: 'noreply@alm-biometrics.com';
+    
+    $data = [
+        'sender' => ['email' => $fromEmail, 'name' => 'ALM Biometrics'],
+        'to' => [['email' => $to]],
+        'subject' => $subject,
+        'htmlContent' => $htmlBody
+    ];
+    
+    $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'api-key: ' . $apiKey
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode === 201) {
+        return true;
+    } else {
+        error_log("Email send failed: HTTP $httpCode - $response");
+        return false;
+    }
 }
 
-/**
- * Alternative for inline echoes that need to be replaced.
- * This will use Toast-style notifications for non-critical messages.
- */
-function showToast($message, $type = 'info') {
-    $icon = $type;
-    $message = addslashes($message);
-    $message = str_replace(["\r", "\n"], ' ', $message);
-
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer)
-                    toast.addEventListener('mouseleave', Swal.resumeTimer)
-                }
-            });
-
-            Toast.fire({
-                icon: '$icon',
-                title: '$message'
-            });
-        });
-    </script>";
+function notifyLeaveRequest($employeeEmail, $employeeName, $leaveType, $status) {
+    $subject = "Leave Request $status";
+    $htmlBody = "
+        <h2>Leave Request Update</h2>
+        <p>Dear $employeeName,</p>
+        <p>Your leave request ($leaveType) has been <strong>$status</strong>.</p>
+        <p>Please contact HR if you have any questions.</p>
+        <br>
+        <p><small>This is an automated message from ALM Biometrics System</small></p>
+    ";
+    return sendEmailNotification($employeeEmail, $subject, $htmlBody);
 }
+
+function notifyPayrollGenerated($employeeEmail, $employeeName, $period, $netPay) {
+    $subject = "Payroll Generated - $period";
+    $htmlBody = "
+        <h2>Payroll Notification</h2>
+        <p>Dear $employeeName,</p>
+        <p>Your payroll for period <strong>$period</strong> has been generated.</p>
+        <p><strong>Net Pay: ₱" . number_format($netPay, 2) . "</strong></p>
+        <p>Please check the system for detailed breakdown.</p>
+        <br>
+        <p><small>This is an automated message from ALM Biometrics System</small></p>
+    ";
+    return sendEmailNotification($employeeEmail, $subject, $htmlBody);
+}
+
+function notifyLoanStatus($employeeEmail, $employeeName, $amount, $status) {
+    $subject = "Loan Request $status";
+    $htmlBody = "
+        <h2>Loan Request Update</h2>
+        <p>Dear $employeeName,</p>
+        <p>Your loan request of <strong>₱" . number_format($amount, 2) . "</strong> has been <strong>$status</strong>.</p>
+        <p>Please contact HR/Payroll for more details.</p>
+        <br>
+        <p><small>This is an automated message from ALM Biometrics System</small></p>
+    ";
+    return sendEmailNotification($employeeEmail, $subject, $htmlBody);
+}
+?>
