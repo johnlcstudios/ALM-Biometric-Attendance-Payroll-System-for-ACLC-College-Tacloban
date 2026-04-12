@@ -56,7 +56,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll System Hub - <?php echo $company_name; ?></title>
+    <title>Payroll System Hub - <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></title>
     <!-- Same head links as before -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,11 +70,32 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="role-<?php echo strtolower($role); ?>">
+<body class="role-<?php echo htmlspecialchars(strtolower($role), ENT_QUOTES, 'UTF-8'); ?>">
     <div class="app-container">
         <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;">
             <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: var(--primary-color);"></i>
         </div>
+        <script>
+        // Auto-hide loading overlay to prevent permanent blocking
+        (function() {
+            let loadingTimeout = setTimeout(function() {
+                var overlay = document.getElementById('loading-overlay');
+                if (overlay) overlay.style.display = 'none';
+            }, 10000);
+                
+            window.addEventListener('error', function() {
+                clearTimeout(loadingTimeout);
+                var overlay = document.getElementById('loading-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+                
+            window.addEventListener('load', function() {
+                clearTimeout(loadingTimeout);
+                var overlay = document.getElementById('loading-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+        })();
+        </script>
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -175,7 +196,15 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
             <div id="content-pages">
                 <!-- Sections for Dashboard, Employees, etc. (re-used from index.html) -->
                 <!-- The existing sections will be injected or kept based on PHP logic -->
-                <?php include __DIR__ . '/pages/admin_hr/pages/' . $page . '.php'; ?>
+                <?php 
+                // Include page content from shared directory
+                $page_file = __DIR__ . '/pages/shared/' . $page . '.php';
+                if (file_exists($page_file)) {
+                    include $page_file;
+                } else {
+                    echo '<div class="content-section"><h2>Page Not Found</h2><p>The requested page is not available.</p></div>';
+                }
+                ?>
                 <script>
                     (function() {
                         const el = document.getElementById('<?php echo $page; ?>');
