@@ -17,3 +17,4 @@ venv/
 kiosk/models/
 AI-ML-Test-Bench/models/
 web-app/*.exe
+backups/

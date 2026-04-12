@@ -10,6 +10,8 @@ define('BIOMETRIC_AMBIGUITY_RATIO', 1.30); // Higher ratio for better confidence
 try {
     require_once 'db.php';
     require_once 'api_helpers.php';
+    require_once 'rate_limit.php';
+    require_once 'notifications.php';
 } catch (Exception $e) {
     apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
@@ -85,6 +87,15 @@ function validateDateRange($startDate, $endDate)
 try {
     switch ($action) {
         case 'login':
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            
+            // Check rate limit
+            $rateCheck = checkRateLimit($pdo, $ip_address);
+            if ($rateCheck['blocked']) {
+                echo json_encode(['success' => false, 'message' => $rateCheck['message']]);
+                break;
+            }
+            
             $data = json_decode(file_get_contents('php://input'), true);
             $username = $data['username'] ?? '';
             $password = $data['password'] ?? '';
@@ -94,23 +105,111 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, c.timezone as company_timezone, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
+            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, c.company_code, c.timezone as company_timezone, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                // Reset failed attempts on successful login
+                resetFailedAttempts($pdo, $ip_address);
+                
                 session_regenerate_id(true); // Prevent session fixation
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
                 $_SESSION['role'] = trim($user['role']);
                 $_SESSION['company_name'] = $user['company_name'];
+                $_SESSION['company_code'] = $user['company_code'] ?? '';
                 $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
+                // Record failed attempt
+                recordFailedAttempt($pdo, $ip_address, $username);
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
+            break;
+
+        case 'forgot_password':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $employee_id = $data['employee_id'] ?? '';
+            $company_code = $data['company_code'] ?? '';
+            
+            if (empty($employee_id) || empty($company_code)) {
+                echo json_encode(['success' => false, 'message' => 'Employee ID and Company Code are required']);
+                break;
+            }
+            
+            // Find employee by employee_id and company_code
+            $stmt = $pdo->prepare("
+                SELECT e.id, e.full_name, e.email, u.id as user_id, u.username, c.name as company_name
+                FROM employees e
+                JOIN users u ON e.user_id = u.id
+                JOIN companies c ON e.company_id = c.id
+                WHERE e.employee_id = ? AND c.company_code = ?
+            ");
+            $stmt->execute([$employee_id, $company_code]);
+            $employee = $stmt->fetch();
+            
+            // Always return generic message to prevent information disclosure
+            if (!$employee) {
+                echo json_encode(['success' => false, 'message' => 'Invalid Employee ID or Company Code']);
+                break;
+            }
+            
+            // Generate secure token
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', time() + 3600); // 1 hour expiry
+            
+            // Store token
+            $stmt = $pdo->prepare("INSERT INTO password_resets (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$employee['user_id'], $employee['email'] ?? '', $token, $expires]);
+            
+            // Return token for immediate password reset (in production, this would be sent via email/SMS)
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Verification successful. You can now reset your password.',
+                'reset_token' => $token,
+                'employee_name' => $employee['full_name'],
+                'username' => $employee['username']
+            ]);
+            break;
+
+        case 'reset_password_with_token':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $token = $data['token'] ?? '';
+            $new_password = $data['password'] ?? '';
+            
+            if (empty($token) || empty($new_password)) {
+                echo json_encode(['success' => false, 'message' => 'Token and new password are required']);
+                break;
+            }
+            
+            if (strlen($new_password) < 6) {
+                echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+                break;
+            }
+            
+            // Validate token
+            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND used = FALSE AND expires_at > NOW()");
+            $stmt->execute([$token]);
+            $reset = $stmt->fetch();
+            
+            if (!$reset) {
+                echo json_encode(['success' => false, 'message' => 'Invalid or expired token']);
+                break;
+            }
+            
+            // Update password
+            $hashed_pass = password_hash($new_password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $stmt->execute([$hashed_pass, $reset['user_id']]);
+            
+            // Mark token as used
+            $stmt = $pdo->prepare("UPDATE password_resets SET used = TRUE WHERE token = ?");
+            $stmt->execute([$token]);
+            
+            echo json_encode(['success' => true, 'message' => 'Password has been reset successfully']);
             break;
 
         case 'signup':
@@ -380,7 +479,11 @@ try {
         case 'delete_allowance_category':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Category deleted']);
@@ -389,7 +492,11 @@ try {
         case 'delete_employee_allowance':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
@@ -443,7 +550,11 @@ try {
         case 'delete_employee_deduction':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
@@ -476,7 +587,11 @@ try {
         case 'revoke_payroll_access':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $pdo->beginTransaction();
             try {
                 $stmt = $pdo->prepare("UPDATE employees SET position = 'Staff' WHERE id = ? AND company_id = ?");
@@ -615,7 +730,9 @@ try {
                     $num = $last_id ? (int) $last_id + 1 : 1;
                     $emp_id = 'EMP' . str_pad($num, 3, '0', STR_PAD_LEFT);
 
-                    $hashed_pass = password_hash('welcome123', PASSWORD_DEFAULT);
+                    // Generate secure random password
+                    $random_password = bin2hex(random_bytes(6)); // 12-char hex password
+                    $hashed_pass = password_hash($random_password, PASSWORD_DEFAULT);
                     $username = strtolower(str_replace(' ', '.', trim($data['fullName'])));
                     $role = ($data['position'] === 'Payroll Officer') ? 'Payroll Officer' : 'Employee';
 
@@ -726,7 +843,11 @@ try {
         case 'reset_password':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $target_user_id = $_GET['user_id'] ?? '';
+            $target_user_id = filter_var($_GET['user_id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$target_user_id || $target_user_id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid user ID']);
+                break;
+            }
 
             // Security: Ensure target user belongs to the same company
             $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND company_id = ?");
@@ -735,10 +856,12 @@ try {
                 exit(json_encode(['success' => false, 'message' => 'User not found or access denied']));
             }
 
-            $new_pass = password_hash('welcome123', PASSWORD_DEFAULT);
+            // Generate secure random password
+            $random_password = bin2hex(random_bytes(6)); // 12-char hex password
+            $new_pass = password_hash($random_password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ? AND company_id = ?");
             $stmt->execute([$new_pass, $target_user_id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Password reset to welcome123']);
+            echo json_encode(['success' => true, 'message' => 'Password has been reset. New password: ' . $random_password]);
             break;
 
         case 'get_attendance':
@@ -1177,7 +1300,11 @@ try {
         case 'get_payslip':
             if (!isset($_SESSION['user_id']))
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $payslip_id = $_GET['id'] ?? '';
+            $payslip_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$payslip_id || $payslip_id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid payslip ID']);
+                break;
+            }
             $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position, e.department FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.id = ? AND p.company_id = ?");
             $stmt->execute([$payslip_id, $_SESSION['company_id']]);
             echo json_encode($stmt->fetch());
@@ -1238,6 +1365,27 @@ try {
                     if ($employee_id) {
                         $stmt = $pdo->prepare("UPDATE `employees` SET `status` = 'Resigned' WHERE `id` = ? AND `company_id` = ?");
                         $stmt->execute([$employee_id, $_SESSION['company_id']]);
+                    }
+                }
+
+                // Send email notification for leave/loan status updates
+                if ($action === 'update_leave_status' || $action === 'update_loan_status') {
+                    $stmt_emp = $pdo->prepare("SELECT e.email, e.full_name FROM employees e JOIN `$table` t ON e.id = t.employee_id WHERE t.id = ?");
+                    $stmt_emp->execute([$data['id']]);
+                    $emp = $stmt_emp->fetch();
+                    
+                    if ($emp && $emp['email']) {
+                        if ($action === 'update_leave_status') {
+                            $stmt_type = $pdo->prepare("SELECT type FROM `$table` WHERE id = ?");
+                            $stmt_type->execute([$data['id']]);
+                            $leaveData = $stmt_type->fetch();
+                            notifyLeaveRequest($emp['email'], $emp['full_name'], $leaveData['type'] ?? 'Leave', $data['status']);
+                        } elseif ($action === 'update_loan_status') {
+                            $stmt_amount = $pdo->prepare("SELECT amount FROM `$table` WHERE id = ?");
+                            $stmt_amount->execute([$data['id']]);
+                            $loanData = $stmt_amount->fetch();
+                            notifyLoanStatus($emp['email'], $emp['full_name'], $loanData['amount'] ?? 0, $data['status']);
+                        }
                     }
                 }
 
@@ -1317,7 +1465,11 @@ try {
         case 'delete_deduction':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Deduction category deleted']);
@@ -1476,7 +1628,11 @@ try {
         case 'delete_subject':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true]);
@@ -1494,7 +1650,11 @@ try {
         case 'delete_subject_load':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true]);
@@ -1503,8 +1663,18 @@ try {
         case 'update_role':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
             $role = $_GET['role'] ?? 'Employee';
+            // Validate role is a valid enum value
+            $valid_roles = ['HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee'];
+            if (!in_array($role, $valid_roles)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid role']);
+                break;
+            }
             try {
                 $pdo->beginTransaction();
                 $stmt = $pdo->prepare("SELECT user_id FROM employees WHERE id = ? AND company_id = ?");

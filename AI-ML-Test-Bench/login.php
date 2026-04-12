@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['role'] ?? 'Employee';
     if (in_array($role, ['Payroll', 'Payroll Officer'])) {
@@ -215,6 +217,12 @@ body {
                 Dont have an account? <a href="signup.php">Sign Up</a>
             </p>
 
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="#" id="forgotPasswordLink" style="color: rgba(255,255,255,0.8); font-size: 14px; text-decoration: none;">
+                    Forgot Password?
+                </a>
+            </div>
+
             <!-- KIOSK BUTTON -->
             <a href="kiosk.php" class="kiosk-btn">Launch Kiosk</a>
 
@@ -253,6 +261,128 @@ document.getElementById('loginForm').onsubmit = async (e) => {
         });
     }
 };
+
+// Forgot Password Handler
+document.getElementById('forgotPasswordLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    // Step 1: Ask for Employee ID and Company Code
+    const { value: formValues } = await Swal.fire({
+        title: 'Reset Password',
+        html: `
+            <input id="swal-employee-id" class="swal2-input" placeholder="Employee ID (e.g., EMP001)">
+            <input id="swal-company-code" class="swal2-input" placeholder="Company Code">
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Verify',
+        confirmButtonColor: '#4facfe',
+        preConfirm: () => {
+            const employeeId = document.getElementById('swal-employee-id').value;
+            const companyCode = document.getElementById('swal-company-code').value;
+            
+            if (!employeeId || !companyCode) {
+                Swal.showValidationMessage('Both Employee ID and Company Code are required');
+                return false;
+            }
+            
+            return { employeeId, companyCode };
+        }
+    });
+    
+    if (!formValues) return;
+    
+    // Step 2: Verify credentials
+    Swal.fire({
+        title: 'Verifying...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    const response = await fetch('backend/api.php?action=forgot_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            employee_id: formValues.employeeId, 
+            company_code: formValues.companyCode 
+        })
+    });
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Verification Failed',
+            text: result.message
+        });
+        return;
+    }
+    
+    // Step 3: Ask for new password
+    const { value: newPassword } = await Swal.fire({
+        title: 'Set New Password',
+        html: `
+            <p style="margin-bottom: 10px; color: #666;">Verified: <strong>${result.employee_name}</strong></p>
+            <p style="margin-bottom: 15px; color: #666; font-size: 0.9em;">Username: <strong>${result.username}</strong></p>
+            <input id="swal-new-password" type="password" class="swal2-input" placeholder="New Password (min 6 characters)">
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Reset Password',
+        confirmButtonColor: '#4facfe',
+        preConfirm: () => {
+            const password = document.getElementById('swal-new-password').value;
+            
+            if (!password) {
+                Swal.showValidationMessage('Password is required');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                Swal.showValidationMessage('Password must be at least 6 characters');
+                return false;
+            }
+            
+            return password;
+        }
+    });
+    
+    if (!newPassword) return;
+    
+    // Step 4: Reset password
+    Swal.fire({
+        title: 'Resetting Password...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    const resetResponse = await fetch('backend/api.php?action=reset_password_with_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            token: result.reset_token,
+            password: newPassword 
+        })
+    });
+    
+    const resetResult = await resetResponse.json();
+    
+    if (resetResult.success) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Password Reset Successful',
+            text: 'You can now login with your new password.',
+            confirmButtonColor: '#4facfe'
+        });
+    } else {
+        Swal.fire({
+            icon: 'error',
+            title: 'Reset Failed',
+            text: resetResult.message
+        });
+    }
+});
 </script>
 
 </body>

@@ -51,7 +51,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll Officer Dashboard - <?php echo $company_name; ?></title>
+    <title>Payroll Officer Dashboard - <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -138,13 +138,13 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
             <header class="top-bar">
                 <div class="page-title">
                     <h2 id="current-page-title">Dashboard</h2>
-                    <p class="company-tag"><?php echo $company_name; ?></p>
+                    <p class="company-tag"><?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
                 <div class="user-profile">
                     <div class="profile-info">
                         <div class="profile-text">
-                            <span class="name"><?php echo $full_name; ?></span>
-                            <span class="role"><?php echo $role; ?> Portal</span>
+                            <span class="name"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="role"><?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?> Portal</span>
                         </div>
                     </div>
                 </div>
@@ -166,7 +166,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <?php include 'backend/modals.php'; ?>
 
     <script>
-        const USER_ROLE = "<?php echo $role; ?>";
+        const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
     <script src="js/script.js"></script>
 </body>
