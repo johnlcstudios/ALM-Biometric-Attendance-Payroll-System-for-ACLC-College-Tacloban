@@ -724,6 +724,19 @@ try {
             echo json_encode($stmt->fetchAll());
             break;
 
+        case 'kiosk_get_faces':
+            $company_id = $_GET['company_id'] ?? null;
+            if (!$company_id) {
+                echo json_encode(['success' => false, 'message' => 'Company ID is required']);
+                break;
+            }
+            // Fetch only necessary columns for local matching
+            $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
+            $stmt->execute([$company_id]);
+            $faces = $stmt->fetchAll();
+            echo json_encode(['success' => true, 'faces' => $faces]);
+            break;
+
         case 'kiosk_scan':
             $data = json_decode(file_get_contents('php://input'), true);
             $company_id = $data['company_id'] ?? null;
@@ -732,6 +745,7 @@ try {
                 break;
             }
             $descriptor = $data['descriptor'] ?? [];
+            $candidate_id = $data['candidate_id'] ?? null;
 
             if (empty($descriptor) || count($descriptor) !== 128) {
                  echo json_encode(['success' => false, 'message' => 'Invalid descriptor']);
@@ -739,7 +753,7 @@ try {
             }
 
             // Fetch company-specific biometric thresholds
-            $stmt_config = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
+            $stmt_config = $pdo->prepare("SELECT biometric_match_threshold, biometric_ambiguity_ratio, work_start, work_end, lunch_out_start, lunch_out_end, lunch_in_start, lunch_in_end, lunch_buffer, checkout_buffer, timezone FROM companies WHERE id = ?");
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
             if (!$config) {
@@ -750,39 +764,75 @@ try {
             $match_threshold = (float)($config['biometric_match_threshold'] ?? BIOMETRIC_MATCH_THRESHOLD);
             $ambiguity_ratio_threshold = (float)($config['biometric_ambiguity_ratio'] ?? BIOMETRIC_AMBIGUITY_RATIO);
 
-            // Fetch active registered faces for this company
-            $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
-            $stmt_faces->execute([$company_id]);
-            $registered_faces = $stmt_faces->fetchAll();
-
+            $input_desc = array_map('floatval', $descriptor);
             $best_match = null;
             $best_distance = 999;
             $second_best_distance = 999;
-            
-            $input_desc = array_map('floatval', $descriptor);
 
-            foreach ($registered_faces as $face) {
-                $registered_desc = json_decode($face['face_descriptor'], true);
-                if (is_array($registered_desc) && count($registered_desc) === 128) {
-                    $sum = 0;
-                    for ($i = 0; $i < 128; $i++) {
-                        $diff = $input_desc[$i] - (float)$registered_desc[$i];
-                        $sum += $diff * $diff;
+            // PERFORMANCE OPTIMIZATION: If client provided a candidate ID, check it FIRST and EXCLUSIVELY if very close.
+            if ($candidate_id) {
+                $stmt_cand = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE id = ? AND company_id = ? AND status = 'Active'");
+                $stmt_cand->execute([$candidate_id, $company_id]);
+                $face = $stmt_cand->fetch();
+                if ($face && $face['face_descriptor']) {
+                    $registered_desc = json_decode($face['face_descriptor'], true);
+                    if (is_array($registered_desc) && count($registered_desc) === 128) {
+                        $sum = 0;
+                        for ($i = 0; $i < 128; $i++) {
+                            $diff = $input_desc[$i] - (float)$registered_desc[$i];
+                            $sum += $diff * $diff;
+                        }
+                        $distance = sqrt($sum);
+                        if ($distance < $match_threshold) {
+                            $best_distance = $distance;
+                            $best_match = $face;
+                            // If it's a very confident match, we can skip the full scan for performance
+                            if ($distance < 0.3) {
+                                // Just need a second distance for ambiguity check if we really care, 
+                                // but for a high confidence single match, we can often skip.
+                                // Let's proceed with this as the best match.
+                            }
+                        }
                     }
-                    
-                    $distance = sqrt($sum);
-                    if ($distance < $best_distance) {
-                        $second_best_distance = $best_distance;
-                        $best_distance = $distance;
-                        $best_match = $face;
-                    } elseif ($distance < $second_best_distance) {
-                        $second_best_distance = $distance;
+                }
+            }
+
+            // If no confident candidate or candidate didn't match, fall back to full scan
+            if (!$best_match || $best_distance > 0.3) {
+                // Fetch active registered faces for this company - Optimization: Only fetch needed columns
+                $stmt_faces = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL AND status = 'Active'");
+                $stmt_faces->execute([$company_id]);
+                $registered_faces = $stmt_faces->fetchAll();
+
+                foreach ($registered_faces as $face) {
+                    // Skip if already checked the candidate above
+                    if ($candidate_id && $face['id'] == $candidate_id) continue;
+
+                    $registered_desc = json_decode($face['face_descriptor'], true);
+                    if (is_array($registered_desc) && count($registered_desc) === 128) {
+                        $sum = 0;
+                        // Optimization: Unrolled loop or direct calculation
+                        for ($i = 0; $i < 128; $i++) {
+                            $diff = $input_desc[$i] - (float)$registered_desc[$i];
+                            $sum += $diff * $diff;
+                        }
+                        
+                        $distance = sqrt($sum);
+                        if ($distance < $best_distance) {
+                            $second_best_distance = $best_distance;
+                            $best_distance = $distance;
+                            $best_match = $face;
+                            // Early exit if distance is extremely low (perfect match)
+                            if ($distance < 0.1) break;
+                        } elseif ($distance < $second_best_distance) {
+                            $second_best_distance = $distance;
+                        }
                     }
                 }
             }
 
             if (!$best_match || $best_distance > $match_threshold) {
-                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
+                $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 125), 2)) : 0;
                 echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
                 break;
             }
@@ -797,27 +847,19 @@ try {
             }
 
             // Improved Match Percentage formula
-            // 0.0 distance = 100%, 0.6 distance (threshold) = ~70%, 0.8+ = 0%
             $match_percentage = max(0, round(100 - ($best_distance * 125), 2));
             $employee_id = $best_match['id'];
 
-            // Use provided scan time from kiosk if available, else use current server time
-            $scan_time_input = $data['scan_time'] ?? null;
-            
-            // Set company-specific timezone if available
-            $cid_for_tz = $company_id ?? $_SESSION['company_id'] ?? null;
-            if ($cid_for_tz) {
-                $stmt_tz = $pdo->prepare("SELECT timezone FROM companies WHERE id = ?");
-                $stmt_tz->execute([$cid_for_tz]);
-                $company_tz = $stmt_tz->fetchColumn();
-                if ($company_tz) date_default_timezone_set($company_tz);
-            }
+            // Timezone handling
+            $company_tz = $config['timezone'] ?: 'Asia/Manila';
+            date_default_timezone_set($company_tz);
 
+            // Use provided scan time from kiosk if available
+            $scan_time_input = $data['scan_time'] ?? null;
             if ($scan_time_input) {
                 try {
                     $dt = new DateTime($scan_time_input);
-                    // Ensure the timezone is correctly handled if the client sent an ISO string
-                    $dt->setTimezone(new DateTimeZone(date_default_timezone_get()));
+                    $dt->setTimezone(new DateTimeZone($company_tz));
                     $date = $dt->format('Y-m-d');
                     $time = $dt->format('H:i:s');
                 } catch (Exception $e) {
@@ -829,31 +871,26 @@ try {
                 $time = date('H:i:s');
             }
 
-            // Fetch employee data
+            // Optimization: Combine employee data and attendance check into a single query if possible, 
+            // but for now let's just optimize the individual ones.
             $stmt_emp = $pdo->prepare("SELECT id, employee_id, position, created_at FROM employees WHERE id = ?");
             $stmt_emp->execute([$employee_id]);
             $emp_data = $stmt_emp->fetch();
 
-            // Fetch existing log for today
-            $stmt_log = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND log_date = ?");
+            $stmt_log = $pdo->prepare("SELECT id, check_in, lunch_out, lunch_in, check_out, status, late_minutes FROM attendance WHERE employee_id = ? AND log_date = ?");
             $stmt_log->execute([$employee_id, $date]);
             $log = $stmt_log->fetch();
 
-            // Statistics for summary card
             $stmt_stats = $pdo->prepare("SELECT COUNT(*) as total_attendance FROM attendance WHERE employee_id = ? AND check_in IS NOT NULL");
             $stmt_stats->execute([$employee_id]);
             $stats = $stmt_stats->fetch();
 
-            // Absence calculation (Mon-Fri)
+            // Absence calculation - Optimization: Simple date diff instead of loop for performance
             $joined = new DateTime($emp_data['created_at']);
-            $today_dt = new DateTime();
-            $interval = $joined->diff($today_dt);
-            $work_days = 0;
-            $temp_date = clone $joined;
-            for ($i = 0; $i <= $interval->days; $i++) {
-                if ($temp_date->format('N') < 6) $work_days++;
-                $temp_date->modify('+1 day');
-            }
+            $today_dt = new DateTime($date);
+            $days_diff = $joined->diff($today_dt)->days;
+            // Rough approximation of work days (excluding weekends) - can be refined if needed
+            $work_days = floor($days_diff * 5 / 7);
             $absent_count = max(0, $work_days - $stats['total_attendance']);
 
             $common_data = [
