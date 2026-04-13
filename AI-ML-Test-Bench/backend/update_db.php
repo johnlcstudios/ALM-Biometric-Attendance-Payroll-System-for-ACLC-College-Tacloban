@@ -319,6 +319,31 @@ try {
         if (!$silent) echo "'subject_loads' table already exists.\n";
     }
 
+    // 20. Create 'audit_logs' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'audit_logs'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Creating 'audit_logs' table... ";
+        $pdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+            id          INT           AUTO_INCREMENT PRIMARY KEY,
+            company_id  INT           NOT NULL,
+            user_id     INT           DEFAULT NULL,
+            username    VARCHAR(100)  NOT NULL DEFAULT 'system',
+            action      VARCHAR(100)  NOT NULL,
+            description TEXT          NOT NULL,
+            target_id   INT           DEFAULT NULL,
+            ip_address  VARCHAR(45)   DEFAULT NULL,
+            created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE SET NULL
+        )");
+        $pdo->exec("CREATE INDEX idx_audit_logs_company    ON audit_logs(company_id)");
+        $pdo->exec("CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)");
+        $pdo->exec("CREATE INDEX idx_audit_logs_action     ON audit_logs(action)");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'audit_logs' table already exists.\n";
+    }
+
     if (!$silent) {
         echo "\n<b>Database update completed successfully!</b>";
         echo "\n<a href='index.php'>Return to Dashboard</a>";
