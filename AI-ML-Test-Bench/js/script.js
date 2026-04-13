@@ -7,17 +7,15 @@ let attendanceChart = null;
 let pChart, aChart;
 
 // --- Data Stores ---
-let employees = { data: [], total_count: 0, page: 1, limit: 25 };
-let attendanceLogs = { data: [], total_count: 0, page: 1, limit: 25 };
-let payrollHistory = { data: [], total_count: 0, page: 1, limit: 25 };
+let employees = [];
+let attendanceLogs = [];
+let payrollHistory = [];
 let leaveRequests = [];
 let loanRequests = [];
 let resignationRequests = [];
 let masterSubjects = [];
 let subjectLoads = [];
 let currentPage = 'dashboard';
-let DEFAULT_LIMIT = 25;
-
 
 // --- Helper Functions ---
 function escapeHTML(str) {
@@ -93,67 +91,6 @@ function filterTable(input, tableId) {
     }
 }
 
-// --- Pagination Helpers ---
-async function fetchPaginatedData(action, page = 1, limit = DEFAULT_LIMIT) {
-    const url = `backend/api.php?action=${action}&page=${page}&limit=${limit}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const text = await res.text();
-    try {
-        const response = JSON.parse(text);
-        return response && response.data ? response : { data: [], total_count: 0, page, limit };
-    } catch (e) {
-        console.error("Malformed JSON from " + url + ":", text);
-        return { data: [], total_count: 0, page, limit };
-    }
-}
-
-async function fetchEmployees(page = 1, limit = DEFAULT_LIMIT) {
-    return await fetchPaginatedData('get_employees', page, limit);
-}
-
-async function fetchAttendance(page = 1, limit = DEFAULT_LIMIT) {
-    return await fetchPaginatedData('get_attendance', page, limit);
-}
-
-async function fetchPayroll(page = 1, limit = DEFAULT_LIMIT) {
-    return await fetchPaginatedData('get_payroll', page, limit);
-}
-
-function changePage(type, newPage) {
-    if (newPage < 1) return;
-    
-    const store = {
-        employees: employees,
-        attendance: attendanceLogs,
-        payroll: payrollHistory
-    }[type];
-    
-    if (!store) return;
-    
-    const totalPages = Math.ceil(store.total_count / store.limit);
-    if (newPage > totalPages) return;
-    
-    store.page = newPage;
-    
-    if (type === 'employees') {
-        fetchEmployees(newPage, store.limit).then(data => {
-            employees = data;
-            renderEmployeeTable();
-        });
-    } else if (type === 'attendance') {
-        fetchAttendance(newPage, store.limit).then(data => {
-            attendanceLogs = data;
-            renderAttendanceTable();
-        });
-    } else if (type === 'payroll') {
-        fetchPayroll(newPage, store.limit).then(data => {
-            payrollHistory = data;
-            renderPayrollTable();
-        });
-    }
-}
-
 // --- Data Fetching ---
 const fetchJSON = async (url) => {
     const res = await fetch(url);
@@ -172,16 +109,16 @@ async function fetchData(specificPage = null) {
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
     const urlParams = new URLSearchParams(window.location.search);
-    const page = specificPage || urlParams.get('page') || 'dashboard';
+    const activePageId = document.querySelector('.page.active')?.id;
+    const page = specificPage || urlParams.get('page') || activePageId || 'dashboard';
 
     try {
         const getArray = (data) => Array.isArray(data) ? data : [];
 
-        // Ensure the employees store is initialized for pagination and dropdowns
-        if (!Array.isArray(employees.data) || employees.data.length === 0) {
-            employees = await fetchEmployees(1, employees.limit || DEFAULT_LIMIT);
+        // Always fetch employees as they are used globally
+        if (employees.length === 0 || page === 'employees') {
+            employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
         }
-
 
         // Conditional fetching based on page
         if (page === 'dashboard') {
@@ -200,11 +137,9 @@ async function fetchData(specificPage = null) {
                 if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
             }
         } else if (page === 'attendance') {
-            attendanceLogs = await fetchAttendance(attendanceLogs.page || 1, attendanceLogs.limit || DEFAULT_LIMIT);
-            renderAttendanceTable();
+            attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
         } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
-            payrollHistory = await fetchPayroll(payrollHistory.page || 1, payrollHistory.limit || DEFAULT_LIMIT);
-            renderPayrollTable();
+            payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
         } else if (page === 'leave') {
             leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
         } else if (page === 'loans') {
@@ -212,16 +147,13 @@ async function fetchData(specificPage = null) {
         } else if (page === 'resignations') {
             resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
         } else if (page === 'subject_loads' || page === 'employees') {
-            employees = await fetchEmployees(employees.page || 1, employees.limit || DEFAULT_LIMIT);
-            renderEmployeeTable();
             masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
             subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
         } else if (page === 'allowances' || page === 'deductions') {
             // Already handled by their respective render functions called in showPage
         }
 
-
-        showPage(page);
+        await showPage(page);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -281,7 +213,7 @@ function stopRegistrationCamera() {
     }
 }
 
-function showPage(pageId) {
+async function showPage(pageId) {
     if (currentPage === 'biometrics' && pageId !== 'biometrics') {
         stopRegistrationCamera();
     }
@@ -320,10 +252,10 @@ function showPage(pageId) {
     if (pageId === 'employees') renderEmployeeTable();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
-    if (pageId === 'faculty_payroll') loadFacultyPayroll('latest');
-    if (pageId === 'utility_payroll') loadUtilityPayroll('latest');
-    if (pageId === 'allowances') renderAllowances();
-    if (pageId === 'deductions') renderDeductions();
+    if (pageId === 'faculty_payroll') await loadFacultyPayroll('latest');
+    if (pageId === 'utility_payroll') await loadUtilityPayroll('latest');
+    if (pageId === 'allowances') await renderAllowances();
+    if (pageId === 'deductions') await renderDeductions();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
@@ -337,7 +269,7 @@ function populateRegistrationSelect() {
     if (!select) return;
 
     select.innerHTML = '<option value="">Choose Employee...</option>' +
-        (employees.data || []).map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
+        employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
 }
 
 // --- Render Functions ---
@@ -345,26 +277,7 @@ function renderEmployeeTable() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
 
-    // Pagination UI
-    const totalPages = Math.ceil(employees.total_count / employees.limit);
-    const paginationHTML = `
-        <tr class="pagination-row">
-            <td colspan="7" class="text-center p-3">
-                <div class="pagination-controls">
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('employees', ${employees.page - 1})" ${employees.page <= 1 ? 'disabled' : ''}>
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <span class="mx-3">Page ${employees.page} of ${totalPages} (${employees.total_count} total)</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('employees', ${employees.page + 1})" ${employees.page >= totalPages ? 'disabled' : ''}>
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
-
-    const employeeRowsHtml = employees.data.map(emp => {
-
+    tbody.innerHTML = employees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
 
@@ -400,9 +313,7 @@ function renderEmployeeTable() {
                 </td>
             </tr>
         `;
-    }).join('');
-
-    tbody.innerHTML = (employeeRowsHtml || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>') + paginationHTML;
+    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
 }
 
 function renderMasterSubjects() {
@@ -673,8 +584,45 @@ async function printSpecializedPayroll(tableId, title) {
 }
 
 // --- Employee Management ---
+function renderEmployeeTable() {
+    const tbody = document.getElementById('employeeTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = employees.map(emp => {
+        const isFaculty = (emp.position || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'education';
+        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
+        const statusClass = statusLabel.toLowerCase().replace(' ', '-');
+
+        return `
+        <tr id="row-${emp.id}">
+            <td>${escapeHTML(emp.employee_id)}</td>
+            <td>
+                <div><strong>${escapeHTML(emp.full_name)}</strong></div>
+                <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
+            </td>
+            <td>${escapeHTML(emp.position)}</td>
+            <td>${escapeHTML(emp.department)}</td>
+            <td>
+                ${isFaculty ? `
+                    <span class="badge badge-info" style="cursor: pointer; padding: 5px 10px; border-radius: 4px; background: #3498db; color: white;" onclick="viewFacultyLoads('${emp.id}')">
+                        ${loadCount} Loads
+                    </span>
+                ` : '<span class="text-muted">---</span>'}
+            </td>
+            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
+            <td>
+                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
+                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
 function openAddLoadModal(empId) {
-    const emp = (employees.data || []).find(e => e.id == empId);
+    const emp = employees.find(e => e.id == empId);
     if (!emp) return;
 
     document.getElementById('subjectLoadForm').reset();
@@ -733,7 +681,7 @@ async function resetPassword(userId) {
 let editingEmployeeId = null;
 
 function editEmployee(id) {
-    const emp = (employees.data || []).find(e => e.id == id);
+    const emp = employees.find(e => e.id == id);
     if (!emp) return;
 
     editingEmployeeId = id;
@@ -960,9 +908,9 @@ function renderAttendanceTable() {
     if (!tbody) return;
     const dateFilter = document.getElementById('attendanceDateFilter').value;
 
-    let filteredLogs = attendanceLogs.data || [];
+    let filteredLogs = attendanceLogs;
     if (dateFilter) {
-        filteredLogs = filteredLogs.filter(log => log.log_date === dateFilter);
+        filteredLogs = attendanceLogs.filter(log => log.log_date === dateFilter);
     }
 
     // Update Summary Stats
@@ -978,25 +926,7 @@ function renderAttendanceTable() {
         document.getElementById('att-absent-count').innerText = absentCount;
     }
 
-    // Pagination UI
-    const totalPages = Math.ceil(attendanceLogs.total_count / attendanceLogs.limit);
-    const paginationHTML = `
-        <tr class="pagination-row">
-            <td colspan="8" class="text-center p-3">
-                <div class="pagination-controls">
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('attendance', ${attendanceLogs.page - 1})" ${attendanceLogs.page <= 1 ? 'disabled' : ''}>
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <span class="mx-3">Page ${attendanceLogs.page} of ${totalPages} (${attendanceLogs.total_count} total)</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('attendance', ${attendanceLogs.page + 1})" ${attendanceLogs.page >= totalPages ? 'disabled' : ''}>
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
-
-    const attendanceRowsHtml = filteredLogs.map(log => {
+    tbody.innerHTML = filteredLogs.map(log => {
         const status = log.status || '---';
         const statusClass = status.toLowerCase().replace(' ', '-');
 
@@ -1034,8 +964,6 @@ function renderAttendanceTable() {
         </tr>
     `;
     }).join('');
-
-    tbody.innerHTML = (attendanceRowsHtml || '<tr><td colspan="8" class="text-center">No attendance logs found.</td></tr>') + paginationHTML;
 }
 
 function viewAttendanceDetails(id) {
@@ -1055,7 +983,7 @@ function exportAttendance() {
 
     doc.text("Daily Attendance Logs", 14, 15);
 
-    const rows = (attendanceLogs.data || []).map(l => [
+    const rows = attendanceLogs.map(l => [
         l.emp_code,
         l.full_name,
         l.log_date,
@@ -1303,61 +1231,37 @@ async function runPayroll() {
     }
 }
 
-async function renderPayrollTable() {
+function renderPayrollTable() {
     const tbody = document.getElementById('payrollTableBody');
     if (!tbody) return;
 
-    const payrollRows = Array.isArray(payrollHistory.data) ? payrollHistory.data : [];
-    const totalPages = Math.ceil((payrollHistory.total_count || 0) / (payrollHistory.limit || DEFAULT_LIMIT)) || 1;
-    const paginationHTML = `
-        <tr class="pagination-row">
-            <td colspan="6" class="text-center p-3">
-                <div class="pagination-controls">
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('payroll', ${payrollHistory.page - 1})" ${payrollHistory.page <= 1 ? 'disabled' : ''}>
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <span class="mx-3">Page ${payrollHistory.page} of ${totalPages} (${payrollHistory.total_count || 0} total)</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="changePage('payroll', ${payrollHistory.page + 1})" ${payrollHistory.page >= totalPages ? 'disabled' : ''}>
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
+    fetch('backend/api.php?action=get_payroll_batches')
+        .then(res => res.json())
+        .then(batchList => {
+            // Update stats
+            if (batchList.length > 0) {
+                document.getElementById('stat-total-batches').innerText = batchList.length;
+                const totalDisbursed = batchList.reduce((sum, b) => sum + parseFloat(b.total_disbursed), 0);
+                document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+                document.getElementById('stat-last-run').innerText = batchList[0].period;
+                document.getElementById('stat-last-staff-count').innerText = batchList[0].staff_count;
+            }
 
-    const payrollRowsHtml = payrollRows.map((p, index) => `
-        <tr>
-            <td><strong>${escapeHTML(p.period || `Batch ${index + 1}`)}</strong></td>
-            <td>${formatCurrency(p.basic_pay || 0)}</td>
-            <td>${formatCurrency(p.deductions || 0)}</td>
-            <td class="text-success"><strong>${formatCurrency(p.net_pay || 0)}</strong></td>
-            <td>${escapeHTML(p.status || 'Paid')}</td>
-            <td>
-                <div class="action-buttons">
-                    <button class="btn-icon" title="View Details" onclick="viewPayslip(${p.id})"><i class="fas fa-eye"></i></button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
-
-    tbody.innerHTML = (payrollRowsHtml || '<tr><td colspan="6" class="text-center">No payroll records found.</td></tr>') + paginationHTML;
-
-    try {
-        const batchList = await fetchJSON('backend/api.php?action=get_payroll_batches') || [];
-        if (Array.isArray(batchList) && batchList.length > 0) {
-            const totalDisbursed = batchList.reduce((sum, b) => sum + parseFloat(b.total_disbursed || 0), 0);
-            document.getElementById('stat-total-batches').innerText = batchList.length;
-            document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-            document.getElementById('stat-last-run').innerText = batchList[0].period;
-            document.getElementById('stat-last-staff-count').innerText = batchList[0].staff_count || '';
-        }
-    } catch (error) {
-        console.warn('Unable to update payroll batch stats:', error);
-    }
-
-    tbody.innerHTML = (payrollRowsHtml || '<tr><td colspan="6" class="text-center">No payroll records found.</td></tr>') + paginationHTML;
+            tbody.innerHTML = batchList.map((b, index) => `
+                <tr>
+                    <td><strong>BATCH-${101 + index}</strong></td>
+                    <td>${escapeHTML(b.period)}</td>
+                    <td>₱${parseFloat(b.total_disbursed).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td>${escapeHTML(new Date(b.processing_date).toLocaleDateString())}</td>
+                    <td>Admin</td>
+                    <td><span class="status-badge status-active">Completed</span></td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye"></i> View</button>
+                    </td>
+                </tr>
+            `).join('');
+        });
 }
-
 
 function showPayrollModal() {
     openModal('runPayrollModal');
@@ -1383,7 +1287,7 @@ async function runPayrollDirect(start_date, end_date) {
 }
 
 function viewBatch(period) {
-    const records = (payrollHistory.data || []).filter(p => p.period === period);
+    const records = payrollHistory.filter(p => p.period === period);
     if (records.length === 0) return showToast("No records found for this batch.", 'error');
 
     let report = `<div style="text-align: left; font-family: monospace;">
@@ -1415,7 +1319,7 @@ function renderLeaveTable() {
     const leaveBalanceSelect = document.getElementById('leaveBalanceEmployeeSelect');
     if (leaveBalanceSelect) {
         leaveBalanceSelect.innerHTML = '<option value="">Select Employee...</option>' +
-            (employees.data || []).map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
+            employees.map(emp => `<option value="${emp.id}">${escapeHTML(emp.full_name)} (${escapeHTML(emp.employee_id)})</option>`).join('');
     }
 
     const tbody = document.getElementById('leaveTableBody');
@@ -2116,10 +2020,10 @@ function generateReport(type) {
         attendanceLogs.forEach(log => csvContent += `${log.emp_code},${log.full_name},${log.log_date},${log.check_in},${log.check_out},${log.status}\n`);
     } else if (type === 'payroll') {
         csvContent += "Employee,Period,Basic Pay,Deductions,Net Pay,Status\n";
-        (payrollHistory.data || []).forEach(p => csvContent += `${p.full_name},${p.period},${p.basic_pay},${p.deductions},${p.net_pay},${p.status}\n`);
+        payrollHistory.forEach(p => csvContent += `${p.full_name},${p.period},${p.basic_pay},${p.deductions},${p.net_pay},${p.status}\n`);
     } else if (type === 'employees') {
         csvContent += "Employee ID,Full Name,Position,Department,Status\n";
-        (employees.data || []).forEach(emp => csvContent += `${emp.employee_id},${emp.full_name},${emp.position},${emp.department},${emp.status}\n`);
+        employees.forEach(emp => csvContent += `${emp.employee_id},${emp.full_name},${emp.position},${emp.department},${emp.status}\n`);
     }
 
     const encodedUri = encodeURI(csvContent);
@@ -2132,7 +2036,7 @@ function generateReport(type) {
 }
 
 function viewFacultyLoads(empId) {
-    const emp = (employees.data || []).find(e => e.id == empId);
+    const emp = employees.find(e => e.id == empId);
     if (!emp) return;
 
     const facultyLoads = subjectLoads.filter(load => load.faculty_id == empId);
@@ -2478,7 +2382,7 @@ function initCharts() {
     }
 
     const sums = Object.fromEntries(last6.map(m => [m.key, 0]));
-    for (const p of (payrollHistory.data || [])) {
+    for (const p of payrollHistory) {
         const d = parseMySqlDateTime(p.created_at);
         if (!d) continue;
         const key = monthKey(d);
@@ -2486,9 +2390,9 @@ function initCharts() {
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const presentIds = new Set((attendanceLogs.data || []).filter(l => l.log_date === todayStr && l.check_in).map(l => String(l.employee_id)));
-    const onLeaveCount = (employees.data || []).filter(e => (e.status || '').toLowerCase() === 'on leave').length;
-    const activeCount = (employees.data || []).filter(e => (e.status || '').toLowerCase() !== 'inactive').length;
+    const presentIds = new Set(attendanceLogs.filter(l => l.log_date === todayStr && l.check_in).map(l => String(l.employee_id)));
+    const onLeaveCount = employees.filter(e => (e.status || '').toLowerCase() === 'on leave').length;
+    const activeCount = employees.filter(e => (e.status || '').toLowerCase() !== 'inactive').length;
     const presentCount = presentIds.size;
     const absentCount = Math.max(activeCount - onLeaveCount - presentCount, 0);
 
@@ -2496,7 +2400,7 @@ function initCharts() {
     const presentEl = document.getElementById('stat-present');
     const absentEl = document.getElementById('stat-absent');
     const leaveEl = document.getElementById('stat-leave');
-    if (totalEl) totalEl.innerText = String((employees.data || []).length);
+    if (totalEl) totalEl.innerText = String(employees.length);
     if (presentEl) presentEl.innerText = String(presentCount);
     if (absentEl) absentEl.innerText = String(absentCount);
     if (leaveEl) leaveEl.innerText = String(leaveRequests.filter(r => r.status === 'Pending').length);

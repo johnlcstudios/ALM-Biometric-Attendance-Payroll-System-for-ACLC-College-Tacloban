@@ -16,91 +16,6 @@ try {
 
 $action = $_GET['action'] ?? '';
 
-$page = max(1, (int)($_GET['page'] ?? 1));
-$limit = min(100, max(1, (int)($_GET['limit'] ?? 25)));
-$offset = ($page - 1) * $limit;
-
-/**
- * Get current UTC timestamp for consistent database storage
- * All timestamps in database should be stored in UTC
- * @return string Current timestamp in ISO 8601 format (UTC)
- */
-function getCurrentUTCTimestamp() {
-    return date('Y-m-d H:i:s', time());
-}
-
-/**
- * Convert UTC timestamp to company-specific timezone for display
- * @param string $utcTimestamp UTC timestamp (Y-m-d H:i:s format)
- * @param string $timezone Timezone to convert to (e.g., 'Asia/Manila')
- * @return string Formatted time in the target timezone
- */
-function convertUTCToTimezone($utcTimestamp, $timezone = 'UTC') {
-    try {
-        $utcDate = new DateTime($utcTimestamp, new DateTimeZone('UTC'));
-        $utcDate->setTimezone(new DateTimeZone($timezone));
-        return $utcDate->format('Y-m-d H:i:s');
-    } catch (Exception $e) {
-        return $utcTimestamp; // Return original if conversion fails
-    }
-}
-
-/**
- * Convert any timezone timestamp to UTC for database storage
- * @param string $timestamp Timestamp in any format
- * @param string $timezone Timezone of the input timestamp
- * @return string UTC timestamp in Y-m-d H:i:s format
- */
-function convertTimestampToUTC($timestamp, $timezone = 'UTC') {
-    try {
-        $dt = new DateTime($timestamp, new DateTimeZone($timezone));
-        $dt->setTimezone(new DateTimeZone('UTC'));
-        return $dt->format('Y-m-d H:i:s');
-    } catch (Exception $e) {
-        return getCurrentUTCTimestamp(); // Return current UTC if conversion fails
-    }
-}
-
-/**
- * Get current server time with company timezone awareness
- * Returns both UTC for storage and timezone-adjusted for display
- * @param int $companyId Optional company ID to fetch timezone
- * @param mysqli|PDO $dbConnection Optional database connection for company lookup
- * @return array {utc: string, display: string, date: string, time: string, timezone: string}
- */
-function getServerTime($companyId = null, $dbConnection = null) {
-    global $pdo;
-    
-    $timezone = 'UTC'; // Default to UTC
-    
-    // Fetch company timezone if provided
-    if ($companyId && ($dbConnection || isset($pdo))) {
-        try {
-            $db = $dbConnection ?? $pdo;
-            $stmt = $db->prepare("SELECT timezone FROM companies WHERE id = ?");
-            $stmt->execute([$companyId]);
-            $result = $stmt->fetchColumn();
-            if ($result) $timezone = $result;
-        } catch (Exception $e) {
-            // Default to UTC on error
-        }
-    }
-    
-    $utcNow = new DateTime('now', new DateTimeZone('UTC'));
-    $displayNow = clone $utcNow;
-    $displayNow->setTimezone(new DateTimeZone($timezone));
-    
-    return [
-        'utc' => $utcNow->format('Y-m-d H:i:s'),
-        'display' => $displayNow->format('Y-m-d H:i:s'),
-        'date' => $displayNow->format('Y-m-d'),
-        'time' => $displayNow->format('H:i:s'),
-        'display_time' => $displayNow->format('h:i A'),
-        'timezone' => $timezone,
-        'server_ms' => (int)round(microtime(true) * 1000)
-    ];
-}
-
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR()
 {
@@ -167,33 +82,6 @@ function validateDateRange($startDate, $endDate)
     return $errors;
 }
 
-// AUDIT TRAIL HELPER
-/**
- * Log an administrative action to the audit_logs table.
- *
- * @param string $action      Short action name, e.g. 'signup', 'save_employee'
- * @param string $description Human-readable description of what was done
- * @param int|null $targetId  Optional ID of the affected record
- */
-function logAction($action, $description, $targetId = null) {
-    global $pdo;
-    try {
-        $userId    = $_SESSION['user_id']    ?? null;
-        $companyId = $_SESSION['company_id'] ?? null;
-        $username  = $_SESSION['username']   ?? 'system';
-        $ip        = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-
-        $stmt = $pdo->prepare(
-            "INSERT INTO audit_logs
-                (company_id, user_id, username, action, description, target_id, ip_address, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
-        );
-        $stmt->execute([$companyId, $userId, $username, $action, $description, $targetId, $ip]);
-    } catch (Exception $e) {
-        error_log('logAction failed: ' . $e->getMessage());
-    }
-}
-
 try {
     switch ($action) {
         case 'login':
@@ -248,7 +136,6 @@ try {
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
 
                 $pdo->commit();
-                logAction('signup', "New company registered: {$company_name}, admin user: {$username}");
                 echo json_encode(['success' => true]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -445,7 +332,6 @@ try {
                     }
                 }
                 $pdo->commit();
-                logAction('run_specialized_payroll', ucfirst($type) . " payroll processed for period: {$period} (" . count($employees) . " employees)");
                 echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully', 'period' => $period]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -655,7 +541,6 @@ try {
             if ($success) {
                 $_SESSION['company_timezone'] = $data['timezone'];
                 $_SESSION['company_name'] = $data['companyName'];
-                logAction('save_settings', "Company settings updated: name={$data['companyName']}, timezone={$data['timezone']}");
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Database update failed']);
@@ -673,25 +558,6 @@ try {
             $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
-            if (!isset($_SESSION['company_id'])) exit(json_encode([]));
-            
-            // Get total count
-            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
-            $countStmt->execute([$_SESSION['company_id']]);
-            $total_count = (int)$countStmt->fetchColumn();
-            
-            // Paginated query
-            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ? LIMIT ? OFFSET ?");
-            $stmt->execute([$_SESSION['company_id'], $limit, $offset]);
-            $results = $stmt->fetchAll();
-            
-            echo json_encode([
-                'data' => $results,
-                'total_count' => $total_count,
-                'page' => $page,
-                'limit' => $limit,
-                'total_pages' => ceil($total_count / $limit)
-            ]);
             break;
 
         case 'save_employee':
@@ -732,7 +598,6 @@ try {
                     $data['id'],
                     $_SESSION['company_id']
                 ]);
-                logAction('save_employee', "Employee updated: {$data['fullName']} (ID: {$data['id']})", (int)$data['id']);
             } else {
                 // Create new employee
                 $pdo->beginTransaction();
@@ -794,7 +659,6 @@ try {
                     }
 
                     $pdo->commit();
-                    logAction('save_employee', "New employee created: {$data['fullName']} ({$emp_id})", $new_emp_id)
                 } catch (Exception $e) {
                     $pdo->rollBack();
                     exit(json_encode(['success' => false, 'message' => $e->getMessage()]));
@@ -809,18 +673,8 @@ try {
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
-            
-            // Fetch name before deletion for a meaningful audit entry
-            $stmt_name = $pdo->prepare("SELECT full_name, employee_id FROM employees WHERE id = ? AND company_id = ?");
-            $stmt_name->execute([$id, $_SESSION['company_id']]);
-            $emp_info = $stmt_name->fetch();
-
             $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-
-            $label = $emp_info ? "{$emp_info['full_name']} ({$emp_info['employee_id']})" : "ID {$id}";
-            logAction('delete_employee', "Employee deleted: {$label}", (int)$id);
-
             echo json_encode(['success' => true]);
             break;
 
@@ -893,25 +747,6 @@ try {
             $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
-            if (!isset($_SESSION['company_id'])) exit(json_encode([]));
-            
-            // Get total count
-            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ?");
-            $countStmt->execute([$_SESSION['company_id']]);
-            $total_count = (int)$countStmt->fetchColumn();
-            
-            // Paginated query
-            $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC LIMIT ? OFFSET ?");
-            $stmt->execute([$_SESSION['company_id'], $limit, $offset]);
-            $results = $stmt->fetchAll();
-            
-            echo json_encode([
-                'data' => $results,
-                'total_count' => $total_count,
-                'page' => $page,
-                'limit' => $limit,
-                'total_pages' => ceil($total_count / $limit)
-            ]);
             break;
 
         case 'kiosk_scan':
@@ -1317,14 +1152,19 @@ try {
                     }
 
                     $net_pay = $earned_pay - $total_deductions;
+                    $payroll_type = 'General';
+                    if (strcasecmp($category, 'Faculty') === 0) {
+                        $payroll_type = 'Faculty';
+                    } elseif (strcasecmp($category, 'Utility') === 0) {
+                        $payroll_type = 'Utility';
+                    }
 
                     $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', ?)");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $payroll_type]);
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
-                logAction('run_payroll', "General payroll run for {$cat_msg}, period: {$period} (" . count($employees) . " employees)");
                 echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period run successfully."]);
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -1338,25 +1178,6 @@ try {
             $stmt = $pdo->prepare("SELECT p.*, e.full_name FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? ORDER BY p.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
-            if (!isset($_SESSION['company_id'])) exit(json_encode([]));
-            
-            // Get total count
-            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ?");
-            $countStmt->execute([$_SESSION['company_id']]);
-            $total_count = (int)$countStmt->fetchColumn();
-            
-            // Paginated query
-            $stmt = $pdo->prepare("SELECT p.*, e.full_name FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?");
-            $stmt->execute([$_SESSION['company_id'], $limit, $offset]);
-            $results = $stmt->fetchAll();
-            
-            echo json_encode([
-                'data' => $results,
-                'total_count' => $total_count,
-                'page' => $page,
-                'limit' => $limit,
-                'total_pages' => ceil($total_count / $limit)
-            ]);
             break;
 
         case 'get_payslip':
@@ -1556,7 +1377,6 @@ try {
 
             $_SESSION['company_name'] = $data['companyName'];
             $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
-            logAction('save_settings', "Company settings updated: name={$data['companyName']}, timezone={$data['timezone']}");
             echo json_encode(['success' => true]);
             break;
 
@@ -1795,19 +1615,6 @@ try {
                 'display_time' => date('h:i A'),
                 'timezone' => date_default_timezone_get()
             ]);
-            break;
-        case 'get_audit_logs':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-                $limit  = max(1, min(500, (int)($_GET['limit'] ?? 100)));
-                $offset = max(0, (int)($_GET['offset'] ?? 0));
-                $stmt = $pdo->prepare(
-                    "SELECT * FROM audit_logs
-                    WHERE company_id = ?
-                    ORDER BY created_at DESC
-                    LIMIT ? OFFSET ?"
-                );
-                $stmt->execute([$_SESSION['company_id'], $limit, $offset]);
-                echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
             break;
 
         default:
