@@ -933,6 +933,10 @@ try {
             break;
 
         case 'logout':
+            // Clear the splash screen flag so it shows again on next login
+            if (isset($_SESSION['splash_shown'])) {
+                unset($_SESSION['splash_shown']);
+            }
             session_destroy();
             echo json_encode(['success' => true]);
             break;

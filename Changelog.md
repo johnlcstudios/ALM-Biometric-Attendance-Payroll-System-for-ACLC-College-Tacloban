@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Animated Splash Screen**:
     - Beautiful gradient splash screen with BSIT 3A credits
     - Shows "Built with love from BSIT 3A (A.Y. 2025-2026) Batch 2027"
-    - Appears on system startup (login.php) and dashboard (index.php)
-    - Appears during installation (setup-db.php and secure-setup.php)
+    - Appears ONLY on initial login (startup) and installation pages
+    - Does NOT appear when navigating between pages within the system
+    - Reappears after logout and next login
     - Smooth animations: fade-in, slide-in, pulse, and heartbeat effects
     - 3-second display with elegant fade-out transition
     - Loading spinner with contextual messages
+    - Session-based tracking to prevent repeated display on page navigation
     
 - **Faculty Level Selection**:
     - Added faculty level designation (SHS, College, Both) during faculty registration

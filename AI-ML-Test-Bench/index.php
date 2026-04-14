@@ -27,6 +27,13 @@ if (!in_array($_SESSION['role'], ['Admin', 'HR'])) {
 $role = $_SESSION['role'];
 $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
 $full_name = $_SESSION['full_name'] ?? 'Admin User';
+
+// Check if this is a fresh login (show splash screen only once per session)
+$showSplash = !isset($_SESSION['splash_shown']);
+if ($showSplash) {
+    $_SESSION['splash_shown'] = true;
+}
+
 $allowed_pages = [
     'dashboard',
     'employees',
@@ -71,6 +78,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
+    <?php if ($showSplash): ?>
     <!-- Splash Screen -->
     <div id="splashScreen" style="
         position: fixed;
@@ -242,6 +250,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
         }, 3000); // Show for 3 seconds
     });
     </script>
+    <?php endif; ?>
 
     <div class="app-container">
         <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;">
