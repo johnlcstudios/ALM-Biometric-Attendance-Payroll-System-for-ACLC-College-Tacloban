@@ -491,12 +491,10 @@ async function exportFacultyPayroll() {
 async function exportUtilityPayroll() {
     const { jsPDF } = window.jspdf;
 
-    // Check if table is empty, if so, load latest
+    // P0 Fix: Always explicitly fetch fresh data before reading the table
+    await loadUtilityPayroll('latest');
+
     let tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
-    if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
-        await loadUtilityPayroll('latest');
-        tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
-    }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
         return showToast("No payroll data available to export.", 'error');
