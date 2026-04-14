@@ -1195,9 +1195,10 @@ tr:last-child td {
 
 .btn-secondary {
     background-color: none;
-    padding: 1px;
+    padding: 10px;
+    text-align: center;
     border-radius: 11px;
-    width: 150px;
+    width: auto;
     border-color: #1e0178;
 }
 
