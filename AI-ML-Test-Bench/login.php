@@ -469,7 +469,7 @@ body {
                 margin: 0;
                 line-height: 1.6;
                 font-weight: 500;
-            ">Built with love from</p>
+            ">Built with STRESS from</p>
             <p style="
                 font-size: 24px;
                 margin: 10px 0;
