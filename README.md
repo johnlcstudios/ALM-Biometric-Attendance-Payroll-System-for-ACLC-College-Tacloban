@@ -61,10 +61,38 @@ The project partners with ACLC College Tacloban, specifically its Payroll Office
 
 # How to start/run the System
 
-- Open XAMPP Controll Panel and start Apache and MySQL
-* Open Browser and navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban` to view the system.
-* Create Account by filling in the required fields in the Login Page.
-* Login to the system using the created account.
+## Quick Start (New Installation)
+
+1. Open XAMPP Control Panel and start Apache and MySQL
+2. Open Browser and navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/AI-ML-Test-Bench/`
+3. Run database setup: Navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/AI-ML-Test-Bench/setup-db.php`
+   - This will create the database and run all migrations automatically
+4. Complete secure setup: Navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/AI-ML-Test-Bench/secure-setup.php`
+   - Create your company and admin account
+5. Login to the system using the created credentials
+
+## Update Existing Installation
+
+If you're updating from a previous version:
+
+1. Pull the latest code from the repository
+2. Login as Admin
+3. Run migrations: Navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/AI-ML-Test-Bench/run-migrations.php`
+   - This will automatically detect and apply any pending database migrations
+4. All new features are now available!
+
+## Version 2.4 New Features
+
+The latest version includes the following enhancements:
+
+- ✅ **Faculty Level Selection** - SHS/College designation during faculty registration
+- ✅ **Hire Date Tracking** - Prevents payroll processing before employee hire date
+- ✅ **Resignation Management** - Ability to decline resignation requests with reasons
+- ✅ **Employee Reinstatement** - Bring back resigned employees with full history
+- ✅ **Enhanced Form Validation** - Comprehensive client and server-side validation
+- ✅ **Faculty Pay Protection** - Faculty receive basic pay even with 0 subject loads
+
+See [FEATURES_IMPLEMENTATION_GUIDE.md](FEATURES_IMPLEMENTATION_GUIDE.md) for complete details.
 
 ---
 

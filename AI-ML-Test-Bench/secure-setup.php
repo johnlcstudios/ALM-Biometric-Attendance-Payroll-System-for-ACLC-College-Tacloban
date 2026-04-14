@@ -56,10 +56,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $pdo->commit();
             
+            // Run migrations after successful setup
+            $migrationsDir = __DIR__ . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'migrations';
+            $migrationMessage = '';
+            
+            if (is_dir($migrationsDir)) {
+                $migrationFiles = glob($migrationsDir . DIRECTORY_SEPARATOR . '*.sql');
+                sort($migrationFiles);
+                
+                if (!empty($migrationFiles)) {
+                    // Create migration tracking table
+                    try {
+                        $pdo->exec("
+                            CREATE TABLE IF NOT EXISTS migrations (
+                                id INT AUTO_INCREMENT PRIMARY KEY,
+                                filename VARCHAR(255) NOT NULL UNIQUE,
+                                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            )
+                        ");
+                        
+                        $stmt = $pdo->query("SELECT filename FROM migrations");
+                        $executedMigrations = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        
+                        $migrationSuccess = 0;
+                        
+                        foreach ($migrationFiles as $migrationFile) {
+                            $filename = basename($migrationFile);
+                            
+                            if (in_array($filename, $executedMigrations)) {
+                                continue;
+                            }
+                            
+                            try {
+                                $pdo->beginTransaction();
+                                $sql = file_get_contents($migrationFile);
+                                $pdo->exec($sql);
+                                
+                                $stmt = $pdo->prepare("INSERT INTO migrations (filename) VALUES (?)");
+                                $stmt->execute([$filename]);
+                                
+                                $pdo->commit();
+                                $migrationSuccess++;
+                            } catch (Exception $e) {
+                                $pdo->rollBack();
+                                // Log migration error but don't fail setup
+                                error_log("Migration failed: $filename - " . $e->getMessage());
+                            }
+                        }
+                        
+                        if ($migrationSuccess > 0) {
+                            $migrationMessage = "<br><strong>Database Migrations:</strong> $migrationSuccess migration(s) applied successfully.";
+                        }
+                    } catch (Exception $e) {
+                        // Log migration error but don't fail setup
+                        error_log("Migration setup failed: " . $e->getMessage());
+                    }
+                }
+            }
+            
             $success = "Setup completed successfully!<br>
                        <strong>Company Code:</strong> $companyCode<br>
                        <strong>Username:</strong> $username<br>
-                       <p>You can now <a href='login.php'>login</a> with your credentials.</p>";
+                       <p>You can now <a href='login.php'>login</a> with your credentials.</p>
+                       $migrationMessage";
             
         } catch (Exception $e) {
             $pdo->rollBack();

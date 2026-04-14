@@ -177,6 +177,13 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-icon red"><i class="fas fa-calendar-times"></i></div>
+                        <div class="stat-info">
+                            <h3>Days Absent</h3>
+                            <div class="stat-value" id="stat-absent" style="color: #dc3545;">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-icon green"><i class="fas fa-umbrella-beach"></i></div>
                         <div class="stat-info">
                             <h3>Leave Balance</h3>
@@ -575,6 +582,7 @@ $position = $emp['position'] ?? 'Staff';
 
             // Stats
             document.getElementById('stat-present').innerText = att.filter(a => a.check_in).length;
+            document.getElementById('stat-absent').innerText = essData.absent_days || 0;
             document.getElementById('stat-leave-balance').innerText = profile.leave_balance || 0;
             document.getElementById('stat-late').innerText = att.reduce((acc, curr) => acc + (parseInt(curr.late_minutes) || 0), 0);
             
@@ -605,17 +613,20 @@ $position = $emp['position'] ?? 'Staff';
 
         function renderAttendance() {
             const att = essData.attendance || [];
-            document.getElementById('attendance-history-body').innerHTML = att.map(a => `
-                <tr>
+            document.getElementById('attendance-history-body').innerHTML = att.map(a => {
+                const isAbsent = a.status === 'Absent';
+                return `
+                <tr style="${isAbsent ? 'background: rgba(220, 53, 69, 0.05);' : ''}">
                     <td>${a.log_date}</td>
-                    <td>${a.check_in || '---'}</td>
-                    <td>${a.lunch_out || '---'}</td>
-                    <td>${a.lunch_in || '---'}</td>
-                    <td>${a.check_out || '---'}</td>
-                    <td><span class="late-tag ${a.status === 'Late' ? 'text-danger' : 'text-success'}">${a.status}</span></td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.check_in || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.lunch_out || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.lunch_in || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.check_out || '---')}</td>
+                    <td><span class="late-tag ${a.status === 'Late' ? 'text-danger' : (a.status === 'Absent' ? 'status-tag status-rejected' : 'text-success')}">${a.status}</span></td>
                     <td>${a.late_minutes || 0}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="7" class="text-center">No logs found</td></tr>';
+                `;
+            }).join('') || '<tr><td colspan="7" class="text-center">No logs found</td></tr>';
         }
 
         function filterAttendance() {

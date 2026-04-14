@@ -14,9 +14,9 @@
             <button class="btn btn-success" onclick="exportFacultyPayroll()">
                 <i class="fas fa-file-excel"></i> Export
             </button>
-            <button class="btn-process-payroll" onclick="showRunFacultyPayroll()">
+            <!-- <button class="btn-process-payroll" onclick="showRunFacultyPayroll()">
                 Run Faculty Payroll
-            </button>
+            </button> -->
         </div>
     </div>
 

@@ -160,6 +160,67 @@ try {
         showNotification("Setup completed with errors.", "warning");
     } else {
         echo "<div class='status-item' style='color: #27ae60;'><strong>Status:</strong> Completed successfully.</div>";
+        
+        // Run migrations after successful schema setup
+        echo "<div class='status-item' style='background: #e3f2fd;'><strong>Running Migrations...</strong></div>";
+        
+        $migrationsDir = __DIR__ . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'migrations';
+        if (is_dir($migrationsDir)) {
+            $migrationFiles = glob($migrationsDir . DIRECTORY_SEPARATOR . '*.sql');
+            sort($migrationFiles);
+            
+            if (!empty($migrationFiles)) {
+                echo "<div class='status-item'>Found " . count($migrationFiles) . " migration file(s)</div>";
+                
+                // Create migration tracking table
+                try {
+                    $pdo->exec("
+                        CREATE TABLE IF NOT EXISTS migrations (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            filename VARCHAR(255) NOT NULL UNIQUE,
+                            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ");
+                    
+                    $stmt = $pdo->query("SELECT filename FROM migrations");
+                    $executedMigrations = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    $migrationSuccess = 0;
+                    $migrationErrors = 0;
+                    
+                    foreach ($migrationFiles as $migrationFile) {
+                        $filename = basename($migrationFile);
+                        
+                        if (in_array($filename, $executedMigrations)) {
+                            echo "<div class='status-item' style='color: #666;'>✓ $filename (already executed)</div>";
+                            continue;
+                        }
+                        
+                        try {
+                            $pdo->beginTransaction();
+                            $sql = file_get_contents($migrationFile);
+                            $pdo->exec($sql);
+                            
+                            $stmt = $pdo->prepare("INSERT INTO migrations (filename) VALUES (?)");
+                            $stmt->execute([$filename]);
+                            
+                            $pdo->commit();
+                            echo "<div class='status-item' style='color: #27ae60;'>✓ $filename (executed)</div>";
+                            $migrationSuccess++;
+                        } catch (Throwable $e) {
+                            $pdo->rollBack();
+                            echo "<div class='status-item' style='color: #db261f;'>✗ $filename: " . htmlspecialchars($e->getMessage()) . "</div>";
+                            $migrationErrors++;
+                        }
+                    }
+                    
+                    echo "<div class='status-item' style='background: #e8f5e9;'><strong>Migrations:</strong> $migrationSuccess succeeded, $migrationErrors failed</div>";
+                } catch (Throwable $e) {
+                    echo "<div class='status-item' style='color: #db261f;'><strong>Migration Error:</strong> " . htmlspecialchars($e->getMessage()) . "</div>";
+                }
+            }
+        }
+        
         showNotification("Database setup completed successfully!", "success");
     }
 

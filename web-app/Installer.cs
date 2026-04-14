@@ -24,7 +24,7 @@ namespace ALMInstaller
         private void InitializeComponents()
         {
             this.Text = "ALM Biometrics System Installer";
-            this.Size = new Size(650, 520);
+            this.Size = new Size(650, 620);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -57,7 +57,7 @@ namespace ALMInstaller
 
             // Version badge
             Label lblVersion = new Label();
-            lblVersion.Text = "v2.0";
+            lblVersion.Text = "v2.3";
             lblVersion.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             lblVersion.ForeColor = Color.FromArgb(150, 150, 220);
             lblVersion.Location = new Point(560, 70);
@@ -187,7 +187,7 @@ namespace ALMInstaller
             // Database setup checkbox with description
             Panel dbPanel = new Panel {
                 Location = new Point(30, yOffset),
-                Size = new Size(590, 70),
+                Size = new Size(590, 90),
                 BackColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
@@ -202,7 +202,7 @@ namespace ALMInstaller
             };
             
             Label lblDbDesc = new Label {
-                Text = "Create database, run schema, and apply all migrations (001-003) automatically",
+                Text = "• Create database and run schema\n• Apply all migrations (001-003)\n• Setup encryption keys and security features",
                 Location = new Point(40, 38),
                 Width = 530,
                 AutoSize = false,
@@ -213,7 +213,7 @@ namespace ALMInstaller
             dbPanel.Controls.Add(chkDatabase);
             dbPanel.Controls.Add(lblDbDesc);
             this.Controls.Add(dbPanel);
-            yOffset += 85;
+            yOffset += 105;
 
             // Separator line
             Panel separator2 = new Panel {
@@ -223,6 +223,43 @@ namespace ALMInstaller
             };
             this.Controls.Add(separator2);
             yOffset += 25;
+
+            // Features list panel
+            Label lblSection3 = new Label { 
+                Text = "NEW FEATURES IN v2.3", 
+                Location = new Point(30, yOffset), 
+                AutoSize = true,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 1, 120)
+            };
+            this.Controls.Add(lblSection3);
+            yOffset += 30;
+
+            Panel featuresPanel = new Panel {
+                Location = new Point(30, yOffset),
+                Size = new Size(590, 110),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            
+            Label lblFeatures = new Label {
+                Text = "✓ Frontal Face Detection - Kiosk only scans when looking straight\n" +
+                       "✓ Fast Face Enrollment - 2x faster with quality scoring\n" +
+                       "✓ Auto Payroll Calculation - Faculty & Utility auto-calculated\n" +
+                       "✓ One-Click All Payrolls - Process General, Faculty & Utility together\n" +
+                       "✓ Enhanced Security - 2FA, encryption, audit trail, rate limiting\n" +
+                       "✓ DTR Generation - Employees can generate Daily Time Records\n" +
+                       "✓ Editable Payroll Cells - Double-click to modify values in real-time",
+                Location = new Point(15, 10),
+                Width = 560,
+                AutoSize = false,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(60, 60, 60)
+            };
+
+            featuresPanel.Controls.Add(lblFeatures);
+            this.Controls.Add(featuresPanel);
+            yOffset += 125;
 
             // Install button - Modern style
             btnInstall = new Button { 
@@ -271,13 +308,13 @@ namespace ALMInstaller
 
             // Footer
             Panel footerPanel = new Panel {
-                Location = new Point(0, 470),
+                Location = new Point(0, 570),
                 Size = new Size(650, 50),
                 BackColor = Color.FromArgb(240, 240, 245)
             };
             
             Label lblFooter = new Label {
-                Text = "© 2026 ALM Biometrics System  •  Secure Attendance & Payroll Management",
+                Text = "© 2026 ALM Biometrics System v2.3  •  Secure Attendance & Payroll Management",
                 Location = new Point(30, 15),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 8, FontStyle.Regular),
@@ -337,9 +374,18 @@ namespace ALMInstaller
                         progressBar.Value = 100;
                         lblStatus.Text = "✓ Installation Complete!";
                         lblStatus.ForeColor = Color.FromArgb(40, 167, 69);
-                        string msg = string.Format("ALM Biometrics installed successfully!\n\nYou can now launch it from the Desktop shortcut.");
+                        string msg = string.Format("ALM Biometrics v2.3 installed successfully!\n\n");
+                        msg += "NEW FEATURES:\n";
+                        msg += "• Frontal Face Detection for accurate kiosk scanning\n";
+                        msg += "• Fast Face Enrollment (2x faster with quality scoring)\n";
+                        msg += "• Automatic Faculty & Utility Payroll Calculation\n";
+                        msg += "• One-Click processes all three payroll types\n";
+                        msg += "• Enhanced Security (2FA, encryption, audit trail)\n";
+                        msg += "• Employee DTR Generation\n";
+                        msg += "• Editable Payroll Cells with real-time calculations\n\n";
+                        msg += "You can now launch it from the Desktop shortcut.";
                         if (chkDatabase.Checked) {
-                            msg += "\nDatabase and migrations have been set up automatically.";
+                            msg += "\n\nDatabase and migrations have been set up automatically.";
                         }
                         MessageBox.Show(msg, "Installation Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         btnInstall.Enabled = true;

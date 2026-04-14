@@ -82,6 +82,15 @@
                                 <option value="Payroll Officer">Payroll Officer</option>
                             </select>
                         </div>
+                        <div class="form-group" id="facultyLevelGroup" style="display:none;">
+                            <label><i class="fas fa-graduation-cap"></i> Faculty Level <span class="required text-danger">*</span></label>
+                            <select name="faculty_level">
+                                <option value="">Select Level...</option>
+                                <option value="SHS">Senior High School (SHS)</option>
+                                <option value="College">College</option>
+                                <option value="Both">Both SHS & College</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label><i class="fas fa-building"></i> Department <span class="required text-danger">*</span></label>
                             <select name="department" required>
@@ -106,6 +115,11 @@
                                 <option value="Probationary">Probationary</option>
                                 <option value="Contractual">Contractual</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar-check"></i> Hire Date <span class="required text-danger">*</span></label>
+                            <input type="date" name="hire_date" value="<?php echo date('Y-m-d'); ?>" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Hire date is required.</div>
                         </div>
                     </div>
                 </div>

@@ -16,6 +16,8 @@
                     <th>Name</th>
                     <th>Position</th>
                     <th>Department</th>
+                    <th>Faculty Level</th>
+                    <th>Hire Date</th>
                     <th>Loads</th>
                     <th>Status</th>
                     <th>Actions</th>
