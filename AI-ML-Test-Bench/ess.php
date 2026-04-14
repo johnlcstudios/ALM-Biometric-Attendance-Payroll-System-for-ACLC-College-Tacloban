@@ -89,6 +89,22 @@ $position = $emp['position'] ?? 'Staff';
         .payslip-body { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
         .payslip-section h4 { border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; color: var(--primary-color); }
         .payslip-footer { margin-top: 2rem; text-align: center; font-style: italic; color: var(--text-muted); font-size: 0.8rem; }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-input { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
     </style>
 </head>
 <body>
@@ -395,7 +411,19 @@ $position = $emp['position'] ?? 'Staff';
             <section id="profile" class="page">
                 <div class="profile-grid">
                     <div class="profile-card">
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&size=150&background=random" alt="Avatar" style="width:120px; border-radius:50%; margin-bottom:1rem; border: 4px solid #eee;">
+                        <div id="profile-picture-container" style="position: relative; display: inline-block; margin-bottom: 1rem;">
+                            <img id="profile-picture" 
+                                 src="<?php echo !empty($emp['profile_picture']) ? htmlspecialchars($emp['profile_picture'], ENT_QUOTES, 'UTF-8') : 'https://ui-avatars.com/api/?name=' . urlencode($full_name) . '&size=150&background=random'; ?>" 
+                                 alt="Profile Picture" 
+                                 style="width:150px; height:150px; border-radius:50%; object-fit: cover; border: 4px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            <label for="profile-picture-upload" 
+                                   style="position: absolute; bottom: 5px; right: 5px; background: var(--primary-color); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease;" 
+                                   onmouseover="this.style.background='#2a02a8'; this.style.transform='scale(1.1)'" 
+                                   onmouseout="this.style.background='var(--primary-color)'; this.style.transform='scale(1)'">
+                                <i class="fas fa-camera" style="font-size: 14px;"></i>
+                            </label>
+                            <input type="file" id="profile-picture-upload" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
+                        </div>
                         <h2 style="margin-bottom:0.2rem;"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></h2>
                         <p class="text-muted" style="margin-bottom:1.5rem;"><?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?></p>
                         
@@ -726,6 +754,61 @@ $position = $emp['position'] ?? 'Staff';
                 }
             } catch (err) {
                 showToast("Connection failed.", "error");
+            }
+        }
+
+        async function uploadProfilePicture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                showToast('Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.', 'error');
+                return;
+            }
+
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('File size exceeds 5MB limit.', 'error');
+                return;
+            }
+
+            // Show loading
+            showToast('Uploading profile picture...', 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('profile_picture', file);
+
+                const response = await fetch('backend/api.php?action=upload_profile_picture', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update the profile picture on the page
+                    const profileImg = document.getElementById('profile-picture');
+                    if (profileImg) {
+                        // Add timestamp to prevent caching
+                        profileImg.src = result.picture_url + '?t=' + new Date().getTime();
+                    }
+                    
+                    // Update header image too
+                    const headerImg = document.querySelector('.user-profile img');
+                    if (headerImg) {
+                        headerImg.src = result.picture_url + '?t=' + new Date().getTime();
+                    }
+                    
+                    showToast('Profile picture updated successfully!', 'success');
+                } else {
+                    showToast(result.message || 'Failed to upload profile picture.', 'error');
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                showToast('Failed to connect to the server.', 'error');
             }
         }
 

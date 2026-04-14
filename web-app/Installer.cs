@@ -3,6 +3,7 @@ using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Threading;
 
 namespace ALMInstaller
 {
@@ -13,6 +14,7 @@ namespace ALMInstaller
         private Button btnInstall;
         private Label lblStatus;
         private ProgressBar progressBar;
+        private CheckBox chkDatabase;
 
         public InstallerForm()
         {
@@ -68,14 +70,24 @@ namespace ALMInstaller
             this.Controls.Add(txtHtdocs);
             this.Controls.Add(btnBrowseHtdocs);
 
-            btnInstall = new Button { Text = "Install Application", Location = new Point(20, 180), Size = new Size(440, 40), Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+            // Database setup checkbox
+            chkDatabase = new CheckBox { 
+                Text = "Setup database and run migrations (Recommended)", 
+                Location = new Point(20, 160), 
+                Width = 440,
+                Checked = true,
+                Font = new Font("Segoe UI", 9, FontStyle.Regular)
+            };
+            this.Controls.Add(chkDatabase);
+
+            btnInstall = new Button { Text = "Install Application", Location = new Point(20, 195), Size = new Size(440, 40), Font = new Font("Segoe UI", 10, FontStyle.Bold) };
             btnInstall.Click += BtnInstall_Click;
             this.Controls.Add(btnInstall);
 
-            progressBar = new ProgressBar { Location = new Point(20, 230), Width = 440, Height = 10, Style = ProgressBarStyle.Continuous };
+            progressBar = new ProgressBar { Location = new Point(20, 245), Width = 440, Height = 10, Style = ProgressBarStyle.Continuous };
             this.Controls.Add(progressBar);
 
-            lblStatus = new Label { Text = "Ready to install.", Location = new Point(20, 250), AutoSize = true, ForeColor = Color.Gray };
+            lblStatus = new Label { Text = "Ready to install.", Location = new Point(20, 265), AutoSize = true, ForeColor = Color.Gray };
             this.Controls.Add(lblStatus);
         }
 
@@ -113,11 +125,24 @@ namespace ALMInstaller
 
                     CreateShortcut(Path.Combine(targetPath, "ALM-Launcher.exe"));
 
+                    // Setup database if checkbox is checked
+                    if (chkDatabase.Checked) {
+                        this.Invoke((MethodInvoker)delegate {
+                            lblStatus.Text = "Setting up database...";
+                        });
+                        
+                        SetupDatabase(targetPath);
+                    }
+
                     this.Invoke((MethodInvoker)delegate {
                         progressBar.Style = ProgressBarStyle.Continuous;
                         progressBar.Value = 100;
                         lblStatus.Text = "Installation Complete!";
-                        MessageBox.Show("ALM Biometrics installed successfully!\nYou can now launch it from the Desktop shortcut.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        string msg = "ALM Biometrics installed successfully!\nYou can now launch it from the Desktop shortcut.";
+                        if (chkDatabase.Checked) {
+                            msg += "\n\nDatabase and migrations have been set up automatically.";
+                        }
+                        MessageBox.Show(msg, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         btnInstall.Enabled = true;
                     });
                 }
@@ -147,6 +172,97 @@ namespace ALMInstaller
                     dirName.Equals(".agent", StringComparison.OrdinalIgnoreCase)) continue;
                 
                 CopyDirectory(dir, Path.Combine(targetDir, dirName));
+            }
+        }
+
+        private void SetupDatabase(string targetPath)
+        {
+            try {
+                // Find MySQL executable
+                string mysqlPath = FindMySQL();
+                if (string.IsNullOrEmpty(mysqlPath)) {
+                    throw new Exception("MySQL not found. Please ensure XAMPP MySQL is running.");
+                }
+
+                string sqlDir = Path.Combine(targetPath, "AI-ML-Test-Bench", "sql");
+                
+                // Run schema.sql
+                string schemaFile = Path.Combine(sqlDir, "schema.sql");
+                if (File.Exists(schemaFile)) {
+                    this.Invoke((MethodInvoker)delegate {
+                        lblStatus.Text = "Creating database schema...";
+                    });
+                    RunSqlFile(mysqlPath, schemaFile);
+                }
+
+                // Run migrations 001 to 003
+                string migrationsDir = Path.Combine(sqlDir, "migrations");
+                if (Directory.Exists(migrationsDir)) {
+                    string[] migrationFiles = Directory.GetFiles(migrationsDir, "*.sql");
+                    Array.Sort(migrationFiles); // Ensure order: 001, 002, 003
+
+                    foreach (string migrationFile in migrationFiles) {
+                        string fileName = Path.GetFileName(migrationFile);
+                        this.Invoke((MethodInvoker)delegate {
+                            lblStatus.Text = string.Format("Running migration: {0}", fileName);
+                        });
+                        RunSqlFile(mysqlPath, migrationFile);
+                        Thread.Sleep(500); // Small delay between migrations
+                    }
+                }
+            }
+            catch (Exception ex) {
+                throw new Exception(string.Format("Database setup failed: {0}", ex.Message));
+            }
+        }
+
+        private string FindMySQL()
+        {
+            // Common MySQL paths in XAMPP
+            string[] possiblePaths = new string[] {
+                @"C:\xampp\mysql\bin\mysql.exe",
+                @"D:\xampp\mysql\bin\mysql.exe",
+                @"E:\xampp\mysql\bin\mysql.exe"
+            };
+
+            foreach (string path in possiblePaths) {
+                if (File.Exists(path)) {
+                    return path;
+                }
+            }
+
+            return null;
+        }
+
+        private void RunSqlFile(string mysqlExe, string sqlFile)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo {
+                FileName = mysqlExe,
+                Arguments = "--user=root --database=alm_biometrics",
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            using (Process process = Process.Start(psi)) {
+                // Read SQL file and send to stdin
+                string sqlContent = File.ReadAllText(sqlFile);
+                process.StandardInput.Write(sqlContent);
+                process.StandardInput.Close();
+                
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0 && !string.IsNullOrEmpty(error)) {
+                    // Some migrations might have warnings that are not critical
+                    if (error.Contains("ERROR") && error.Contains("1062")) {
+                        // Duplicate entry - migration already applied
+                        return;
+                    }
+                    throw new Exception(string.Format("SQL execution error: {0}", error));
+                }
             }
         }
 

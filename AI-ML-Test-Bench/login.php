@@ -183,6 +183,167 @@ body {
     font-weight: 600;
     text-decoration: underline;
 }
+
+/* Glass Morphism Swal2 Modal Styles for Login Page */
+.swal2-popup.glass-modal {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+    padding: 30px !important;
+}
+
+.swal2-popup.glass-modal .swal2-title {
+    color: #ffffff !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.swal2-popup.glass-modal .swal2-html-container,
+.swal2-popup.glass-modal .swal2-text {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 15px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon {
+    border-width: 3px !important;
+    margin: 0 auto 20px !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon.swal2-success {
+    border-color: rgba(39, 174, 96, 0.8) !important;
+    color: #27ae60 !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon.swal2-error {
+    border-color: rgba(219, 38, 31, 0.8) !important;
+    color: #db261f !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon.swal2-warning {
+    border-color: rgba(243, 156, 18, 0.8) !important;
+    color: #f39c12 !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon.swal2-info {
+    border-color: rgba(79, 172, 254, 0.8) !important;
+    color: #4facfe !important;
+}
+
+.swal2-popup.glass-modal .swal2-icon.swal2-question {
+    border-color: rgba(108, 117, 125, 0.8) !important;
+    color: #6c757d !important;
+}
+
+.swal2-popup.glass-modal .swal2-confirm,
+.swal2-popup.glass-modal .swal2-cancel {
+    border-radius: 20px !important;
+    padding: 12px 24px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: 0.3px !important;
+    transition: all 0.3s ease !important;
+    border: none !important;
+}
+
+.swal2-popup.glass-modal .swal2-confirm {
+    background: linear-gradient(135deg, #4facfe, #00f2fe) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3) !important;
+}
+
+.swal2-popup.glass-modal .swal2-confirm:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4) !important;
+}
+
+.swal2-popup.glass-modal .swal2-cancel {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.swal2-popup.glass-modal .swal2-cancel:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.swal2-popup.glass-modal .swal2-input,
+.swal2-popup.glass-modal .swal2-textarea,
+.swal2-popup.glass-modal .swal2-select {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 20px !important;
+    color: #ffffff !important;
+    backdrop-filter: blur(10px) !important;
+    padding: 12px 15px !important;
+}
+
+.swal2-popup.glass-modal .swal2-input:focus,
+.swal2-popup.glass-modal .swal2-textarea:focus,
+.swal2-popup.glass-modal .swal2-select:focus {
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.4) !important;
+    outline: none !important;
+}
+
+.swal2-popup.glass-modal .swal2-input::placeholder,
+.swal2-popup.glass-modal .swal2-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.swal2-popup.glass-modal .swal2-validation-message {
+    background: rgba(219, 38, 31, 0.15) !important;
+    border: 1px solid rgba(219, 38, 31, 0.3) !important;
+    color: #ffffff !important;
+    border-radius: 12px !important;
+}
+
+.swal2-popup.glass-modal .swal2-loader {
+    border-color: rgba(79, 172, 254, 0.3) !important;
+    border-top-color: #4facfe !important;
+}
+
+/* Glass modal backdrop */
+.swal2-container.glass-backdrop {
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+/* Glass Toast Styles */
+.glass-toast-popup {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(25px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+    padding: 16px 20px !important;
+    min-width: 320px !important;
+    max-width: 400px !important;
+}
+
+.glass-toast-title {
+    color: #ffffff !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.glass-toast-progress {
+    height: 3px !important;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.6)) !important;
+    border-radius: 2px !important;
+}
 </style>
 
 </head>
@@ -213,18 +374,19 @@ body {
 
             <button type="submit" class="login-btn">Login</button>
 
-            <p class="signup-text">
-                Dont have an account? <a href="signup.php">Sign Up</a>
-            </p>
-
             <div style="text-align: center; margin-top: 15px;">
                 <a href="#" id="forgotPasswordLink" style="color: rgba(255,255,255,0.8); font-size: 14px; text-decoration: none;">
                     Forgot Password?
                 </a>
             </div>
+            <br>
 
             <!-- KIOSK BUTTON -->
             <a href="kiosk.php" class="kiosk-btn">Launch Kiosk</a>
+
+            <p class="signup-text">
+                Dont have an account? <a href="signup.php">Sign Up</a>
+            </p>
 
         </form>
     </div>
@@ -257,7 +419,13 @@ document.getElementById('loginForm').onsubmit = async (e) => {
         Swal.fire({
             icon: 'error',
             title: 'Login Failed',
-            text: result.message || 'Invalid credentials'
+            text: result.message || 'Invalid credentials',
+            customClass: {
+                popup: 'glass-modal',
+                container: 'glass-backdrop'
+            },
+            background: 'transparent',
+            confirmButtonColor: '#4facfe'
         });
     }
 };
@@ -277,6 +445,11 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
         showCancelButton: true,
         confirmButtonText: 'Verify',
         confirmButtonColor: '#4facfe',
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop'
+        },
+        background: 'transparent',
         preConfirm: () => {
             const employeeId = document.getElementById('swal-employee-id').value;
             const companyCode = document.getElementById('swal-company-code').value;
@@ -296,6 +469,11 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
     Swal.fire({
         title: 'Verifying...',
         allowOutsideClick: false,
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop'
+        },
+        background: 'transparent',
         didOpen: () => Swal.showLoading()
     });
     
@@ -314,7 +492,13 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
         Swal.fire({
             icon: 'error',
             title: 'Verification Failed',
-            text: result.message
+            text: result.message,
+            customClass: {
+                popup: 'glass-modal',
+                container: 'glass-backdrop'
+            },
+            background: 'transparent',
+            confirmButtonColor: '#4facfe'
         });
         return;
     }
@@ -323,14 +507,19 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
     const { value: newPassword } = await Swal.fire({
         title: 'Set New Password',
         html: `
-            <p style="margin-bottom: 10px; color: #666;">Verified: <strong>${result.employee_name}</strong></p>
-            <p style="margin-bottom: 15px; color: #666; font-size: 0.9em;">Username: <strong>${result.username}</strong></p>
+            <p style="margin-bottom: 10px; color: rgba(255,255,255,0.9);">Verified: <strong>${result.employee_name}</strong></p>
+            <p style="margin-bottom: 15px; color: rgba(255,255,255,0.9); font-size: 0.9em;">Username: <strong>${result.username}</strong></p>
             <input id="swal-new-password" type="password" class="swal2-input" placeholder="New Password (min 6 characters)">
         `,
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Reset Password',
         confirmButtonColor: '#4facfe',
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop'
+        },
+        background: 'transparent',
         preConfirm: () => {
             const password = document.getElementById('swal-new-password').value;
             
@@ -354,6 +543,11 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
     Swal.fire({
         title: 'Resetting Password...',
         allowOutsideClick: false,
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop'
+        },
+        background: 'transparent',
         didOpen: () => Swal.showLoading()
     });
     
@@ -373,13 +567,24 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
             icon: 'success',
             title: 'Password Reset Successful',
             text: 'You can now login with your new password.',
+            customClass: {
+                popup: 'glass-modal',
+                container: 'glass-backdrop'
+            },
+            background: 'transparent',
             confirmButtonColor: '#4facfe'
         });
     } else {
         Swal.fire({
             icon: 'error',
             title: 'Reset Failed',
-            text: resetResult.message
+            text: resetResult.message,
+            customClass: {
+                popup: 'glass-modal',
+                container: 'glass-backdrop'
+            },
+            background: 'transparent',
+            confirmButtonColor: '#4facfe'
         });
     }
 });
