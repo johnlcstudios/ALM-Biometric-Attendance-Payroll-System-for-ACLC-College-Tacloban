@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/face-api.min.js"></script>
-    <script src="js/face-api-manager.js"></script>
+    <script src="js/face-api-manager.js?v=2.0"></script>
     <style>
         :root {
             --primary-blue: #1e0178;
@@ -134,6 +134,69 @@
         .camera-placeholder i {
             font-size: 5rem;
             margin-bottom: 1rem;
+        }
+
+        /* Face Position Guide Overlay */
+        .face-guide-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+
+        .face-guide-overlay.active {
+            display: block;
+        }
+
+        .face-guide-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 350px;
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .face-guide-circle.perfect {
+            border-color: #27ae60;
+            border-style: solid;
+            box-shadow: 0 0 20px rgba(39, 174, 96, 0.5);
+        }
+
+        .face-guide-circle.warning {
+            border-color: #f39c12;
+            border-style: dashed;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.02);
+            }
+        }
+
+        .position-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 6;
         }
 
         /* Right Side: Info Panel */
@@ -449,6 +512,12 @@
                 </div>
                 <video id="video" autoplay muted></video>
                 <canvas id="overlay"></canvas>
+                
+                <!-- Face Position Guide -->
+                <div class="face-guide-overlay" id="faceGuide">
+                    <div class="face-guide-circle" id="guideCircle"></div>
+                    <div class="position-hint" id="positionHint">Position your face in the circle</div>
+                </div>
             </div>
         </div>
 
@@ -664,18 +733,66 @@
                     return;
                 }
 
-                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                // Detect face with landmarks for frontal check
+                const detection = await faceapi.detectSingleFace(video, detectorOptions)
+                    .withFaceLandmarks();
+                
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                if (detection) {
-                    const isStable = faceManager.checkStability(detection.detection.box);
-                    const status = isStable ? "VERIFIED! SCANNING..." : "HOLD STILL...";
-                    const color = isStable ? "#27ae60" : "#f39c12";
+                const faceGuide = document.getElementById('faceGuide');
+                const guideCircle = document.getElementById('guideCircle');
+                const positionHint = document.getElementById('positionHint');
 
+                if (detection) {
+                    // Show face guide
+                    faceGuide.classList.add('active');
+
+                    // Check if face is stable
+                    const isStable = faceManager.checkStability(detection.detection.box);
+                    
+                    // Check if face is looking straight at camera
+                    const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
+                    const isFrontal = frontalCheck.isFrontal;
+
+                    // Determine status message and color
+                    let status, color, hint;
+                    
+                    if (!isFrontal) {
+                        // Face not looking straight
+                        if (!frontalCheck.details.yawOk) {
+                            status = "TURN FACE TO CAMERA";
+                            hint = "← Turn your face to center →";
+                        } else if (!frontalCheck.details.pitchOk) {
+                            status = "LOOK STRAIGHT AT CAMERA";
+                            hint = frontalCheck.pitch < 0.3 ? "↑ Look up slightly" : "↓ Look down slightly";
+                        } else if (!frontalCheck.details.rollOk) {
+                            status = "KEEP HEAD LEVEL";
+                            hint = "↔ Straighten your head";
+                        } else {
+                            status = "FACE CAMERA DIRECTLY";
+                            hint = "Position face in center";
+                        }
+                        color = "#f39c12"; // Orange warning
+                        guideCircle.className = 'face-guide-circle warning';
+                    } else if (!isStable) {
+                        status = "HOLD STILL...";
+                        hint = "✓ Good! Hold still...";
+                        color = "#f39c12"; // Orange
+                        guideCircle.className = 'face-guide-circle warning';
+                    } else {
+                        // Both frontal and stable - ready to scan!
+                        status = "✓ PERFECT! SCANNING...";
+                        hint = "✓ Perfect! Scanning now...";
+                        color = "#27ae60"; // Green
+                        guideCircle.className = 'face-guide-circle perfect';
+                    }
+
+                    positionHint.textContent = hint;
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    if (isStable) {
+                    // Only scan if face is both frontal AND stable
+                    if (isFrontal && isStable) {
                         faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
                         processScan();
@@ -683,6 +800,8 @@
                 } else {
                     faceManager.stabilityCounter = 0;
                     cameraCircle.classList.remove('scanning');
+                    faceGuide.classList.remove('active');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
                 requestAnimationFrame(loop);
             };

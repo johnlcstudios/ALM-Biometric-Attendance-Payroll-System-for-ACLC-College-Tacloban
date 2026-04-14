@@ -12,11 +12,150 @@ try {
     require_once 'api_helpers.php';
     require_once 'rate_limit.php';
     require_once 'notifications.php';
+    require_once 'audit.php';
+    require_once 'encryption.php';
+    require_once 'two_factor_auth.php';
 } catch (Exception $e) {
     apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
 
 $action = $_GET['action'] ?? '';
+
+// Helper function to process specialized payroll (Faculty/Utility)
+function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $end_date) {
+    try {
+        $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
+        
+        // Get company deduction settings
+        $stmt_company = $pdo->prepare("SELECT deduction_per_min FROM companies WHERE id = ?");
+        $stmt_company->execute([$company_id]);
+        $company = $stmt_company->fetch();
+        $deduction_per_min = isset($company['deduction_per_min']) ? (float) $company['deduction_per_min'] : 0.50;
+        
+        // Get employees for this position
+        $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
+        $stmt_employees->execute([$company_id, $position]);
+        $employees = $stmt_employees->fetchAll();
+        
+        if (empty($employees)) {
+            return ['success' => true, 'message' => "No active {$position} employees to process."];
+        }
+        
+        $employee_ids = array_column($employees, 'id');
+        
+        // Pre-fetch attendance logs
+        $logs_by_emp = [];
+        if (!empty($employee_ids)) {
+            $placeholders = implode(',', array_fill(0, count($employee_ids), '?'));
+            $stmt_all_att = $pdo->prepare("SELECT * FROM attendance WHERE employee_id IN ($placeholders) AND log_date BETWEEN ? AND ?");
+            $stmt_all_att->execute(array_merge($employee_ids, [$start_date, $end_date]));
+            while ($row = $stmt_all_att->fetch()) {
+                $logs_by_emp[$row['employee_id']][] = $row;
+            }
+        }
+        
+        // Process each employee
+        foreach ($employees as $emp) {
+            $logs = $logs_by_emp[$emp['id']] ?? [];
+            
+            $total_absent = 0;
+            $total_late_min = 0;
+            $days_present = 0;
+            
+            foreach ($logs as $l) {
+                if ($l['status'] === 'Late')
+                    $total_late_min += (int) $l['late_minutes'];
+                if ($l['status'] === 'Absent')
+                    $total_absent++;
+                if (!empty($l['check_in']))
+                    $days_present++;
+            }
+            
+            if ($position === 'Faculty') {
+                // Faculty specific calculations
+                $basic_pay = (float) $emp['basic_salary'] / 2;
+                $load_pay = 0;
+                $overtime = 0;
+                $differential = 0;
+                $substitution = 0;
+                $adj_plus = 0;
+                $absences_deduction = $total_absent * (((float) $emp['basic_salary']) / 22);
+                $late_ut = $total_late_min * $deduction_per_min;
+                $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
+                $hdmf_loans = 0;
+                $hdmf_mp2 = 0;
+                $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2;
+                $honorarium = 0;
+                $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium) - $total_deduction;
+                
+                $breakdown = [
+                    'load_pay' => $load_pay,
+                    'overtime' => $overtime,
+                    'differential' => $differential,
+                    'substitution' => $substitution,
+                    'adj_plus' => $adj_plus,
+                    'absences' => $absences_deduction,
+                    'late_ut' => $late_ut,
+                    'hdmf_cont' => $hdmf_cont,
+                    'hdmf_loans' => $hdmf_loans,
+                    'hdmf_mp2' => $hdmf_mp2,
+                    'total_deduction' => $total_deduction,
+                    'honorarium' => $honorarium,
+                    'days_present' => $days_present,
+                    'absent_days' => $total_absent,
+                    'late_minutes' => $total_late_min
+                ];
+                
+                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
+                                 VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid')");
+                $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
+            } else {
+                // Utility specific calculations
+                $rate_per_day = $emp['basic_salary'] / 22;
+                $earned = $rate_per_day * $days_present;
+                $ot_holiday = 0;
+                $adj_plus = 0;
+                $late_ut = $total_late_min * $deduction_per_min;
+                $adj_minus = 0;
+                $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
+                $hdmf_loans = 0;
+                $cash_advance = 0;
+                $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance;
+                $net_pay = ($earned + $ot_holiday + $adj_plus) - $total_deduction;
+                $atm = $net_pay;
+                $non_atm = 0;
+                
+                $breakdown = [
+                    'rate_per_day' => $rate_per_day,
+                    'earned' => $earned,
+                    'ot_holiday' => $ot_holiday,
+                    'adj_plus' => $adj_plus,
+                    'late_ut' => $late_ut,
+                    'adj_minus' => $adj_minus,
+                    'hdmf_cont' => $hdmf_cont,
+                    'hdmf_loans' => $hdmf_loans,
+                    'cash_advance' => $cash_advance,
+                    'total_deduction' => $total_deduction,
+                    'atm' => $atm,
+                    'non_atm' => $non_atm,
+                    'days_present' => $days_present,
+                    'absent_days' => $total_absent,
+                    'late_minutes' => $total_late_min
+                ];
+                
+                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
+                                 VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid')");
+                $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown)]);
+            }
+        }
+        
+        $count = count($employees);
+        return ['success' => true, 'message' => "{$position} payroll processed for {$count} employees."];
+        
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => "Error processing {$position} payroll: " . $e->getMessage()];
+    }
+}
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
 function isAdminOrHR()
@@ -110,6 +249,18 @@ try {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                // Check 2FA
+                if (is2FAEnabled($pdo, $user['id'])) {
+                    // Return 2FA required flag
+                    echo json_encode([
+                        'success' => true, 
+                        'require_2fa' => true,
+                        'user_id' => $user['id'],
+                        'message' => '2FA verification required'
+                    ]);
+                    break;
+                }
+                
                 // Reset failed attempts on successful login
                 resetFailedAttempts($pdo, $ip_address);
                 
@@ -122,10 +273,20 @@ try {
                 $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
+                
+                // Log successful login
+                logAudit($pdo, $user['company_id'], $user['id'], AUDIT_LOGIN, 'user', $user['id']);
+                
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
                 // Record failed attempt
                 recordFailedAttempt($pdo, $ip_address, $username);
+                
+                // Log failed login
+                if ($user) {
+                    logAudit($pdo, $user['company_id'], $user['id'], AUDIT_FAILED_LOGIN, 'user', $user['id'], ['ip' => $ip_address]);
+                }
+                
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
             }
             break;
@@ -185,8 +346,14 @@ try {
                 break;
             }
             
-            if (strlen($new_password) < 6) {
-                echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+            if (strlen($new_password) < 8) {
+                echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
+                break;
+            }
+            
+            // Password complexity check
+            if (!preg_match('/[A-Z]/', $new_password) || !preg_match('/[a-z]/', $new_password) || !preg_match('/[0-9]/', $new_password)) {
+                echo json_encode(['success' => false, 'message' => 'Password must contain uppercase, lowercase, and numbers']);
                 break;
             }
             
@@ -210,6 +377,51 @@ try {
             $stmt->execute([$token]);
             
             echo json_encode(['success' => true, 'message' => 'Password has been reset successfully']);
+            
+            // Log password reset
+            logAudit($pdo, $_SESSION['company_id'] ?? 0, $reset['user_id'], AUDIT_RESET_PASSWORD, 'user', $reset['user_id']);
+            break;
+
+        case 'verify_2fa':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $user_id = $data['user_id'] ?? 0;
+            $code = $data['code'] ?? '';
+            
+            if (empty($code) || !$user_id) {
+                echo json_encode(['success' => false, 'message' => 'User ID and 2FA code are required']);
+                break;
+            }
+            
+            // Get user details
+            $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, c.company_code, c.timezone as company_timezone, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.id = ?");
+            $stmt->execute([$user_id]);
+            $user = $stmt->fetch();
+            
+            if (!$user) {
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+                break;
+            }
+            
+            if (verify2FALogin($pdo, $user_id, $code)) {
+                $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+                resetFailedAttempts($pdo, $ip_address);
+                
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['company_id'] = $user['company_id'];
+                $_SESSION['role'] = trim($user['role']);
+                $_SESSION['company_name'] = $user['company_name'];
+                $_SESSION['company_code'] = $user['company_code'] ?? '';
+                $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
+                
+                logAudit($pdo, $user['company_id'], $user['id'], AUDIT_LOGIN, 'user', $user['id']);
+                
+                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
+            }
             break;
 
         case 'signup':
@@ -282,6 +494,54 @@ try {
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
             echo json_encode(['period' => $period, 'data' => $results]);
+            break;
+
+        case 'update_payroll_field':
+            if (!isPayrollOrHigher())
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? null;
+            $field = $data['field'] ?? null;
+            $value = $data['value'] ?? null;
+            
+            // Validation
+            if (!$payroll_id || !$field || $value === null) {
+                exit(json_encode(['success' => false, 'message' => 'Missing required fields']));
+            }
+            
+            // Whitelist allowed fields to prevent SQL injection
+            $allowed_fields = [
+                'load_pay', 'overtime_pay', 'differential_pay', 'substitution_pay',
+                'adj_plus', 'adj_minus', 'honorarium', 'absence_deduction',
+                'late_deduction', 'hdmf_contribution', 'hdmf_loans', 'hdmf_mp2',
+                'ot_holiday_pay', 'cash_advance'
+            ];
+            
+            if (!in_array($field, $allowed_fields)) {
+                exit(json_encode(['success' => false, 'message' => 'Invalid field name']));
+            }
+            
+            // Validate value is numeric
+            if (!is_numeric($value)) {
+                exit(json_encode(['success' => false, 'message' => 'Value must be numeric']));
+            }
+            
+            try {
+                $stmt = $pdo->prepare("UPDATE payroll SET {$field} = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([$value, $payroll_id, $_SESSION['company_id']]);
+                
+                if ($stmt->rowCount() > 0) {
+                    // Log audit trail
+                    logAudit($pdo, $_SESSION['company_id'], $_SESSION['user_id'], AUDIT_UPDATE_PAYROLL, 'payroll', $payroll_id, "Updated {$field} to {$value}");
+                    
+                    echo json_encode(['success' => true, 'message' => 'Field updated successfully']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Record not found or no changes made']);
+                }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+            }
             break;
 
         case 'run_specialized_payroll':
@@ -1344,9 +1604,31 @@ try {
                                          VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
                     $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
                 }
+                
                 $pdo->commit();
+                
+                // AUTOMATICALLY process Faculty and Utility payrolls for the same period
+                $faculty_result = processSpecializedPayroll($pdo, $_SESSION['company_id'], 'Faculty', $start_date, $end_date);
+                $utility_result = processSpecializedPayroll($pdo, $_SESSION['company_id'], 'Utility', $start_date, $end_date);
+                
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
-                echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period run successfully."]);
+                $message = "Payroll for $cat_msg during $period run successfully.";
+                
+                // Add faculty/utility processing results to message
+                $messages = [$message];
+                if ($faculty_result['success']) {
+                    $messages[] = $faculty_result['message'];
+                }
+                if ($utility_result['success']) {
+                    $messages[] = $utility_result['message'];
+                }
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => implode(' ', $messages),
+                    'faculty_processed' => $faculty_result['success'],
+                    'utility_processed' => $utility_result['success']
+                ]);
             } catch (Exception $e) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => "Error running payroll: " . $e->getMessage()]);

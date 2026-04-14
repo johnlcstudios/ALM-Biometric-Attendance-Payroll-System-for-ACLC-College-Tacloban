@@ -88,11 +88,91 @@ class FaceManager {
         return this.stabilityCounter >= this.config.stabilityRequired;
     }
 
+    /**
+     * Check if face is looking straight at camera using facial landmarks
+     * Returns true if face is frontal (within acceptable angle range)
+     */
+    checkFrontalFace(landmarks) {
+        if (!landmarks) return false;
+
+        const points = landmarks.positions;
+        
+        // Get key facial landmarks
+        const noseTip = points[30]; // Nose tip
+        const leftEye = points[36]; // Left eye center
+        const rightEye = points[45]; // Right eye center
+        const leftMouth = points[48]; // Left mouth corner
+        const rightMouth = points[54]; // Right mouth corner
+        const chin = points[8]; // Chin bottom
+        const forehead = points[27]; // Between eyes
+
+        // Calculate face center
+        const faceCenterX = (leftEye.x + rightEye.x) / 2;
+        const faceCenterY = (forehead.y + chin.y) / 2;
+
+        // Check horizontal alignment (yaw)
+        // Nose should be approximately centered between eyes
+        const eyeDistance = Math.abs(rightEye.x - leftEye.x);
+        const noseOffset = Math.abs(noseTip.x - faceCenterX);
+        const yawRatio = noseOffset / eyeDistance;
+
+        // Check vertical alignment (pitch)
+        // Nose should be below eyes and above mouth
+        const eyeY = (leftEye.y + rightEye.y) / 2;
+        const mouthY = (leftMouth.y + rightMouth.y) / 2;
+        const noseVerticalPosition = (noseTip.y - eyeY) / (mouthY - eyeY);
+
+        // Check eye level (roll)
+        const eyeLevelDiff = Math.abs(leftEye.y - rightEye.y);
+        const eyeLevelRatio = eyeLevelDiff / eyeDistance;
+
+        // Check face symmetry (should be looking straight)
+        const leftEyeToNose = Math.abs(noseTip.x - leftEye.x);
+        const rightEyeToNose = Math.abs(rightEye.x - noseTip.x);
+        const symmetryRatio = Math.min(leftEyeToNose, rightEyeToNose) / Math.max(leftEyeToNose, rightEyeToNose);
+
+        // Thresholds for frontal face detection
+        const YAW_THRESHOLD = 0.25; // Nose offset ratio (lower = stricter)
+        const PITCH_MIN = 0.3; // Nose vertical position min
+        const PITCH_MAX = 0.7; // Nose vertical position max
+        const ROLL_THRESHOLD = 0.1; // Eye level difference ratio
+        const SYMMETRY_THRESHOLD = 0.7; // Face symmetry ratio (higher = stricter)
+
+        // All checks must pass for frontal face
+        const isFrontalYaw = yawRatio < YAW_THRESHOLD;
+        const isFrontalPitch = noseVerticalPosition >= PITCH_MIN && noseVerticalPosition <= PITCH_MAX;
+        const isFrontalRoll = eyeLevelRatio < ROLL_THRESHOLD;
+        const isFrontalSymmetry = symmetryRatio > SYMMETRY_THRESHOLD;
+
+        return {
+            isFrontal: isFrontalYaw && isFrontalPitch && isFrontalRoll && isFrontalSymmetry,
+            yaw: yawRatio,
+            pitch: noseVerticalPosition,
+            roll: eyeLevelRatio,
+            symmetry: symmetryRatio,
+            details: {
+                yawOk: isFrontalYaw,
+                pitchOk: isFrontalPitch,
+                rollOk: isFrontalRoll,
+                symmetryOk: isFrontalSymmetry
+            }
+        };
+    }
+
     async captureSamples(videoElement, onProgress = null) {
         const samples = [];
-        const options = new faceapi.SsdMobilenetv1Options({ minConfidence: this.config.minConfidence });
+        const qualityScores = [];
         
-        for (let i = 0; i < 15 && samples.length < this.config.sampleCount; i++) {
+        // Use TinyFaceDetector for faster detection (3x faster than SSD)
+        const options = new faceapi.TinyFaceDetectorOptions({ 
+            inputSize: 320,  // Higher resolution for better accuracy
+            scoreThreshold: 0.6  // Higher confidence threshold
+        });
+        
+        // Maximum attempts increased for better sample quality
+        const maxAttempts = 20;
+        
+        for (let i = 0; i < maxAttempts && samples.length < this.config.sampleCount; i++) {
             if (onProgress) onProgress(samples.length + 1, this.config.sampleCount);
             
             const detection = await faceapi.detectSingleFace(videoElement, options)
@@ -100,22 +180,50 @@ class FaceManager {
                 .withFaceDescriptor();
 
             if (detection && detection.descriptor) {
-                samples.push(Array.from(detection.descriptor));
+                // Check if face is frontal for better quality
+                const frontalCheck = this.checkFrontalFace(detection.landmarks);
+                
+                // Only accept frontal faces with good quality
+                if (frontalCheck.isFrontal) {
+                    // Calculate quality score based on frontal metrics
+                    const qualityScore = (
+                        (1 - frontalCheck.yaw) * 0.3 +  // Lower yaw is better
+                        (frontalCheck.symmetry) * 0.3 +  // Higher symmetry is better
+                        (1 - frontalCheck.roll) * 0.2 +  // Lower roll is better
+                        0.2  // Base score
+                    );
+                    
+                    samples.push(Array.from(detection.descriptor));
+                    qualityScores.push(qualityScore);
+                }
             }
-            // Small delay between captures for diversity
-            await new Promise(r => setTimeout(r, 100));
+            
+            // Reduced delay: 50ms instead of 100ms (2x faster)
+            // But still enough for slight face movement variation
+            await new Promise(r => setTimeout(r, 50));
         }
 
         if (samples.length < 3) {
-            throw new Error("Could not capture enough clear face samples. Please ensure good lighting.");
+            throw new Error("Could not capture enough clear face samples. Please look straight at the camera and ensure good lighting.");
         }
 
-        // Average descriptors for a more robust representative descriptor
+        // Weighted average: higher quality samples contribute more
         const averaged = new Float32Array(128).fill(0);
-        for (const s of samples) {
-            for (let j = 0; j < 128; j++) averaged[j] += s[j];
+        let totalWeight = 0;
+        
+        for (let i = 0; i < samples.length; i++) {
+            const weight = qualityScores[i];
+            totalWeight += weight;
+            
+            for (let j = 0; j < 128; j++) {
+                averaged[j] += samples[i][j] * weight;
+            }
         }
-        for (let j = 0; j < 128; j++) averaged[j] /= samples.length;
+        
+        // Normalize by total weight
+        for (let j = 0; j < 128; j++) {
+            averaged[j] /= totalWeight;
+        }
         
         return Array.from(averaged);
     }
