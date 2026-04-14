@@ -371,6 +371,7 @@ async function fetchData(specificPage = null) {
 
         // Conditional fetching based on page
         if (page === 'dashboard') {
+            // Fetch all data needed for dashboard with real attendance logs
             const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
             if (dashboardStats) {
                 const totalEl = document.getElementById('stat-total-emp');
@@ -385,6 +386,12 @@ async function fetchData(specificPage = null) {
                 leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
                 if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
             }
+            
+            // Fetch attendance logs for charts (last 30 days for better data)
+            attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
+            
+            // Fetch payroll history for payroll chart
+            payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
         } else if (page === 'attendance') {
             attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
         } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
@@ -1383,27 +1390,57 @@ async function loadFacultyPayroll(period = 'latest') {
     const periodDisplay = document.getElementById('faculty-payroll-period');
     if (periodDisplay) periodDisplay.innerText = actualPeriod;
 
-    tbody.innerHTML = data.map((p, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
-            <td>₱${parseFloat(p.basic_salary).toLocaleString()}</td>
-            <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
-            <td>₱5,000.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>(₱0.00)</td>
-            <td>(₱${parseFloat(p.deductions).toLocaleString()})</td>
-            <td>₱100.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱${parseFloat(p.deductions + 100).toLocaleString()}</td>
-            <td>₱0.00</td>
-            <td class="text-success"><strong>₱${parseFloat(p.net_pay).toLocaleString()}</strong></td>
-        </tr>
-    `).join('') || '<tr><td colspan="17" class="text-center">No faculty payroll records for this period.</td></tr>';
+    tbody.innerHTML = data.map((p, index) => {
+        // AUTO-CALCULATION: Faculty Payroll
+        const basicSalary = parseFloat(p.basic_salary) || 0;
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        
+        // Earnings
+        const earnedForPeriod = basicPay; // From backend calculation
+        const loadPay = parseFloat(p.load_pay) || 5000;
+        const overTime = parseFloat(p.overtime_pay) || 0;
+        const differential = parseFloat(p.differential_pay) || 0;
+        const substitution = parseFloat(p.substitution_pay) || 0;
+        const adjPlus = parseFloat(p.adj_plus) || 0;
+        const honorarium = parseFloat(p.honorarium) || 0;
+        
+        // Deductions
+        const absences = parseFloat(p.absence_deduction) || 0;
+        const lateUT = parseFloat(p.late_deduction) || 0;
+        const hdmfCont = parseFloat(p.hdmf_contribution) || 100;
+        const hdmfLoans = parseFloat(p.hdmf_loans) || 0;
+        const hdmfMP2 = parseFloat(p.hdmf_mp2) || 0;
+        
+        // AUTO-CALCULATED TOTALS
+        const totalDeductions = absences + lateUT + hdmfCont + hdmfLoans + hdmfMP2;
+        const totalEarnings = earnedForPeriod + loadPay + overTime + differential + substitution + adjPlus + honorarium;
+        const netPay = totalEarnings - totalDeductions;
+        
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
+                <td class="currency">₱${basicSalary.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="load_pay" data-id="${p.id}">₱${loadPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="overtime_pay" data-id="${p.id}">₱${overTime.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="differential_pay" data-id="${p.id}">₱${differential.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="substitution_pay" data-id="${p.id}">₱${substitution.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="adj_plus" data-id="${p.id}">₱${adjPlus.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency deduction">(₱${absences.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency deduction">(₱${lateUT.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_mp2" data-id="${p.id}">₱${hdmfMP2.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
+                <td class="currency editable" data-field="honorarium" data-id="${p.id}">₱${honorarium.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="17" class="text-center">No faculty payroll records for this period.</td></tr>';
+    
+    // Make cells editable with auto-calculation
+    makePayrollCellsEditable('faculty');
 }
 
 async function loadUtilityPayroll(period = 'latest') {
@@ -1419,28 +1456,225 @@ async function loadUtilityPayroll(period = 'latest') {
     const periodDisplay = document.getElementById('utility-payroll-period');
     if (periodDisplay) periodDisplay.innerText = actualPeriod;
 
-    tbody.innerHTML = data.map((p, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
-            <td>₱${(parseFloat(p.basic_salary) / 22).toFixed(2)}</td>
-            <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>(₱${parseFloat(p.deductions).toLocaleString()})</td>
-            <td>₱0.00</td>
-            <td>₱100.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱${parseFloat(p.deductions + 100).toLocaleString()}</td>
-            <td class="text-success"><strong>₱${parseFloat(p.net_pay).toLocaleString()}</strong></td>
-            <td>₱${parseFloat(p.net_pay).toLocaleString()}</td>
-            <td>₱0.00</td>
-        </tr>
-    `).join('') || '<tr><td colspan="15" class="text-center">No utility payroll records for this period.</td></tr>';
+    tbody.innerHTML = data.map((p, index) => {
+        // AUTO-CALCULATION: Utility Payroll
+        const basicSalary = parseFloat(p.basic_salary) || 0;
+        const ratePerDay = basicSalary / 22; // Standard working days per month
+        
+        // Earnings
+        const earnedForPeriod = parseFloat(p.basic_pay) || 0;
+        const otHolidayPay = parseFloat(p.ot_holiday_pay) || 0;
+        const adjPlus = parseFloat(p.adj_plus) || 0;
+        
+        // Deductions
+        const lateUT = parseFloat(p.late_deduction) || 0;
+        const adjMinus = parseFloat(p.adj_minus) || 0;
+        const hdmfCont = parseFloat(p.hdmf_contribution) || 100;
+        const hdmfLoans = parseFloat(p.hdmf_loans) || 0;
+        const cashAdvance = parseFloat(p.cash_advance) || 0;
+        
+        // AUTO-CALCULATED TOTALS
+        const totalDeductions = lateUT + adjMinus + hdmfCont + hdmfLoans + cashAdvance;
+        const totalEarnings = earnedForPeriod + otHolidayPay + adjPlus;
+        const netPay = totalEarnings - totalDeductions;
+        
+        // ATM vs Non-ATM split
+        const atm = netPay; // Default: all to ATM
+        const nonAtm = 0;
+        
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
+                <td class="currency">₱${ratePerDay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="ot_holiday_pay" data-id="${p.id}">₱${otHolidayPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="adj_plus" data-id="${p.id}">₱${adjPlus.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency deduction">(₱${lateUT.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="adj_minus" data-id="${p.id}">(₱${adjMinus.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="cash_advance" data-id="${p.id}">₱${cashAdvance.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
+                <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
+                <td class="currency atm">₱${atm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency non-atm">₱${nonAtm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="15" class="text-center">No utility payroll records for this period.</td></tr>';
+    
+    // Make cells editable with auto-calculation
+    makePayrollCellsEditable('utility');
 }
 
 // --- Payroll ---
+
+// Make payroll cells editable with auto-calculation
+function makePayrollCellsEditable(type) {
+    const editableCells = document.querySelectorAll(`#${type}PayrollTableBody .editable`);
+    
+    editableCells.forEach(cell => {
+        cell.addEventListener('dblclick', function() {
+            const currentText = this.textContent.replace(/[₱(),]/g, '').trim();
+            const currentValue = parseFloat(currentText) || 0;
+            const field = this.dataset.field;
+            const payrollId = this.dataset.id;
+            
+            // Create input field
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.step = '0.01';
+            input.value = currentValue;
+            input.style.cssText = 'width: 100px; padding: 4px; border: 2px solid #3b4fc9; border-radius: 4px; text-align: right; font-size: inherit;';
+            
+            // Replace cell content with input
+            this.textContent = '';
+            this.appendChild(input);
+            input.focus();
+            input.select();
+            
+            // Handle save on Enter or blur
+            const saveValue = () => {
+                const newValue = parseFloat(input.value) || 0;
+                this.textContent = `₱${newValue.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                this.dataset.value = newValue;
+                
+                // Update backend
+                updatePayrollField(payrollId, field, newValue);
+                
+                // Recalculate the entire row
+                recalculatePayrollRow(this.closest('tr'), type);
+            };
+            
+            input.addEventListener('blur', saveValue);
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        });
+    });
+}
+
+// Update payroll field in backend
+async function updatePayrollField(payrollId, field, value) {
+    try {
+        await fetch('backend/api.php?action=update_payroll_field', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                payroll_id: payrollId,
+                field: field,
+                value: value
+            })
+        });
+    } catch (error) {
+        console.error('Failed to update payroll field:', error);
+    }
+}
+
+// Recalculate payroll row totals
+function recalculatePayrollRow(row, type) {
+    if (type === 'faculty') {
+        recalculateFacultyRow(row);
+    } else if (type === 'utility') {
+        recalculateUtilityRow(row);
+    }
+}
+
+// Recalculate Faculty Payroll row
+function recalculateFacultyRow(row) {
+    const cells = row.querySelectorAll('td.currency');
+    
+    // Get all values from cells
+    const getValue = (className) => {
+        const cell = row.querySelector(`.${className}`);
+        if (!cell) return 0;
+        const text = cell.textContent.replace(/[₱(),]/g, '').trim();
+        return parseFloat(text) || 0;
+    };
+    
+    // Earnings
+    const earnedForPeriod = getValue('earned');
+    const loadPay = getValue('editable[data-field="load_pay"]');
+    const overTime = getValue('editable[data-field="overtime_pay"]');
+    const differential = getValue('editable[data-field="differential_pay"]');
+    const substitution = getValue('editable[data-field="substitution_pay"]');
+    const adjPlus = getValue('editable[data-field="adj_plus"]');
+    const honorarium = getValue('editable[data-field="honorarium"]');
+    
+    // Deductions
+    const absences = getValue('deduction:nth-of-type(1)');
+    const lateUT = getValue('deduction:nth-of-type(2)');
+    const hdmfCont = getValue('editable[data-field="hdmf_contribution"]');
+    const hdmfLoans = getValue('editable[data-field="hdmf_loans"]');
+    const hdmfMP2 = getValue('editable[data-field="hdmf_mp2"]');
+    
+    // Calculate totals
+    const totalDeductions = absences + lateUT + hdmfCont + hdmfLoans + hdmfMP2;
+    const totalEarnings = earnedForPeriod + loadPay + overTime + differential + substitution + adjPlus + honorarium;
+    const netPay = totalEarnings - totalDeductions;
+    
+    // Update total deduction cell
+    const totalDedCell = row.querySelector('.total-deduction');
+    if (totalDedCell) {
+        totalDedCell.innerHTML = `<strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong>`;
+    }
+    
+    // Update net pay cell
+    const netPayCell = row.querySelector('.net-pay');
+    if (netPayCell) {
+        netPayCell.innerHTML = `<strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`;
+    }
+}
+
+// Recalculate Utility Payroll row
+function recalculateUtilityRow(row) {
+    const cells = row.querySelectorAll('td.currency');
+    
+    // Get all values from cells
+    const getValue = (className) => {
+        const cell = row.querySelector(`.${className}`);
+        if (!cell) return 0;
+        const text = cell.textContent.replace(/[₱(),]/g, '').trim();
+        return parseFloat(text) || 0;
+    };
+    
+    // Earnings
+    const earnedForPeriod = getValue('earned');
+    const otHolidayPay = getValue('editable[data-field="ot_holiday_pay"]');
+    const adjPlus = getValue('editable[data-field="adj_plus"]');
+    
+    // Deductions
+    const lateUT = getValue('deduction:nth-of-type(1)');
+    const adjMinus = getValue('editable[data-field="adj_minus"]');
+    const hdmfCont = getValue('editable[data-field="hdmf_contribution"]');
+    const hdmfLoans = getValue('editable[data-field="hdmf_loans"]');
+    const cashAdvance = getValue('editable[data-field="cash_advance"]');
+    
+    // Calculate totals
+    const totalDeductions = lateUT + adjMinus + hdmfCont + hdmfLoans + cashAdvance;
+    const totalEarnings = earnedForPeriod + otHolidayPay + adjPlus;
+    const netPay = totalEarnings - totalDeductions;
+    
+    // Update total deduction cell
+    const totalDedCell = row.querySelector('.total-deduction');
+    if (totalDedCell) {
+        totalDedCell.innerHTML = `<strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong>`;
+    }
+    
+    // Update net pay cell
+    const netPayCell = row.querySelector('.net-pay');
+    if (netPayCell) {
+        netPayCell.innerHTML = `<strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`;
+    }
+    
+    // Update ATM column
+    const atmCell = row.querySelector('.atm');
+    if (atmCell) {
+        atmCell.textContent = `₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    }
+}
 async function runPayroll() {
     const start_date = document.getElementById('payrollStartDate').value;
     const end_date = document.getElementById('payrollEndDate').value;
@@ -2530,17 +2764,44 @@ async function initFaceRegistration() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 if (detection) {
+                    // Check stability
                     const isStable = faceManager.checkStability(detection.detection.box);
-                    const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
-                    const color = isStable ? "#27ae60" : "#f39c12";
+                    
+                    // Check if face is frontal for better enrollment quality
+                    const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
+                    const isFrontal = frontalCheck.isFrontal;
+                    
+                    let status, color;
+                    
+                    if (!isFrontal) {
+                        // Face not looking straight
+                        if (!frontalCheck.details.yawOk) {
+                            status = "TURN FACE TO CAMERA";
+                        } else if (!frontalCheck.details.pitchOk) {
+                            status = "LOOK STRAIGHT";
+                        } else if (!frontalCheck.details.rollOk) {
+                            status = "KEEP HEAD LEVEL";
+                        } else {
+                            status = "FACE CAMERA";
+                        }
+                        color = "#f39c12"; // Orange
+                    } else if (!isStable) {
+                        status = "HOLD STILL...";
+                        color = "#f39c12"; // Orange
+                    } else {
+                        // Both frontal and stable - ready to capture!
+                        status = "✓ PERFECT! CAPTURING...";
+                        color = "#27ae60"; // Green
+                    }
 
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    if (isStable) {
+                    // Only capture if face is both frontal AND stable
+                    if (isFrontal && isStable) {
                         faceManager.isProcessing = true;
                         setTimeout(() => saveFaceRegistration(), 300);
                     } else {
-                        captureBtn.disabled = false;
+                        captureBtn.disabled = !isFrontal; // Enable only if frontal
                     }
                 } else {
                     faceManager.stabilityCounter = 0;
@@ -2646,6 +2907,7 @@ function initCharts() {
         last6.push({ key: monthKey(d), label: monthLabel(d) });
     }
 
+    // Calculate payroll expenditure from real payroll data
     const sums = Object.fromEntries(last6.map(m => [m.key, 0]));
     for (const p of payrollHistory) {
         const d = parseMySqlDateTime(p.created_at);
@@ -2654,13 +2916,29 @@ function initCharts() {
         if (key in sums) sums[key] += parseFloat(p.net_pay || 0);
     }
 
+    // Calculate attendance breakdown from REAL attendance logs
     const todayStr = new Date().toISOString().split('T')[0];
-    const presentIds = new Set(attendanceLogs.filter(l => l.log_date === todayStr && l.check_in).map(l => String(l.employee_id)));
+    
+    // Get unique employees who checked in today
+    const presentIds = new Set(
+        attendanceLogs
+            .filter(l => l.log_date === todayStr && l.check_in)
+            .map(l => String(l.employee_id))
+    );
+    
+    // Count employees on leave
     const onLeaveCount = employees.filter(e => (e.status || '').toLowerCase() === 'on leave').length;
+    
+    // Count active employees (not inactive)
     const activeCount = employees.filter(e => (e.status || '').toLowerCase() !== 'inactive').length;
+    
+    // Present = unique employees who checked in today
     const presentCount = presentIds.size;
+    
+    // Absent = active employees - present - on leave
     const absentCount = Math.max(activeCount - onLeaveCount - presentCount, 0);
 
+    // Update dashboard stat cards with real data
     const totalEl = document.getElementById('stat-total-emp');
     const presentEl = document.getElementById('stat-present');
     const absentEl = document.getElementById('stat-absent');
@@ -2670,6 +2948,7 @@ function initCharts() {
     if (absentEl) absentEl.innerText = String(absentCount);
     if (leaveEl) leaveEl.innerText = String(leaveRequests.filter(r => r.status === 'Pending').length);
 
+    // Payroll Expenditure Chart (Last 6 Months)
     pChart = new Chart(ctxP, {
         type: 'line',
         data: {
@@ -2682,9 +2961,36 @@ function initCharts() {
                 fill: true,
                 tension: 0.4
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '₱' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
         }
     });
 
+    // Attendance Breakdown Chart (Today's Real Data)
     aChart = new Chart(ctxA, {
         type: 'doughnut',
         data: {
@@ -2693,6 +2999,26 @@ function initCharts() {
                 data: [presentCount, absentCount, onLeaveCount],
                 backgroundColor: ['#27ae60', '#c0392b', '#f39c12']
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = presentCount + absentCount + onLeaveCount;
+                            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
         }
     });
 }

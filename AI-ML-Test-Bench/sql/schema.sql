@@ -220,10 +220,6 @@ CREATE TABLE IF NOT EXISTS subject_loads (
     FOREIGN KEY (faculty_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
--- Insert Demo Company
-INSERT IGNORE INTO companies (id, name, admin_email) VALUES (1, 'ALM Tech Solutions', 'hr@almtech.com');
-
-INSERT IGNORE INTO users (company_id, username, password, role, email) VALUES
-(1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'admin@almtech.com'),
-(1, 'hr_admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'HR', 'hr@almtech.com'),
-(1, 'payroll_officer', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Payroll Officer', 'payroll@almtech.com');
+-- IMPORTANT: Demo accounts have been removed for security.
+-- Use setup-db.php or run-migration.php to create initial admin account securely.
+-- Never use default passwords in production.

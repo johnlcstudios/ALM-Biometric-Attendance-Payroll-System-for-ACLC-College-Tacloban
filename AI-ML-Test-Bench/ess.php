@@ -245,6 +245,9 @@ $position = $emp['position'] ?? 'Staff';
                             <label><i class="fas fa-calendar"></i> To</label>
                             <input type="date" id="att-to" onchange="filterAttendance()">
                         </div>
+                        <button class="btn btn-primary" onclick="generateDTR()" style="margin-left: 10px;">
+                            <i class="fas fa-file-pdf"></i> Generate DTR
+                        </button>
                     </div>
                 </div>
                 <div class="modern-table-wrapper">
@@ -869,6 +872,29 @@ $position = $emp['position'] ?? 'Staff';
         async function logout() {
             await fetch('backend/api.php?action=logout');
             window.location.href = 'login.php';
+        }
+
+        function generateDTR() {
+            // Get the selected date range or use current month
+            const fromDate = document.getElementById('att-from').value;
+            const toDate = document.getElementById('att-to').value;
+            
+            let monthParam;
+            
+            if (fromDate && toDate) {
+                // Use the from date's month
+                monthParam = fromDate.substring(0, 7); // YYYY-MM
+            } else {
+                // Use current month
+                const now = new Date();
+                monthParam = now.toISOString().substring(0, 7);
+            }
+            
+            // Open DTR in new window for printing
+            const dtrUrl = `pages/shared/generate_dtr.php?month=${monthParam}`;
+            window.open(dtrUrl, '_blank');
+            
+            showToast('DTR generated! Check the new window to print.', 'success');
         }
 
         loadESS();
