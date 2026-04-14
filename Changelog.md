@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - *Build9*  - 2026-04-14
+
+### Added
+- **Faculty Level Selection**:
+    - Added faculty level designation (SHS, College, Both) during faculty registration
+    - Database column `faculty_level` added to employees table
+    - Visible in employee table and edit modal
+    
+- **Hire Date Tracking**:
+    - Added `hire_date` field to employee registration form
+    - Prevents payroll processing for periods before employee hire date
+    - Automatically defaults to current date on new employees
+    
+- **Resignation Management**:
+    - Added ability to decline resignation requests with optional reason
+    - New `decline_resignation` API endpoint
+    - Tracks who declined and when (declined_by, decline_reason, declined_at)
+    - Visual indicator for declined resignations
+    
+- **Employee Reinstatement**:
+    - Added ability to reinstate resigned employees
+    - New `reinstate_employee` API endpoint
+    - Automatically reactivates employee status and user account
+    - Tracks reinstatement timestamp and user
+    
+- **Enhanced Form Validation**:
+    - Client-side validation for email, phone (Philippine format), salary ranges
+    - Government ID format validation (SSS, TIN, PhilHealth, Pag-IBIG)
+    - Server-side validation matching all client-side rules
+    - Inline error messages with auto-focus on first error
+    - Required field validation for hire_date and faculty_level
+
+### Changed
+- **Payroll Processing Logic**:
+    - Updated `run_payroll` to check hire_date before processing
+    - Updated `processSpecializedPayroll` to check hire_date
+    - Calculates effective_start_date = max(start_date, hire_date)
+    - Skips employees not yet hired during payroll period
+    
+- **Employee Form**:
+    - Added hire_date field (Step 2 - Employment Details)
+    - Enhanced validation for all form fields
+    - Improved error messaging and user feedback
+
+- **Employee Table**:
+    - Added Faculty Level column
+    - Added Hire Date column
+    - Shows reinstate button for resigned employees instead of delete
+
+### Database Migrations
+- **004_alm_features_v2.4.sql**:
+    - Added `faculty_level` ENUM column to employees table
+    - Added `hire_date` DATE column with index to employees table
+    - Added `declined_by`, `decline_reason`, `declined_at` to resignations table
+    - Added `reinstated_at`, `reinstated_by` to employees table
+    - Updated resignations status ENUM to include 'Declined'
+
+### Security
+- Enhanced server-side validation prevents invalid data entry
+- SQL injection prevention maintained through prepared statements
+- Transaction-safe operations for all critical updates
+
+### Documentation
+- Updated FEATURES_IMPLEMENTATION_GUIDE.md with completion status
+- Updated README.md with installation and migration instructions
+- Created comprehensive migration guide
+
 ## [1.4.9] **Saturday Release**  - 2026-04-12
 
 ### Merge

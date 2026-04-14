@@ -56,6 +56,15 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
         
         // Process each employee
         foreach ($employees as $emp) {
+            // Prevent payroll processing before hire date
+            $hire_date = $emp['hire_date'] ?? $emp['created_at'] ?? $start_date;
+            $effective_start_date = max($start_date, $hire_date);
+            
+            // If employee wasn't hired yet during this period, skip
+            if ($effective_start_date > $end_date) {
+                continue;
+            }
+            
             $logs = $logs_by_emp[$emp['id']] ?? [];
             
             $total_absent = 0;
@@ -73,8 +82,9 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
             
             if ($position === 'Faculty') {
                 // Faculty specific calculations
+                // NOTE: Faculty receive basic_pay even with 0 subject loads
                 $basic_pay = (float) $emp['basic_salary'] / 2;
-                $load_pay = 0;
+                $load_pay = 0; // Additional load pay (0 if no subjects assigned)
                 $overtime = 0;
                 $differential = 0;
                 $substitution = 0;
@@ -1005,12 +1015,53 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
 
             // Centralized validation
-            $errors = validateRequired($data, ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary']);
+            $errors = validateRequired($data, ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary', 'hire_date']);
             $errors = array_merge($errors, validateDate($data['dob'], 'dob'));
+            $errors = array_merge($errors, validateDate($data['hire_date'] ?? '', 'hire_date'));
             $errors = array_merge($errors, validateAmount($data['basicSalary'], 'basicSalary', 0));
             if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
                 $errors[] = 'Invalid email format';
             }
+            
+            // Validate phone number if provided
+            if (!empty($data['contactNo'])) {
+                $phone = preg_replace('/[\s\-]/', '', $data['contactNo']);
+                if (!preg_match('/^(09|\+639)\d{9}$/', $phone)) {
+                    $errors[] = 'Invalid phone number format. Use: 09XXXXXXXXX or +639XXXXXXXXX';
+                }
+            }
+            
+            // Validate faculty_level for Faculty position
+            if ($data['position'] === 'Faculty' && empty($data['faculty_level'])) {
+                $errors[] = 'Faculty level is required for Faculty position';
+            }
+            
+            // Validate government ID formats if provided
+            if (!empty($data['sss'])) {
+                $sss = preg_replace('/[\s\-]/', '', $data['sss']);
+                if (!preg_match('/^\d{10,11}$/', $sss)) {
+                    $errors[] = 'Invalid SSS number format';
+                }
+            }
+            if (!empty($data['tin'])) {
+                $tin = preg_replace('/[\s\-]/', '', $data['tin']);
+                if (!preg_match('/^\d{9,12}$/', $tin)) {
+                    $errors[] = 'Invalid TIN format';
+                }
+            }
+            if (!empty($data['philhealth'])) {
+                $philhealth = preg_replace('/[\s\-]/', '', $data['philhealth']);
+                if (!preg_match('/^\d{11,12}$/', $philhealth)) {
+                    $errors[] = 'Invalid PhilHealth format';
+                }
+            }
+            if (!empty($data['pagibig'])) {
+                $pagibig = preg_replace('/[\s\-]/', '', $data['pagibig']);
+                if (!preg_match('/^\d{12}$/', $pagibig)) {
+                    $errors[] = 'Invalid Pag-IBIG format (12 digits required)';
+                }
+            }
+            
             rejectInvalidPayload($errors);
 
             // Sanitize Email
@@ -1021,13 +1072,15 @@ try {
 
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
-                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ? WHERE id = ? AND company_id = ?");
+                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ? WHERE id = ? AND company_id = ?");
                 $stmt->execute([
                     trim($data['fullName']),
                     $data['dob'],
                     $email,
                     $data['position'],
                     $data['department'],
+                    $data['faculty_level'] ?? null,
+                    $data['hire_date'] ?? date('Y-m-d'),
                     $basic_salary,
                     trim($data['sss'] ?? ''),
                     trim($data['philhealth'] ?? ''),
@@ -1064,7 +1117,7 @@ try {
                     $stmt->execute([$_SESSION['company_id'], $username, $hashed_pass, $role, $email]);
                     $user_id = $pdo->lastInsertId();
 
-                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, department, basic_salary, sss, philhealth, tin, pagibig, user_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, department, faculty_level, hire_date, basic_salary, sss, philhealth, tin, pagibig, user_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $_SESSION['company_id'],
                         $emp_id,
@@ -1073,6 +1126,8 @@ try {
                         $email,
                         $data['position'],
                         $data['department'],
+                        $data['faculty_level'] ?? null,
+                        $data['hire_date'] ?? date('Y-m-d'),
                         $basic_salary,
                         trim($data['sss'] ?? ''),
                         trim($data['philhealth'] ?? ''),
@@ -1563,6 +1618,15 @@ try {
             $pdo->beginTransaction();
             try {
                 foreach ($employees as $emp) {
+                    // Prevent payroll processing before hire date
+                    $hire_date = $emp['hire_date'] ?? $emp['created_at'] ?? $start_date;
+                    $effective_start_date = max($start_date, $hire_date);
+                    
+                    // If employee wasn't hired yet during this period, skip
+                    if ($effective_start_date > $end_date) {
+                        continue;
+                    }
+                    
                     $days_present = $attendance_counts[$emp['id']] ?? 0;
 
                     $monthly_salary = (float) $emp['basic_salary'];
@@ -1743,6 +1807,67 @@ try {
             }
             break;
 
+        case 'decline_resignation':
+            if (!isAdminOrHR())
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = $data['id'] ?? '';
+            $reason = $data['reason'] ?? '';
+
+            if (empty($id)) {
+                echo json_encode(['success' => false, 'message' => 'Resignation ID is required']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Update resignation status to Declined
+                $stmt = $pdo->prepare("UPDATE resignations SET status = 'Declined', declined_by = ?, decline_reason = ?, declined_at = NOW() WHERE id = ? AND company_id = ?");
+                $stmt->execute([$_SESSION['user_id'], $reason, $id, $_SESSION['company_id']]);
+
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Resignation declined successfully']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to decline resignation: ' . $e->getMessage()]);
+            }
+            break;
+
+        case 'reinstate_employee':
+            if (!isAdminOrHR())
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $id = $data['id'] ?? '';
+
+            if (empty($id)) {
+                echo json_encode(['success' => false, 'message' => 'Employee ID is required']);
+                break;
+            }
+
+            $pdo->beginTransaction();
+            try {
+                // Update employee status to Active
+                $stmt = $pdo->prepare("UPDATE employees SET status = 'Active', reinstated_at = NOW(), reinstated_by = ? WHERE id = ? AND company_id = ? AND status = 'Resigned'");
+                $stmt->execute([$_SESSION['user_id'], $id, $_SESSION['company_id']]);
+                
+                if ($stmt->rowCount() === 0) {
+                    throw new Exception('Employee not found or not in Resigned status');
+                }
+                
+                // Reactivate user account
+                $stmt_user = $pdo->prepare("UPDATE users SET is_active = 1 WHERE id = (SELECT user_id FROM employees WHERE id = ?)");
+                $stmt_user->execute([$id]);
+
+                $pdo->commit();
+                echo json_encode(['success' => true, 'message' => 'Employee reinstated successfully']);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to reinstate employee: ' . $e->getMessage()]);
+            }
+            break;
+
         case 'apply_leave':
             if (!isset($_SESSION['user_id']))
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
@@ -1910,6 +2035,11 @@ try {
             $stmt_attendance = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? ORDER BY log_date DESC LIMIT 30");
             $stmt_attendance->execute([$eid]);
             $attendance = $stmt_attendance->fetchAll();
+            
+            // Count absent days
+            $stmt_absent = $pdo->prepare("SELECT COUNT(*) as absent_count FROM attendance WHERE employee_id = ? AND status = 'Absent'");
+            $stmt_absent->execute([$eid]);
+            $absent_count = $stmt_absent->fetch()['absent_count'];
 
             $stmt_payroll = $pdo->prepare("SELECT * FROM payroll WHERE employee_id = ? ORDER BY created_at DESC");
             $stmt_payroll->execute([$eid]);
@@ -1930,6 +2060,7 @@ try {
             echo json_encode([
                 'profile' => $emp,
                 'attendance' => $attendance,
+                'absent_days' => (int)$absent_count,
                 'payroll' => $payroll,
                 'leave' => $leave,
                 'loans' => $loans,

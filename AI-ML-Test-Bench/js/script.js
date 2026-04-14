@@ -31,6 +31,44 @@ function escapeHTML(str) {
     });
 }
 
+// --- Validation Functions ---
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePhone(phone) {
+    if (!phone || phone.trim() === '') return true; // Optional field
+    const re = /^(09|\+639)\d{9}$/; // Philippine format
+    return re.test(phone.replace(/\s|-/g, ''));
+}
+
+function validateSalary(salary) {
+    const num = parseFloat(salary);
+    return !isNaN(num) && num >= 0 && num < 10000000;
+}
+
+function validateDate(date) {
+    if (!date) return false;
+    const d = new Date(date);
+    return d instanceof Date && !isNaN(d);
+}
+
+function validateRequired(value) {
+    return value && typeof value === 'string' && value.trim() !== '';
+}
+
+function validateGovernmentID(id, type) {
+    if (!id || id.trim() === '') return true; // Optional
+    // Basic format validation for Philippine government IDs
+    const cleaned = id.replace(/\s|-/g, '');
+    if (type === 'sss' && !/^\d{10,11}$/.test(cleaned)) return false;
+    if (type === 'tin' && !/^\d{9,12}$/.test(cleaned)) return false;
+    if (type === 'philhealth' && !/^\d{11,12}$/.test(cleaned)) return false;
+    if (type === 'pagibig' && !/^\d{12}$/.test(cleaned)) return false;
+    return true;
+}
+
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'block';
@@ -536,6 +574,9 @@ function renderEmployeeTable() {
     tbody.innerHTML = employees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        const facultyLevel = (isFaculty && emp.faculty_level) ? emp.faculty_level : '---';
+        const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '---';
+        const isResigned = (emp.status || 'Active') === 'Resigned';
 
         const actionHtml = isFaculty ? `
             <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
@@ -545,6 +586,18 @@ function renderEmployeeTable() {
                 <i class="fas fa-plus"></i> Add Load
             </button>
         ` : '---';
+
+        const buttonsHtml = isResigned ? `
+            <div class="action-buttons">
+                <button class="btn-icon text-success" title="Reinstate" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
+                <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+            </div>
+        ` : `
+            <div class="action-buttons">
+                <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
 
         return `
             <tr>
@@ -562,17 +615,14 @@ function renderEmployeeTable() {
                 </td>
                 <td>${escapeHTML(emp.position)}</td>
                 <td>${escapeHTML(emp.department)}</td>
+                <td>${escapeHTML(facultyLevel)}</td>
+                <td>${hireDate}</td>
                 <td>${actionHtml}</td>
                 <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                </td>
+                <td>${buttonsHtml}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="text-center">No employees found.</td></tr>';
 }
 
 function renderMasterSubjects() {
@@ -965,11 +1015,25 @@ function editEmployee(id) {
     form.email.value = emp.email || '';
     form.position.value = emp.position;
     form.department.value = emp.department;
+    
+    // Set faculty level if exists
+    if (form.faculty_level) {
+        form.faculty_level.value = emp.faculty_level || '';
+    }
+    
+    // Set hire date if exists
+    if (form.hire_date) {
+        form.hire_date.value = emp.hire_date || '';
+    }
+    
     form.basicSalary.value = emp.basic_salary;
     form.sss.value = emp.sss || '';
     form.philhealth.value = emp.philhealth || '';
     form.tin.value = emp.tin || '';
     form.pagibig.value = emp.pagibig || '';
+
+    // Toggle faculty level visibility
+    toggleSubjectStep();
 
     document.querySelector('#employeeModal h3').innerText = 'Edit Employee';
     document.getElementById('saveBtn').innerText = 'Update Employee';
@@ -994,6 +1058,34 @@ async function deleteEmployee(id) {
             fetchData();
         } else {
             showToast(result.message || 'Failed to delete employee.', 'error');
+        }
+    }
+}
+
+async function reinstateEmployee(id, name) {
+    const confirmResult = await Swal.fire({
+        title: 'Reinstate Employee?',
+        html: `<p>Are you sure you want to reinstate <strong>${name}</strong>?</p><p class="text-muted small">This will change their status back to Active.</p>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reinstate',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d'
+    });
+
+    if (confirmResult.isConfirmed) {
+        const response = await fetch('backend/api.php?action=reinstate_employee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Employee reinstated successfully', 'success');
+            fetchData();
+        } else {
+            showToast(result.message || 'Failed to reinstate employee', 'error');
         }
     }
 }
@@ -1075,12 +1167,16 @@ const totalSteps = 4;
 function toggleSubjectStep() {
     const position = document.querySelector('select[name="position"]').value;
     const step4Indicator = document.getElementById('step4-indicator');
+    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
+    
     if (position === 'Faculty') {
         step4Indicator.style.opacity = '1';
         step4Indicator.style.pointerEvents = 'auto';
+        facultyLevelGroup.style.display = 'block';
     } else {
         step4Indicator.style.opacity = '0.3';
         step4Indicator.style.pointerEvents = 'none';
+        facultyLevelGroup.style.display = 'none';
     }
 }
 
@@ -1126,33 +1222,98 @@ function validateCurrentStep() {
     const currentStepEl = document.getElementById(`step${currentStep}`);
     const inputs = currentStepEl.querySelectorAll('input[required], select[required]');
     let isValid = true;
+    let firstErrorInput = null;
 
     inputs.forEach(input => {
         const errorMsg = input.parentElement.querySelector('.error-msg');
+        let fieldError = null;
 
         // Check HTML5 validity
         if (!input.checkValidity()) {
+            fieldError = input.validationMessage;
+        }
+        
+        // Specific Email Check
+        if (!fieldError && input.type === 'email' && input.value) {
+            if (!validateEmail(input.value)) {
+                fieldError = "Invalid email format. Example: user@example.com";
+            }
+        }
+        
+        // Phone number validation
+        if (!fieldError && input.name === 'contactNo' && input.value) {
+            if (!validatePhone(input.value)) {
+                fieldError = "Invalid phone format. Use: 09XXXXXXXXX or +639XXXXXXXXX";
+            }
+        }
+        
+        // Salary validation
+        if (!fieldError && input.name === 'basicSalary' && input.value) {
+            if (!validateSalary(input.value)) {
+                fieldError = "Salary must be between 0 and 10,000,000";
+            }
+        }
+        
+        // Date validation
+        if (!fieldError && input.type === 'date' && input.value) {
+            if (!validateDate(input.value)) {
+                fieldError = "Invalid date format";
+            }
+        }
+        
+        // Government ID validation (optional fields)
+        if (!fieldError && input.value) {
+            if (input.name === 'sss' && !validateGovernmentID(input.value, 'sss')) {
+                fieldError = "Invalid SSS format. Use: XX-XXXXXXX-X (10-11 digits)";
+            }
+            if (input.name === 'tin' && !validateGovernmentID(input.value, 'tin')) {
+                fieldError = "Invalid TIN format. Use: XXX-XXX-XXX-XXX (9-12 digits)";
+            }
+            if (input.name === 'philhealth' && !validateGovernmentID(input.value, 'philhealth')) {
+                fieldError = "Invalid PhilHealth format (11-12 digits)";
+            }
+            if (input.name === 'pagibig' && !validateGovernmentID(input.value, 'pagibig')) {
+                fieldError = "Invalid Pag-IBIG format (12 digits)";
+            }
+        }
+
+        // Apply error styling
+        if (fieldError) {
             input.classList.add('border-danger');
-            if (errorMsg) errorMsg.style.display = 'block';
+            if (errorMsg) {
+                errorMsg.innerText = fieldError;
+                errorMsg.style.display = 'block';
+            }
             isValid = false;
+            if (!firstErrorInput) firstErrorInput = input;
         } else {
             input.classList.remove('border-danger');
             if (errorMsg) errorMsg.style.display = 'none';
         }
-
-        // Specific Email Check
-        if (input.type === 'email' && input.value) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(input.value)) {
-                input.classList.add('border-danger');
+    });
+    
+    // Faculty level validation for Faculty position
+    if (currentStep === 2) {
+        const position = document.querySelector('select[name="position"]');
+        if (position && position.value === 'Faculty') {
+            const facultyLevel = document.querySelector('select[name="faculty_level"]');
+            if (facultyLevel && !facultyLevel.value) {
+                const errorMsg = facultyLevel.parentElement.querySelector('.error-msg');
+                facultyLevel.classList.add('border-danger');
                 if (errorMsg) {
-                    errorMsg.innerText = "Invalid email format.";
+                    errorMsg.innerText = "Faculty level is required for Faculty position";
                     errorMsg.style.display = 'block';
                 }
                 isValid = false;
+                if (!firstErrorInput) firstErrorInput = facultyLevel;
             }
         }
-    });
+    }
+    
+    // Focus on first error field
+    if (firstErrorInput) {
+        firstErrorInput.focus();
+    }
 
     return isValid;
 }
@@ -1971,19 +2132,64 @@ async function updateLoanStatus(id, status) {
 function renderResignationTable() {
     const tbody = document.getElementById('resignationTableBody');
     if (!tbody) return;
-    tbody.innerHTML = resignationRequests.map(req => `
-        <tr>
-            <td>${escapeHTML(req.full_name)}</td>
-            <td>${escapeHTML(req.effective_date)}</td>
-            <td>${escapeHTML(req.reason)}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
-            <td>
-                ${req.status === 'Pending' ? `
-                    <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>
-                ` : (req.status === 'Processing' ? `<button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')">Complete</button>` : '<span class="text-muted">Processed</span>')}
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = resignationRequests.map(req => {
+        let actionButtons = '';
+        
+        if (req.status === 'Pending') {
+            actionButtons = `
+                <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>
+                <button class="btn btn-danger btn-sm" onclick="declineResignation(${req.id}, '${escapeHTML(req.full_name)}')">Decline</button>
+            `;
+        } else if (req.status === 'Processing') {
+            actionButtons = `<button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')">Complete</button>`;
+        } else if (req.status === 'Declined') {
+            actionButtons = `<span class="badge badge-danger">Declined</span>`;
+        } else {
+            actionButtons = '<span class="text-muted">Processed</span>';
+        }
+        
+        return `
+            <tr>
+                <td>${escapeHTML(req.full_name)}</td>
+                <td>${escapeHTML(req.effective_date)}</td>
+                <td>${escapeHTML(req.reason)}</td>
+                <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+                <td>${actionButtons}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function declineResignation(id, employeeName) {
+    const result = await Swal.fire({
+        title: 'Decline Resignation?',
+        html: `<p>Are you sure you want to decline <strong>${employeeName}</strong>'s resignation request?</p>`,
+        input: 'textarea',
+        inputLabel: 'Reason for declining (optional)',
+        inputPlaceholder: 'Enter reason...',
+        showCancelButton: true,
+        confirmButtonText: 'Decline',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        icon: 'warning'
+    });
+
+    if (result.isConfirmed) {
+        const reason = result.value || '';
+        const response = await fetch('backend/api.php?action=decline_resignation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, reason })
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast('Resignation declined successfully', 'success');
+            fetchData();
+        } else {
+            showToast(data.message || 'Failed to decline resignation', 'error');
+        }
+    }
 }
 
 async function updateResignationStatus(id, status) {
