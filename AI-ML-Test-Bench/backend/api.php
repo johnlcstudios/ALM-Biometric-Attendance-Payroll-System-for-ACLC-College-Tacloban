@@ -2,14 +2,6 @@
 // api.php - Core Backend Logic
 header('Content-Type: application/json');
 
-// API Versioning Support
-$apiVersion = $_GET['v'] ?? $_GET['version'] ?? '1';
-$supportedVersions = ['1'];
-
-if (!in_array($apiVersion, $supportedVersions)) {
-    apiError('Unsupported API version', [], 400);
-}
-
 // Biometric Constants
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
@@ -90,58 +82,6 @@ function validateDateRange($startDate, $endDate)
     return $errors;
 }
 
-// RATE LIMITING HELPERS
-define('RATE_LIMIT_MAX_ATTEMPTS', 5);
-define('RATE_LIMIT_WINDOW_SECONDS', 300); // 5-minute cooldown
-
-/**
- * Check whether the given IP + username combination is currently locked out.
- * Returns true if the request should be blocked, false if it is allowed.
- */
-function checkRateLimit($ip, $username) {
-    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
-    $data = $_SESSION[$key] ?? null;
-
-    if (!$data) return false; // No prior attempts, allow
-
-    $elapsed = time() - $data['window_start'];
-
-    // If the window has expired, clear it and allow
-    if ($elapsed >= RATE_LIMIT_WINDOW_SECONDS) {
-        unset($_SESSION[$key]);
-        return false;
-    }
-
-    // Block if max attempts exceeded within the window
-    return $data['attempts'] >= RATE_LIMIT_MAX_ATTEMPTS;
-}
-
-/**
- * Record one failed login attempt for the given IP + username.
- * Starts a new window on the first failure; increments count on subsequent ones.
- */
-function recordFailedAttempt($ip, $username) {
-    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
-    $data = $_SESSION[$key] ?? null;
-
-    $now = time();
-
-    if (!$data || ($now - $data['window_start']) >= RATE_LIMIT_WINDOW_SECONDS) {
-        // Start a fresh window
-        $_SESSION[$key] = ['attempts' => 1, 'window_start' => $now];
-    } else {
-        $_SESSION[$key]['attempts']++;
-    }
-}
-
-/**
- * Clear the rate limit counter on a successful login.
- */
-function clearRateLimit($ip, $username) {
-    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
-    unset($_SESSION[$key]);
-}
-
 try {
     switch ($action) {
         case 'login':
@@ -150,18 +90,7 @@ try {
             $password = $data['password'] ?? '';
 
             if (empty($username) || empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'Username and password are required']);
-                break;
-            }
-
-            // Rate limiting: check before hitting the database
-            $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-            if (checkRateLimit($client_ip, $username)) {
-                $wait = RATE_LIMIT_WINDOW_SECONDS / 60;
-                echo json_encode([
-                    'success' => false,
-                    'message' => "Too many failed login attempts. Please wait {$wait} minutes before trying again."
-                ]);
+                apiError('Username and password are required');
                 break;
             }
 
@@ -170,9 +99,6 @@ try {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
-                // Successful login: clear any prior failed attempts
-                clearRateLimit($client_ip, $username);
-
                 session_regenerate_id(true); // Prevent session fixation
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
@@ -181,25 +107,9 @@ try {
                 $_SESSION['company_timezone'] = $user['company_timezone'] ?: 'Asia/Manila';
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
-                echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
+                apiResponse(['role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
-                // Failed login: record the attempt and inform the user
-                recordFailedAttempt($client_ip, $username);
-                $attempts_data = $_SESSION['login_attempts_' . md5($client_ip . '|' . strtolower($username))] ?? [];
-                $attempts_left = max(0, RATE_LIMIT_MAX_ATTEMPTS - ($attempts_data['attempts'] ?? 0));
-
-                if ($attempts_left === 0) {
-                    $wait = RATE_LIMIT_WINDOW_SECONDS / 60;
-                    echo json_encode([
-                        'success' => false,
-                        'message' => "Too many failed login attempts. Please wait {$wait} minutes before trying again."
-                    ]);
-                } else {
-                    echo json_encode([
-                        'success' => false,
-                        'message' => "Invalid credentials. {$attempts_left} attempt(s) remaining before lockout."
-                    ]);
-                }
+                apiError('Invalid credentials');
             }
             break;
 
@@ -211,7 +121,7 @@ try {
             $password = $data['password'] ?? '';
 
             if (empty($company_name) || empty($username) || empty($email) || empty($password)) {
-                echo json_encode(['success' => false, 'message' => 'All fields are required']);
+                apiError('All fields are required');
                 break;
             }
 
@@ -226,60 +136,16 @@ try {
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
 
                 $pdo->commit();
-                echo json_encode(['success' => true]);
+                apiSuccess(null, 'Signup successful');
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Signup failed: ' . $e->getMessage()]);
+                apiError('Signup failed: ' . $e->getMessage());
             }
-            break;
-
-        case 'health':
-            // Health check endpoint for monitoring
-            $healthStatus = [
-                'status' => 'healthy',
-                'timestamp' => date('c'),
-                'version' => $apiVersion,
-                'checks' => []
-            ];
-
-            // Check database connectivity
-            try {
-                $stmt = $pdo->query("SELECT 1");
-                $healthStatus['checks']['database'] = [
-                    'status' => 'healthy',
-                    'message' => 'Database connection successful'
-                ];
-            } catch (Exception $e) {
-                $healthStatus['status'] = 'unhealthy';
-                $healthStatus['checks']['database'] = [
-                    'status' => 'unhealthy',
-                    'message' => 'Database connection failed: ' . $e->getMessage()
-                ];
-            }
-
-            // Check PHP version
-            $healthStatus['checks']['php'] = [
-                'status' => 'healthy',
-                'message' => 'PHP ' . PHP_VERSION . ' is running'
-            ];
-
-            // Check memory usage
-            $memoryUsage = memory_get_peak_usage(true);
-            $healthStatus['checks']['memory'] = [
-                'status' => 'healthy',
-                'message' => 'Peak memory usage: ' . round($memoryUsage / 1024 / 1024, 2) . ' MB'
-            ];
-
-            // Set HTTP status code based on overall health
-            $httpStatus = $healthStatus['status'] === 'healthy' ? 200 : 503;
-
-            http_response_code($httpStatus);
-            echo json_encode($healthStatus);
             break;
 
         case 'get_faculty_payroll':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $period = $_GET['period'] ?? '';
 
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -295,12 +161,12 @@ try {
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
-            echo json_encode(['period' => $period, 'data' => $results]);
+            apiData(['period' => $period, 'data' => $results]);
             break;
 
         case 'get_utility_payroll':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $period = $_GET['period'] ?? '';
 
             if ($period === 'latest' || $period === 'current' || empty($period)) {
@@ -316,12 +182,12 @@ try {
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
-            echo json_encode(['period' => $period, 'data' => $results]);
+            apiData(['period' => $period, 'data' => $results]);
             break;
 
         case 'run_specialized_payroll':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $type = $data['type'] ?? '';
             $start_date = $data['start_date'] ?? '';
@@ -466,74 +332,72 @@ try {
                     }
                 }
                 $pdo->commit();
-                echo json_encode(['success' => true, 'message' => ucfirst($type) . ' payroll processed successfully', 'period' => $period]);
+                apiSuccess(['period' => $period], ucfirst($type) . ' payroll processed successfully');
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+                apiError('Error: ' . $e->getMessage());
             }
             break;
 
         case 'get_allowance_categories':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'add_allowance_category':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
-            echo json_encode(['success' => true, 'message' => 'Category added successfully']);
+            apiSuccess(null, 'Category added successfully');
             break;
 
         case 'get_employee_allowances':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
                                  JOIN employees e ON ea.employee_id = e.id 
                                  JOIN allowance_categories ac ON ea.category_id = ac.id 
                                  WHERE ea.company_id = ? ORDER BY ea.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'assign_employee_allowance':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['category_id'], $data['override_amount'], $data['effective_date']]);
-            echo json_encode(['success' => true, 'message' => 'Allowance assigned successfully']);
+            apiSuccess(null, 'Allowance assigned successfully');
             break;
 
         case 'delete_allowance_category':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = (int)($_GET['id'] ?? 0);
-            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+                apiError('Unauthorized', [], 403);
+            $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Category deleted']);
+            apiSuccess(null, 'Category deleted');
             break;
 
         case 'delete_employee_allowance':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = (int)($_GET['id'] ?? 0);
-            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; 
+                apiError('Unauthorized', [], 403);
+            $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
+            apiSuccess(null, 'Assignment deleted');
             break;
 
         case 'bulk_assign_allowance':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $category_id = $data['category_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -548,47 +412,46 @@ try {
                 $stmt->execute([$_SESSION['company_id'], $category_id, $override_amount, $effective_date, $_SESSION['company_id']]);
 
                 $pdo->commit();
-                echo json_encode(['success' => true, 'message' => 'Allowance applied to all active employees']);
+                apiSuccess(null, 'Allowance applied to all active employees');
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                apiError($e->getMessage());
             }
             break;
 
         case 'get_deduction_breakdown':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name, d.type as category_type, d.value as category_rate 
                                  FROM employee_deductions ed 
                                  JOIN employees e ON ed.employee_id = e.id 
                                  JOIN deductions d ON ed.deduction_id = d.id 
                                  WHERE ed.company_id = ? ORDER BY ed.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'assign_employee_deduction':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['employee_id'], $data['deduction_id'], $data['override_amount'], $data['effective_date']]);
-            echo json_encode(['success' => true, 'message' => 'Deduction assigned successfully']);
+            apiSuccess(null, 'Deduction assigned successfully');
             break;
 
         case 'delete_employee_deduction':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = (int)($_GET['id'] ?? 0);
-            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+                apiError('Unauthorized', [], 403);
+            $id = $_GET['id'];
             $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
+            apiSuccess(null, 'Assignment deleted');
             break;
 
         case 'bulk_assign_deduction':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $deduction_id = $data['deduction_id'];
             $override_amount = $data['override_amount'] ?: null;
@@ -603,18 +466,17 @@ try {
                 $stmt->execute([$_SESSION['company_id'], $deduction_id, $override_amount, $effective_date, $_SESSION['company_id']]);
 
                 $pdo->commit();
-                echo json_encode(['success' => true, 'message' => 'Deduction applied to all active employees']);
+                apiSuccess(null, 'Deduction applied to all active employees');
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                apiError($e->getMessage());
             }
             break;
 
         case 'revoke_payroll_access':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = (int)($_GET['id'] ?? 0);
-            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+                apiError('Unauthorized', [], 403);
+            $id = $_GET['id'];
             $pdo->beginTransaction();
             try {
                 $stmt = $pdo->prepare("UPDATE employees SET position = 'Staff' WHERE id = ? AND company_id = ?");
@@ -624,32 +486,32 @@ try {
                 $stmt_user->execute([$id]);
 
                 $pdo->commit();
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                apiError($e->getMessage());
             }
             break;
 
         case 'get_deduction_categories':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_employee_deductions':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name FROM employee_deductions ed JOIN employees e ON ed.employee_id = e.id JOIN deductions d ON ed.deduction_id = d.id WHERE ed.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'save_settings':
             if (!isAdminOrHR()) {
-                echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+                apiError('Unauthorized access', [], 403);
                 break;
             }
             $data = json_decode(file_get_contents('php://input'), true);
@@ -679,28 +541,28 @@ try {
             if ($success) {
                 $_SESSION['company_timezone'] = $data['timezone'];
                 $_SESSION['company_name'] = $data['companyName'];
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Database update failed']);
+                apiError('Database update failed');
             }
             break;
 
         case 'logout':
             session_destroy();
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'get_employees':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'save_employee':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
 
             // Centralized validation
@@ -799,38 +661,38 @@ try {
                     $pdo->commit();
                 } catch (Exception $e) {
                     $pdo->rollBack();
-                    exit(json_encode(['success' => false, 'message' => $e->getMessage()]));
+                    apiError($e->getMessage());
                 }
             }
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'delete_employee':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
             $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'get_registered_faces':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
             $stmt->execute([$_SESSION['company_id']]);
             $faces = $stmt->fetchAll();
-            echo json_encode(['success' => true, 'faces' => $faces]);
+            apiData(['success' => true, 'faces' => $faces]);
             break;
 
         case 'save_face_registration':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['id']) || empty($data['descriptor'])) {
-                echo json_encode(['success' => false, 'message' => 'Invalid data']);
+                apiError('Invalid data');
                 break;
             }
 
@@ -850,7 +712,7 @@ try {
                     }
                     $distance = sqrt($sum);
                     if ($distance < BIOMETRIC_DUPLICATE_THRESHOLD) {
-                        echo json_encode(['success' => false, 'message' => "This face is already registered to " . $face['full_name']]);
+                        apiError("This face is already registered to " . $face['full_name']);
                         return;
                     }
                 }
@@ -858,47 +720,47 @@ try {
 
             $stmt = $pdo->prepare("UPDATE employees SET face_descriptor = ? WHERE id = ? AND company_id = ?");
             $stmt->execute([json_encode($new_descriptor), $data['id'], $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'reset_password':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $target_user_id = (int)($_GET['user_id'] ?? 0);
-            if ($target_user_id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid user ID']); break; }
+                apiError('Unauthorized', [], 403);
+            $target_user_id = $_GET['user_id'] ?? '';
 
             // Security: Ensure target user belongs to the same company
             $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND company_id = ?");
             $stmt->execute([$target_user_id, $_SESSION['company_id']]);
             if (!$stmt->fetch()) {
-                exit(json_encode(['success' => false, 'message' => 'User not found or access denied']));
+                apiError('User not found or access denied');
+                break;
             }
 
             $new_pass = password_hash('welcome123', PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ? AND company_id = ?");
             $stmt->execute([$new_pass, $target_user_id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Password reset to welcome123']);
+            apiSuccess(null, 'Password reset to welcome123');
             break;
 
         case 'get_attendance':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'kiosk_scan':
             $data = json_decode(file_get_contents('php://input'), true);
             $company_id = $data['company_id'] ?? null;
             if (!$company_id) {
-                echo json_encode(['success' => false, 'message' => 'Company ID is required for kiosk scan']);
+                apiError('Company ID is required for kiosk scan');
                 break;
             }
             $descriptor = $data['descriptor'] ?? [];
 
             if (empty($descriptor) || count($descriptor) !== 128) {
-                echo json_encode(['success' => false, 'message' => 'Invalid descriptor']);
+                apiError('Invalid descriptor');
                 break;
             }
 
@@ -907,7 +769,7 @@ try {
             $stmt_config->execute([$company_id]);
             $config = $stmt_config->fetch();
             if (!$config) {
-                echo json_encode(['success' => false, 'message' => 'Company configuration not found']);
+                apiError('Company configuration not found');
                 break;
             }
 
@@ -947,7 +809,7 @@ try {
 
             if (!$best_match || $best_distance > $match_threshold) {
                 $match_percentage = $best_distance < 999 ? max(0, round(100 - ($best_distance * 100 / 0.8), 2)) : 0;
-                echo json_encode(['success' => false, 'message' => 'Face not recognized. Please position yourself clearly.', 'match_percentage' => $match_percentage]);
+                apiError('Face not recognized. Please position yourself clearly.', [], 400, ['match_percentage' => $match_percentage]);
                 break;
             }
 
@@ -955,7 +817,7 @@ try {
             if ($second_best_distance < 999) {
                 $ratio = ($best_distance > 0) ? ($second_best_distance / $best_distance) : 999;
                 if ($ratio <= $ambiguity_ratio_threshold) {
-                    echo json_encode(['success' => false, 'message' => 'Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', 'debug_ratio' => $ratio]);
+                    apiError('Ambiguous match detected. Multiple similar faces found. Please try again or contact HR.', [], 400, ['debug_ratio' => $ratio]);
                     break;
                 }
             }
@@ -1070,29 +932,29 @@ try {
             // Time Window Enforcement
             if ($column === 'lunch_out') {
                 if ($time < $lunch_out_start) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR LUNCH OUT (Starts " . date('h:i A', strtotime($lunch_out_start)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    apiError("TOO EARLY FOR LUNCH OUT (Starts " . date('h:i A', strtotime($lunch_out_start)) . ")", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
                 if ($time > $lunch_out_end) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "LUNCH OUT RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_out_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    apiError("LUNCH OUT RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_out_end)) . ")", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
             }
 
             if ($column === 'lunch_in') {
                 if ($time < $lunch_in_start) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR LUNCH IN (Starts " . date('h:i A', strtotime($lunch_in_start)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    apiError("TOO EARLY FOR LUNCH IN (Starts " . date('h:i A', strtotime($lunch_in_start)) . ")", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
                 if ($time > $lunch_in_end) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "LUNCH IN RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_in_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    apiError("LUNCH IN RANGE EXPIRED (Ended " . date('h:i A', strtotime($lunch_in_end)) . ")", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
                 // Buffer check
                 if ($log && !empty($log['lunch_out'])) {
                     $diff_minutes = round((strtotime($time) - strtotime($log['lunch_out'])) / 60);
                     if ($diff_minutes < $lunch_buffer) {
-                        echo json_encode(array_merge(['success' => false, 'message' => "LUNCH BUFFER: Wait " . ($lunch_buffer - $diff_minutes) . " more mins.", 'action' => $column, 'server_time' => $time], $common_data));
+                        apiError("LUNCH BUFFER: Wait " . ($lunch_buffer - $diff_minutes) . " more mins.", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                         break;
                     }
                 }
@@ -1100,14 +962,14 @@ try {
 
             if ($column === 'check_out') {
                 if ($time < $work_end) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR TIME OUT (Shift ends " . date('h:i A', strtotime($work_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    apiError("TOO EARLY FOR TIME OUT (Shift ends " . date('h:i A', strtotime($work_end)) . ")", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
                 // Buffer check
                 if ($log && !empty($log['lunch_in'])) {
                     $diff_minutes = round((strtotime($time) - strtotime($log['lunch_in'])) / 60);
                     if ($diff_minutes < $checkout_buffer) {
-                        echo json_encode(array_merge(['success' => false, 'message' => "TIME OUT BUFFER: Wait " . ($checkout_buffer - $diff_minutes) . " more mins.", 'action' => $column, 'server_time' => $time], $common_data));
+                        apiError("TIME OUT BUFFER: Wait " . ($checkout_buffer - $diff_minutes) . " more mins.", [], 400, array_merge(['action' => $column, 'server_time' => $time], $common_data));
                         break;
                     }
                 }
@@ -1124,9 +986,7 @@ try {
 
             // GLOBAL VALIDATION: If the person has already clocked out, they are done for the day.
             if ($log && !empty($log['check_out'])) {
-                echo json_encode(array_merge([
-                    'success' => false,
-                    'message' => "ALREADY CHECKED OUT FOR TODAY",
+                apiError("ALREADY CHECKED OUT FOR TODAY", [], 400, array_merge([
                     'action' => 'check_out',
                     'server_time' => $time
                 ], $common_data));
@@ -1142,9 +1002,7 @@ try {
                     'check_out' => 'TIME OUT (CHECK OUT)'
                 ];
                 $action_label = $labels[$column] ?? strtoupper($column);
-                echo json_encode(array_merge([
-                    'success' => false,
-                    'message' => "ALREADY $action_label FOR TODAY",
+                apiError("ALREADY $action_label FOR TODAY", [], 400, array_merge([
                     'action' => $column,
                     'server_time' => $time
                 ], $common_data));
@@ -1153,15 +1011,15 @@ try {
 
             // Logical sequence validation (redundant now but safe)
             if ($column === 'lunch_out' && (!$log || empty($log['check_in']))) {
-                echo json_encode(array_merge(['success' => false, 'message' => 'MUST CHECK-IN FIRST', 'action' => $column], $common_data));
+                apiError('MUST CHECK-IN FIRST', [], 400, array_merge(['action' => $column], $common_data));
                 break;
             }
             if ($column === 'lunch_in' && (!$log || empty($log['lunch_out']))) {
-                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LUNCH-OUT FIRST', 'action' => $column], $common_data));
+                apiError('MUST LUNCH-OUT FIRST', [], 400, array_merge(['action' => $column], $common_data));
                 break;
             }
             if ($column === 'check_out' && (!$log || (empty($log['check_in']) && empty($log['lunch_in'])))) {
-                echo json_encode(array_merge(['success' => false, 'message' => 'MUST LOG-IN FIRST', 'action' => $column], $common_data));
+                apiError('MUST LOG-IN FIRST', [], 400, array_merge(['action' => $column], $common_data));
                 break;
             }
 
@@ -1191,19 +1049,18 @@ try {
             ];
             $display_action = $labels[$column] ?? strtoupper($column);
 
-            echo json_encode(array_merge([
-                'success' => true,
+            apiResponse(array_merge([
                 'action' => $display_action,
                 'time' => date('h:i A', strtotime($time)),
                 'status' => $status,
                 'late_minutes' => $late_minutes,
                 'missed_morning' => $missed_morning
-            ], $common_data));
+            ], $common_data), true);
             break;
 
         case 'run_payroll':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $start_date = $data['start_date'] ?? '';
             $end_date = $data['end_date'] ?? '';
@@ -1291,72 +1148,66 @@ try {
                     }
 
                     $net_pay = $earned_pay - $total_deductions;
-                    $payroll_type = 'General';
-                    if (strcasecmp($category, 'Faculty') === 0) {
-                        $payroll_type = 'Faculty';
-                    } elseif (strcasecmp($category, 'Utility') === 0) {
-                        $payroll_type = 'Utility';
-                    }
 
                     $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', ?)");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $payroll_type]);
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
-                echo json_encode(['success' => true, 'message' => "Payroll for $cat_msg during $period run successfully."]);
+                apiSuccess(null, "Payroll for $cat_msg during $period run successfully.");
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => "Error running payroll: " . $e->getMessage()]);
+                apiError("Error running payroll: " . $e->getMessage());
             }
             break;
 
         case 'get_payroll':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT p.*, e.full_name FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? ORDER BY p.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_payslip':
             if (!isset($_SESSION['user_id']))
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $payslip_id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position, e.department FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.id = ? AND p.company_id = ?");
             $stmt->execute([$payslip_id, $_SESSION['company_id']]);
-            echo json_encode($stmt->fetch());
+            apiData($stmt->fetch());
             break;
 
         case 'get_leave_requests':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT lr.*, e.full_name FROM leave_requests lr JOIN employees e ON lr.employee_id = e.id WHERE lr.company_id = ? ORDER BY lr.id DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_loan_requests':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT l.*, e.full_name FROM loans l JOIN employees e ON l.employee_id = e.id WHERE l.company_id = ? ORDER BY l.id DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_resignation_requests':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT r.*, e.full_name FROM resignations r JOIN employees e ON r.employee_id = e.id WHERE r.company_id = ? ORDER BY r.id DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'update_leave_status':
         case 'update_loan_status':
         case 'update_resignation_status':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
 
             $table = '';
@@ -1368,7 +1219,7 @@ try {
                 $table = 'resignations';
 
             if (!$table) {
-                exit(json_encode(['success' => false, 'message' => 'Invalid action']));
+                apiError('Invalid action');
             }
 
             $pdo->beginTransaction();
@@ -1387,32 +1238,32 @@ try {
                 }
 
                 $pdo->commit();
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Failed to update status: ' . $e->getMessage()]);
+                apiError('Failed to update status: ' . $e->getMessage());
             }
             break;
 
         case 'apply_leave':
             if (!isset($_SESSION['user_id']))
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
 
             $stmt = $pdo->prepare("SELECT id, company_id FROM employees WHERE user_id = ?");
             $stmt->execute([$_SESSION['user_id']]);
             $emp = $stmt->fetch();
             if (!$emp)
-                exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+                apiError('Employee not found');
 
             $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, duration, reason, status) VALUES (?, ?, ?, ?, ?, 'Pending')");
             $stmt->execute([$emp['company_id'], $emp['id'], $data['type'], $data['duration'], $data['reason']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'apply_loan':
             if (!isset($_SESSION['user_id']))
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
 
             // Centralized validation
@@ -1424,30 +1275,30 @@ try {
             $stmt->execute([$_SESSION['user_id']]);
             $emp = $stmt->fetch();
             if (!$emp)
-                exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+                apiError('Employee not found');
 
             // Check if loans table exists, if not create it or fail gracefully
             try {
                 $stmt = $pdo->prepare("INSERT INTO loans (company_id, employee_id, amount, reason, status) VALUES (?, ?, ?, ?, 'Pending')");
                 $stmt->execute([$emp['company_id'], $emp['id'], $data['amount'], $data['reason']]);
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } catch (Exception $e) {
                 // If table doesn't exist, we might need to create it. For now, return error.
-                echo json_encode(['success' => false, 'message' => 'Loans feature not fully initialized: ' . $e->getMessage()]);
+                apiError('Loans feature not fully initialized: ' . $e->getMessage());
             }
             break;
 
         case 'get_deductions':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT * FROM deductions WHERE company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'save_deduction':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             if (isset($data['id']) && !empty($data['id'])) {
                 $stmt = $pdo->prepare("UPDATE deductions SET name = ?, type = ?, value = ?, is_active = ?, is_government = ? WHERE id = ? AND company_id = ?");
@@ -1456,26 +1307,26 @@ try {
                 $stmt = $pdo->prepare("INSERT INTO deductions (company_id, name, type, value, is_active, is_government) VALUES (?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['value'], $data['is_active'], $data['is_government']]);
             }
-            echo json_encode(['success' => true, 'message' => 'Deduction category saved successfully']);
+            apiSuccess(null, 'Deduction category saved successfully');
             break;
 
         case 'delete_deduction':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true, 'message' => 'Deduction category deleted']);
+            apiSuccess(null, 'Deduction category deleted');
             break;
 
         case 'save_settings':
             if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
 
             // Basic validation
             if (empty($data['companyName'])) {
-                echo json_encode(['success' => false, 'message' => 'Company Name is required']);
+                apiError('Company Name is required');
                 break;
             }
 
@@ -1516,12 +1367,12 @@ try {
 
             $_SESSION['company_name'] = $data['companyName'];
             $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'get_dashboard_stats':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $cid = $_SESSION['company_id'];
             $today = date('Y-m-d');
             $stats = [];
@@ -1540,17 +1391,17 @@ try {
             $stmt->execute([$cid]);
             $stats['pending_leave'] = (int) $stmt->fetchColumn();
 
-            echo json_encode($stats);
+            apiData($stats);
             break;
 
         case 'get_ess_data':
             if (!isset($_SESSION['user_id']))
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email FROM employees e JOIN users u ON e.user_id = u.id WHERE u.id = ?");
             $stmt->execute([$_SESSION['user_id']]);
             $emp = $stmt->fetch();
             if (!$emp)
-                exit(json_encode(['success' => false, 'message' => 'Profile not found']));
+                apiError('Profile not found');
 
             $eid = $emp['id'];
 
@@ -1574,7 +1425,7 @@ try {
             $stmt_resignations->execute([$eid]);
             $resignations = $stmt_resignations->fetchAll();
 
-            echo json_encode([
+            apiData([
                 'profile' => $emp,
                 'attendance' => $attendance,
                 'payroll' => $payroll,
@@ -1586,26 +1437,26 @@ try {
 
         case 'get_subject_loads':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT sl.*, e.full_name as faculty_name FROM subject_loads sl JOIN employees e ON sl.faculty_id = e.id WHERE sl.company_id = ?");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_subjects':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData([]);
             $stmt = $pdo->prepare("SELECT * FROM subjects WHERE company_id = ? ORDER BY code ASC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'save_subject':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['code']) || empty($data['description'])) {
-                echo json_encode(['success' => false, 'message' => 'Code and description are required']);
+                apiError('Code and description are required');
                 break;
             }
             if (isset($data['id']) && !empty($data['id'])) {
@@ -1615,43 +1466,41 @@ try {
                 $stmt = $pdo->prepare("INSERT INTO subjects (company_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$_SESSION['company_id'], $data['code'], $data['description'], $data['units'], $data['hours']]);
             }
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'delete_subject':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'save_subject_load':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'], $data['hours']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'delete_subject_load':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $id = $_GET['id'] ?? '';
             $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'update_role':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = (int)($_GET['id'] ?? 0);
-            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
-            $allowed_roles = ['HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee'];
-            $role = in_array($_GET['role'] ?? '', $allowed_roles) ? $_GET['role'] : 'Employee';
+                apiError('Unauthorized', [], 403);
+            $id = $_GET['id'] ?? '';
+            $role = $_GET['role'] ?? 'Employee';
             try {
                 $pdo->beginTransaction();
                 $stmt = $pdo->prepare("SELECT user_id FROM employees WHERE id = ? AND company_id = ?");
@@ -1661,10 +1510,10 @@ try {
                     throw new Exception('User not found');
                 $pdo->prepare("UPDATE users SET role = ? WHERE id = ? AND company_id = ?")->execute([$role, $user_id, $_SESSION['company_id']]);
                 $pdo->commit();
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                apiError($e->getMessage());
             }
             break;
 
@@ -1681,31 +1530,29 @@ try {
                 $hashed = password_hash($newPass, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
                 $stmt->execute([$hashed, $_SESSION['user_id']]);
-                echo json_encode(['success' => true]);
+                apiSuccess();
             } else {
-                echo json_encode(['success' => false, 'message' => 'Incorrect current password']);
+                apiError('Incorrect current password');
             }
             break;
 
         case 'update_leave_balance':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $employee_id = (int)($_GET['employee_id'] ?? 0);
-            if ($employee_id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid employee ID']); break; }
-            $balance = filter_var($_GET['balance'] ?? 0, FILTER_VALIDATE_FLOAT);
-            if ($balance === false || $balance < 0) { echo json_encode(['success' => false, 'message' => 'Invalid balance value']); break; }
+                apiError('Unauthorized', [], 403);
+            $employee_id = $_GET['employee_id'] ?? '';
+            $balance = $_GET['balance'] ?? 0;
             $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE id = ? AND company_id = ?");
             $stmt->execute([$balance, $employee_id, $_SESSION['company_id']]);
-            echo json_encode(['success' => true]);
+            apiSuccess();
             break;
 
         case 'bulk_update_leave_balance':
             if (!isAdminOrHR())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+                apiError('Unauthorized', [], 403);
             $data = json_decode(file_get_contents('php://input'), true);
             $balance = isset($data['balance']) ? (float) $data['balance'] : null;
             if ($balance === null || $balance < 0) {
-                echo json_encode(['success' => false, 'message' => 'Invalid leave balance']);
+                apiError('Invalid leave balance');
                 break;
             }
 
@@ -1714,32 +1561,31 @@ try {
                 $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE company_id = ? AND status = 'Active'");
                 $stmt->execute([$balance, $_SESSION['company_id']]);
                 $pdo->commit();
-                echo json_encode(['success' => true, 'message' => 'Leave balance applied to all active employees']);
+                apiSuccess('Leave balance applied to all active employees');
             } catch (Exception $e) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Failed to apply leave balance: ' . $e->getMessage()]);
+                apiError('Failed to apply leave balance: ' . $e->getMessage());
             }
             break;
 
         case 'get_payroll_batches':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiError('Unauthorized', [], 403);
             $stmt = $pdo->prepare("SELECT period, SUM(net_pay) as total_disbursed, COUNT(*) as staff_count, MAX(created_at) as processing_date FROM payroll WHERE company_id = ? GROUP BY period ORDER BY processing_date DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_companies':
             $stmt = $pdo->query("SELECT id, name FROM companies ORDER BY name ASC");
-            echo json_encode($stmt->fetchAll());
+            apiData($stmt->fetchAll());
             break;
 
         case 'get_company_info':
             $id = $_GET['company_id'] ?? 1;
-            if ($id <= 0) $id = 1;
             $stmt = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt->execute([$id]);
-            echo json_encode($stmt->fetch());
+            apiData($stmt->fetch());
             break;
 
         case 'get_server_time':
@@ -1752,7 +1598,7 @@ try {
                     date_default_timezone_set($tz);
             }
             $server_ms = (int) round(microtime(true) * 1000);
-            echo json_encode([
+            apiData([
                 'server_ms' => $server_ms,
                 'date' => date('Y-m-d'),
                 'time' => date('H:i:s'),
@@ -1762,10 +1608,10 @@ try {
             break;
 
         default:
-            echo json_encode(['success' => false, 'message' => 'Invalid action']);
+            apiError('Invalid action');
             break;
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'API Error: ' . $e->getMessage()]);
+    apiError('API Error: ' . $e->getMessage());
 }
 ?>
