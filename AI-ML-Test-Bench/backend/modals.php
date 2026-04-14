@@ -36,10 +36,23 @@
                         <h4>Personal Information</h4>
                     </div>
                     <div class="form-grid">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> First Name <span class="required text-danger">*</span></label>
+                            <input type="text" name="firstName" placeholder="Enter first name" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">First name is required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Last Name <span class="required text-danger">*</span></label>
+                            <input type="text" name="lastName" placeholder="Enter last name" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Last name is required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Middle Initial</label>
+                            <input type="text" name="middleInitial" placeholder="e.g. A" maxlength="1">
+                        </div>
                         <div class="form-group full-width">
-                            <label><i class="fas fa-user"></i> Full Name <span class="required text-danger">*</span></label>
-                            <input type="text" name="fullName" placeholder="Enter full name" required>
-                            <div class="error-msg text-danger small mt-1" style="display:none;">Please enter a valid full name.</div>
+                            <label><i class="fas fa-user-tag"></i> Full Name (Auto-generated)</label>
+                            <input type="text" name="fullName" id="fullNameDisplay" readonly style="background: rgba(0,0,0,0.2); cursor: not-allowed;">
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-calendar-alt"></i> Date of Birth <span class="required text-danger">*</span></label>

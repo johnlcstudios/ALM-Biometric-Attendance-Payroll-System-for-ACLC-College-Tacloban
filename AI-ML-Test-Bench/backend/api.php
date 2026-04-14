@@ -1018,6 +1018,19 @@ try {
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
 
+            // Combine firstName, lastName, and middleInitial into fullName
+            $firstName = trim($data['firstName'] ?? '');
+            $lastName = trim($data['lastName'] ?? '');
+            $middleInitial = trim($data['middleInitial'] ?? '');
+            
+            if (empty($firstName) || empty($lastName)) {
+                exit(json_encode(['success' => false, 'message' => 'First Name and Last Name are required']));
+            }
+            
+            // Build full name: "FirstName MiddleInitial. LastName" or "FirstName LastName"
+            $fullName = $firstName . ($middleInitial ? ' ' . strtoupper($middleInitial) . '.' : '') . ' ' . $lastName;
+            $data['fullName'] = $fullName;
+
             // Centralized validation
             $errors = validateRequired($data, ['fullName', 'dob', 'email', 'position', 'department', 'basicSalary', 'hire_date']);
             $errors = array_merge($errors, validateDate($data['dob'], 'dob'));

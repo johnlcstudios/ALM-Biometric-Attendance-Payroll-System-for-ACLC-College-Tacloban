@@ -1010,7 +1010,34 @@ function editEmployee(id) {
     openModal('employeeModal');
 
     const form = document.getElementById('employeeForm');
-    form.fullName.value = emp.full_name;
+    
+    // Parse full_name into firstName, lastName, and middleInitial
+    const fullName = emp.full_name || '';
+    const nameParts = fullName.split(' ');
+    let firstName = '';
+    let lastName = '';
+    let middleInitial = '';
+    
+    if (nameParts.length >= 3) {
+        // Format: "FirstName M. LastName"
+        firstName = nameParts[0];
+        middleInitial = nameParts[1].replace('.', ''); // Remove the period
+        lastName = nameParts.slice(2).join(' ');
+    } else if (nameParts.length === 2) {
+        // Format: "FirstName LastName"
+        firstName = nameParts[0];
+        lastName = nameParts[1];
+    } else {
+        // Fallback
+        firstName = nameParts[0] || '';
+        lastName = '';
+    }
+    
+    form.firstName.value = firstName;
+    form.lastName.value = lastName;
+    form.middleInitial.value = middleInitial;
+    form.fullName.value = fullName; // Display in readonly field
+    
     form.dob.value = emp.dob || '';
     form.email.value = emp.email || '';
     form.position.value = emp.position;
@@ -1116,6 +1143,16 @@ async function saveEmployee() {
     const form = document.getElementById('employeeForm');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
+
+    // Validate firstName and lastName are provided
+    if (!data.firstName || data.firstName.trim() === '') {
+        showToast('First Name is required', 'error');
+        return;
+    }
+    if (!data.lastName || data.lastName.trim() === '') {
+        showToast('Last Name is required', 'error');
+        return;
+    }
 
     // Add editing ID if exists
     if (editingEmployeeId) data.id = editingEmployeeId;
@@ -1332,6 +1369,13 @@ function resetEmpModal() {
     document.getElementById('nextBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').style.display = 'none';
     document.getElementById('employeeModalTitle').innerText = 'Add New Employee';
+    
+    // Clear the fullName display field
+    const fullNameDisplay = document.getElementById('fullNameDisplay');
+    if (fullNameDisplay) {
+        fullNameDisplay.value = '';
+    }
+    
     toggleSubjectStep();
 }
 
@@ -3252,4 +3296,37 @@ window.onload = () => {
     fetchData();
     const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
+    
+    // Add event listeners for auto-generating full name
+    const firstNameInput = document.querySelector('input[name="firstName"]');
+    const lastNameInput = document.querySelector('input[name="lastName"]');
+    const middleInitialInput = document.querySelector('input[name="middleInitial"]');
+    const fullNameDisplay = document.getElementById('fullNameDisplay');
+    
+    if (firstNameInput && lastNameInput && fullNameDisplay) {
+        const updateFullName = () => {
+            const firstName = firstNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+            const middleInitial = middleInitialInput ? middleInitialInput.value.trim() : '';
+            
+            if (firstName || lastName) {
+                const fullName = firstName + (middleInitial ? ' ' + middleInitial.toUpperCase() + '.' : '') + (lastName ? ' ' + lastName : '');
+                fullNameDisplay.value = fullName.trim();
+            } else {
+                fullNameDisplay.value = '';
+            }
+        };
+        
+        firstNameInput.addEventListener('input', updateFullName);
+        lastNameInput.addEventListener('input', updateFullName);
+        if (middleInitialInput) {
+            middleInitialInput.addEventListener('input', (e) => {
+                // Ensure only single character
+                if (e.target.value.length > 1) {
+                    e.target.value = e.target.value.charAt(0);
+                }
+                updateFullName();
+            });
+        }
+    }
 };
