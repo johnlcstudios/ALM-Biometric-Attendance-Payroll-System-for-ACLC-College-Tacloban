@@ -2,6 +2,14 @@
 // api.php - Core Backend Logic
 header('Content-Type: application/json');
 
+// API Versioning Support
+$apiVersion = $_GET['v'] ?? $_GET['version'] ?? '1';
+$supportedVersions = ['1'];
+
+if (!in_array($apiVersion, $supportedVersions)) {
+    apiError('Unsupported API version', [], 400);
+}
+
 // Biometric Constants
 define('BIOMETRIC_MATCH_THRESHOLD', 0.60); // Tighter threshold for production
 define('BIOMETRIC_DUPLICATE_THRESHOLD', 0.40);
@@ -223,6 +231,50 @@ try {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Signup failed: ' . $e->getMessage()]);
             }
+            break;
+
+        case 'health':
+            // Health check endpoint for monitoring
+            $healthStatus = [
+                'status' => 'healthy',
+                'timestamp' => date('c'),
+                'version' => $apiVersion,
+                'checks' => []
+            ];
+
+            // Check database connectivity
+            try {
+                $stmt = $pdo->query("SELECT 1");
+                $healthStatus['checks']['database'] = [
+                    'status' => 'healthy',
+                    'message' => 'Database connection successful'
+                ];
+            } catch (Exception $e) {
+                $healthStatus['status'] = 'unhealthy';
+                $healthStatus['checks']['database'] = [
+                    'status' => 'unhealthy',
+                    'message' => 'Database connection failed: ' . $e->getMessage()
+                ];
+            }
+
+            // Check PHP version
+            $healthStatus['checks']['php'] = [
+                'status' => 'healthy',
+                'message' => 'PHP ' . PHP_VERSION . ' is running'
+            ];
+
+            // Check memory usage
+            $memoryUsage = memory_get_peak_usage(true);
+            $healthStatus['checks']['memory'] = [
+                'status' => 'healthy',
+                'message' => 'Peak memory usage: ' . round($memoryUsage / 1024 / 1024, 2) . ' MB'
+            ];
+
+            // Set HTTP status code based on overall health
+            $httpStatus = $healthStatus['status'] === 'healthy' ? 200 : 503;
+
+            http_response_code($httpStatus);
+            echo json_encode($healthStatus);
             break;
 
         case 'get_faculty_payroll':
