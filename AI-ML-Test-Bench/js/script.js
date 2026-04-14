@@ -451,12 +451,10 @@ async function exportPayrollHistory() {
 async function exportFacultyPayroll() {
     const { jsPDF } = window.jspdf;
 
-    // Check if table is empty, if so, load latest
+    // P0 Fix: Always explicitly fetch fresh data before reading the table
+    await loadFacultyPayroll('latest');
+
     let tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
-    if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
-        await loadFacultyPayroll('latest');
-        tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
-    }
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
         return showToast("No payroll data available to export.", 'error');
@@ -2011,17 +2009,36 @@ async function changePassword() {
 }
 
 // --- Reports ---
-function generateReport(type) {
+async function generateReport(type) {
     let csvContent = "data:text/csv;charset=utf-8,";
     let filename = `Report_${type}_${new Date().toISOString().split('T')[0]}.csv`;
 
+    // P0 Fix: Fetch data before generating the report if the store is empty
     if (type === 'attendance') {
+        if (attendanceLogs.length === 0) {
+            await fetchData('attendance');
+        }
+        if (attendanceLogs.length === 0) {
+            return showToast("No attendance data available to export.", 'error');
+        }
         csvContent += "Employee ID,Name,Date,Check-In,Check-Out,Status\n";
         attendanceLogs.forEach(log => csvContent += `${log.emp_code},${log.full_name},${log.log_date},${log.check_in},${log.check_out},${log.status}\n`);
     } else if (type === 'payroll') {
+        if (payrollHistory.length === 0) {
+            await fetchData('payroll');
+        }
+        if (payrollHistory.length === 0) {
+            return showToast("No payroll data available to export.", 'error');
+        }
         csvContent += "Employee,Period,Basic Pay,Deductions,Net Pay,Status\n";
         payrollHistory.forEach(p => csvContent += `${p.full_name},${p.period},${p.basic_pay},${p.deductions},${p.net_pay},${p.status}\n`);
     } else if (type === 'employees') {
+        if (employees.length === 0) {
+            await fetchData('employees');
+        }
+        if (employees.length === 0) {
+            return showToast("No employee data available to export.", 'error');
+        }
         csvContent += "Employee ID,Full Name,Position,Department,Status\n";
         employees.forEach(emp => csvContent += `${emp.employee_id},${emp.full_name},${emp.position},${emp.department},${emp.status}\n`);
     }

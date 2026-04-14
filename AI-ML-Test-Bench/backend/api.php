@@ -82,6 +82,58 @@ function validateDateRange($startDate, $endDate)
     return $errors;
 }
 
+// RATE LIMITING HELPERS
+define('RATE_LIMIT_MAX_ATTEMPTS', 5);
+define('RATE_LIMIT_WINDOW_SECONDS', 300); // 5-minute cooldown
+
+/**
+ * Check whether the given IP + username combination is currently locked out.
+ * Returns true if the request should be blocked, false if it is allowed.
+ */
+function checkRateLimit($ip, $username) {
+    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
+    $data = $_SESSION[$key] ?? null;
+
+    if (!$data) return false; // No prior attempts, allow
+
+    $elapsed = time() - $data['window_start'];
+
+    // If the window has expired, clear it and allow
+    if ($elapsed >= RATE_LIMIT_WINDOW_SECONDS) {
+        unset($_SESSION[$key]);
+        return false;
+    }
+
+    // Block if max attempts exceeded within the window
+    return $data['attempts'] >= RATE_LIMIT_MAX_ATTEMPTS;
+}
+
+/**
+ * Record one failed login attempt for the given IP + username.
+ * Starts a new window on the first failure; increments count on subsequent ones.
+ */
+function recordFailedAttempt($ip, $username) {
+    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
+    $data = $_SESSION[$key] ?? null;
+
+    $now = time();
+
+    if (!$data || ($now - $data['window_start']) >= RATE_LIMIT_WINDOW_SECONDS) {
+        // Start a fresh window
+        $_SESSION[$key] = ['attempts' => 1, 'window_start' => $now];
+    } else {
+        $_SESSION[$key]['attempts']++;
+    }
+}
+
+/**
+ * Clear the rate limit counter on a successful login.
+ */
+function clearRateLimit($ip, $username) {
+    $key = 'login_attempts_' . md5($ip . '|' . strtolower($username));
+    unset($_SESSION[$key]);
+}
+
 try {
     switch ($action) {
         case 'login':
@@ -94,11 +146,25 @@ try {
                 break;
             }
 
+            // Rate limiting: check before hitting the database
+            $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+            if (checkRateLimit($client_ip, $username)) {
+                $wait = RATE_LIMIT_WINDOW_SECONDS / 60;
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Too many failed login attempts. Please wait {$wait} minutes before trying again."
+                ]);
+                break;
+            }
+
             $stmt = $pdo->prepare("SELECT u.*, c.name as company_name, c.timezone as company_timezone, e.full_name as emp_full_name FROM users u JOIN companies c ON u.company_id = c.id LEFT JOIN employees e ON u.id = e.user_id WHERE u.username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                // Successful login: clear any prior failed attempts
+                clearRateLimit($client_ip, $username);
+
                 session_regenerate_id(true); // Prevent session fixation
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['company_id'] = $user['company_id'];
@@ -109,7 +175,23 @@ try {
                 $_SESSION['full_name'] = $user['emp_full_name'] ?: $user['username'];
                 echo json_encode(['success' => true, 'role' => trim($user['role']), 'company_name' => $user['company_name']]);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
+                // Failed login: record the attempt and inform the user
+                recordFailedAttempt($client_ip, $username);
+                $attempts_data = $_SESSION['login_attempts_' . md5($client_ip . '|' . strtolower($username))] ?? [];
+                $attempts_left = max(0, RATE_LIMIT_MAX_ATTEMPTS - ($attempts_data['attempts'] ?? 0));
+
+                if ($attempts_left === 0) {
+                    $wait = RATE_LIMIT_WINDOW_SECONDS / 60;
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Too many failed login attempts. Please wait {$wait} minutes before trying again."
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Invalid credentials. {$attempts_left} attempt(s) remaining before lockout."
+                    ]);
+                }
             }
             break;
 
@@ -380,7 +462,8 @@ try {
         case 'delete_allowance_category':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
             $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Category deleted']);
@@ -389,7 +472,8 @@ try {
         case 'delete_employee_allowance':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; 
             $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
@@ -443,7 +527,8 @@ try {
         case 'delete_employee_deduction':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
             $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
@@ -476,7 +561,8 @@ try {
         case 'revoke_payroll_access':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'];
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
             $pdo->beginTransaction();
             try {
                 $stmt = $pdo->prepare("UPDATE employees SET position = 'Staff' WHERE id = ? AND company_id = ?");
@@ -726,7 +812,8 @@ try {
         case 'reset_password':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $target_user_id = $_GET['user_id'] ?? '';
+            $target_user_id = (int)($_GET['user_id'] ?? 0);
+            if ($target_user_id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid user ID']); break; }
 
             // Security: Ensure target user belongs to the same company
             $stmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND company_id = ?");
@@ -1509,8 +1596,10 @@ try {
         case 'update_role':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
-            $role = $_GET['role'] ?? 'Employee';
+            $id = (int)($_GET['id'] ?? 0);
+            if ($id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+            $allowed_roles = ['HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee'];
+            $role = in_array($_GET['role'] ?? '', $allowed_roles) ? $_GET['role'] : 'Employee';
             try {
                 $pdo->beginTransaction();
                 $stmt = $pdo->prepare("SELECT user_id FROM employees WHERE id = ? AND company_id = ?");
@@ -1549,8 +1638,10 @@ try {
         case 'update_leave_balance':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $employee_id = $_GET['employee_id'] ?? '';
-            $balance = $_GET['balance'] ?? 0;
+            $employee_id = (int)($_GET['employee_id'] ?? 0);
+            if ($employee_id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid employee ID']); break; }
+            $balance = filter_var($_GET['balance'] ?? 0, FILTER_VALIDATE_FLOAT);
+            if ($balance === false || $balance < 0) { echo json_encode(['success' => false, 'message' => 'Invalid balance value']); break; }
             $stmt = $pdo->prepare("UPDATE employees SET leave_balance = ? WHERE id = ? AND company_id = ?");
             $stmt->execute([$balance, $employee_id, $_SESSION['company_id']]);
             echo json_encode(['success' => true]);
@@ -1593,6 +1684,7 @@ try {
 
         case 'get_company_info':
             $id = $_GET['company_id'] ?? 1;
+            if ($id <= 0) $id = 1;
             $stmt = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
             $stmt->execute([$id]);
             echo json_encode($stmt->fetch());
