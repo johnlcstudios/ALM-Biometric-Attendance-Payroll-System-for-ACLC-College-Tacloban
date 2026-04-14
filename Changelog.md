@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Animated Splash Screen**:
     - Beautiful gradient splash screen with BSIT 3A credits
-    - Shows "Built with love from BSIT 3A (A.Y. 2025-2026) Batch 2027"
+    - Shows "Built with STRESS from BSIT 3A (A.Y. 2025-2026) Batch 2027"
     - Appears ONLY on initial login (startup) and installation pages
     - Does NOT appear when navigating between pages within the system
     - Reappears after logout and next login
