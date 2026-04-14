@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Loading spinner with contextual messages
     - Session-based tracking to prevent repeated display on page navigation
     
+- **Separate Name Fields for Employee Registration**:
+    - First Name, Last Name, and Middle Initial are now separate input fields
+    - Full Name is auto-generated in format: "FirstName M. LastName"
+    - Middle Initial is optional and automatically formatted with period
+    - Auto-generation updates in real-time as user types
+    - Edit mode properly parses existing full names back into separate fields
+    
 - **Faculty Level Selection**:
     - Added faculty level designation (SHS, College, Both) during faculty registration
     - Database column `faculty_level` added to employees table

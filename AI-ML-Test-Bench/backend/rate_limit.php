@@ -7,7 +7,7 @@ function checkRateLimit($pdo, $identifier, $maxAttempts = 5, $lockoutMinutes = 1
     
     if ($attempt) {
         if ($attempt['locked_until'] && strtotime($attempt['locked_until']) > time()) {
-            $remaining = ceil((strtotime($attempt['locked_until']) - time()) / 60);
+            $remaining = ceil((strtotime($attempt['locked_until']) - time()) / 240);
             return ['blocked' => true, 'message' => "Too many attempts. Please try again in $remaining minutes."];
         }
         
