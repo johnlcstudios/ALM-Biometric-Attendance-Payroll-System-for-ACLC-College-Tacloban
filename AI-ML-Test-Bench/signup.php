@@ -138,6 +138,22 @@ if (isset($_SESSION['user_id'])) {
             text-decoration: none;
             font-weight: bold;
         }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; color: #fff !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-input { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
     </style>
 
 </head>
@@ -209,7 +225,12 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Oops...',
-                    text: 'Passwords do not match!'
+                    text: 'Passwords do not match!',
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 });
                 return;
             }
@@ -226,7 +247,12 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: 'Registration successful! You can now login.'
+                    text: 'Registration successful! You can now login.',
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 }).then(() => {
                     window.location.href = 'login.php';
                 });
@@ -234,7 +260,12 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Registration Failed',
-                    text: result.message || "Registration failed."
+                    text: result.message || "Registration failed.",
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 });
             }
         };

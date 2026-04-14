@@ -675,6 +675,70 @@ try {
             echo json_encode($stmt->fetchAll());
             break;
 
+        case 'upload_profile_picture':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            
+            // Check if file was uploaded
+            if (!isset($_FILES['profile_picture'])) {
+                echo json_encode(['success' => false, 'message' => 'No file uploaded']);
+                break;
+            }
+            
+            $file = $_FILES['profile_picture'];
+            
+            // Validate file
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $max_size = 5 * 1024 * 1024; // 5MB
+            
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                echo json_encode(['success' => false, 'message' => 'Upload error occurred']);
+                break;
+            }
+            
+            if (!in_array($file['type'], $allowed_types)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed']);
+                break;
+            }
+            
+            if ($file['size'] > $max_size) {
+                echo json_encode(['success' => false, 'message' => 'File size exceeds 5MB limit']);
+                break;
+            }
+            
+            // Create upload directory if it doesn't exist
+            $upload_dir = dirname(__DIR__) . '/uploads/profiles/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            // Generate unique filename
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . $_SESSION['user_id'] . '_' . time() . '.' . $extension;
+            $upload_path = $upload_dir . $filename;
+            
+            // Move uploaded file
+            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+                // Delete old profile picture if exists
+                $stmt = $pdo->prepare("SELECT profile_picture FROM employees WHERE user_id = ?");
+                $stmt->execute([$_SESSION['user_id']]);
+                $old_picture = $stmt->fetchColumn();
+                
+                if ($old_picture && file_exists($upload_dir . basename($old_picture))) {
+                    unlink($upload_dir . basename($old_picture));
+                }
+                
+                // Update database
+                $picture_url = 'uploads/profiles/' . $filename;
+                $stmt = $pdo->prepare("UPDATE employees SET profile_picture = ? WHERE user_id = ?");
+                $stmt->execute([$picture_url, $_SESSION['user_id']]);
+                
+                echo json_encode(['success' => true, 'picture_url' => $picture_url]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to save uploaded file']);
+            }
+            break;
+
         case 'save_employee':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));

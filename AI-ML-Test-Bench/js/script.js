@@ -55,6 +55,11 @@ function showToast(message, type = 'info') {
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
+        customClass: {
+            popup: 'glass-toast-popup',
+            title: 'glass-toast-title',
+            timerProgressBar: 'glass-toast-progress'
+        },
         didOpen: (toast) => {
             toast.addEventListener('mouseenter', Swal.stopTimer)
             toast.addEventListener('mouseleave', Swal.resumeTimer)
@@ -67,6 +72,21 @@ function showToast(message, type = 'info') {
     });
 }
 
+// Helper function for glass morphism modal dialogs
+function showGlassModal(options = {}) {
+    const defaultOptions = {
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop'
+        },
+        background: 'transparent',
+        backdrop: 'rgba(0,0,0,0.5)'
+    };
+    
+    const mergedOptions = { ...defaultOptions, ...options };
+    return Swal.fire(mergedOptions);
+}
+
 // Add keyframes for animations if not in CSS
 if (!document.getElementById('toast-styles')) {
     const style = document.createElement('style');
@@ -74,6 +94,236 @@ if (!document.getElementById('toast-styles')) {
     style.innerHTML = `
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        
+        /* Glass Morphism Toast Notifications */
+        .glass-toast-popup {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            padding: 16px 20px !important;
+            min-width: 320px !important;
+            max-width: 400px !important;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-success {
+            background: rgba(39, 174, 96, 0.15) !important;
+            border: 1px solid rgba(39, 174, 96, 0.3) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-error,
+        .glass-toast-popup.swal2-icon-warning {
+            background: rgba(219, 38, 31, 0.15) !important;
+            border: 1px solid rgba(219, 38, 31, 0.3) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-info {
+            background: rgba(30, 1, 120, 0.15) !important;
+            border: 1px solid rgba(30, 1, 120, 0.3) !important;
+        }
+        
+        .glass-toast-title {
+            color: #ffffff !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.3px !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+            padding: 0 8px !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon {
+            margin: 0 !important;
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 18px !important;
+            border-width: 2px !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-success {
+            border-color: rgba(39, 174, 96, 0.8) !important;
+            color: #27ae60 !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-error {
+            border-color: rgba(219, 38, 31, 0.8) !important;
+            color: #db261f !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-warning {
+            border-color: rgba(243, 156, 18, 0.8) !important;
+            color: #f39c12 !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-info {
+            border-color: rgba(30, 1, 120, 0.8) !important;
+            color: #1e0178 !important;
+        }
+        
+        .glass-toast-progress {
+            height: 3px !important;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.6)) !important;
+            border-radius: 2px !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-success .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(39, 174, 96, 0.4), rgba(39, 174, 96, 0.8)) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-error .glass-toast-progress,
+        .glass-toast-popup.swal2-icon-warning .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(219, 38, 31, 0.4), rgba(219, 38, 31, 0.8)) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-info .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(30, 1, 120, 0.4), rgba(30, 1, 120, 0.8)) !important;
+        }
+        
+        /* Remove default SweetAlert2 background */
+        .swal2-container.swal2-top-end {
+            background: transparent !important;
+        }
+        
+        .swal2-glass-toast {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        
+        /* Glass Morphism Modal Popups */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            padding: 30px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-title {
+            color: #ffffff !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 24px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-html-container,
+        .swal2-popup.glass-modal .swal2-text {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 15px !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon {
+            border-width: 3px !important;
+            margin: 0 auto 20px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-success {
+            border-color: rgba(39, 174, 96, 0.8) !important;
+            color: #27ae60 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-error {
+            border-color: rgba(219, 38, 31, 0.8) !important;
+            color: #db261f !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-warning {
+            border-color: rgba(243, 156, 18, 0.8) !important;
+            color: #f39c12 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-info {
+            border-color: rgba(30, 1, 120, 0.8) !important;
+            color: #1e0178 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-question {
+            border-color: rgba(108, 117, 125, 0.8) !important;
+            color: #6c757d !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm,
+        .swal2-popup.glass-modal .swal2-cancel {
+            border-radius: 20px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            letter-spacing: 0.3px !important;
+            transition: all 0.3s ease !important;
+            border: none !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm {
+            background: linear-gradient(135deg, #4facfe, #00f2fe) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-cancel {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            color: #ffffff !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-cancel:hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input,
+        .swal2-popup.glass-modal .swal2-textarea,
+        .swal2-popup.glass-modal .swal2-select {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 20px !important;
+            color: #ffffff !important;
+            backdrop-filter: blur(10px) !important;
+            padding: 12px 15px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input:focus,
+        .swal2-popup.glass-modal .swal2-textarea:focus,
+        .swal2-popup.glass-modal .swal2-select:focus {
+            border: 1px solid rgba(255, 255, 255, 0.6) !important;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4) !important;
+            outline: none !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input::placeholder,
+        .swal2-popup.glass-modal .swal2-textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-validation-message {
+            background: rgba(219, 38, 31, 0.15) !important;
+            border: 1px solid rgba(219, 38, 31, 0.3) !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-loader {
+            border-color: rgba(30, 1, 120, 0.3) !important;
+            border-top-color: #1e0178 !important;
+        }
+        
+        /* Glass modal backdrop */
+        .swal2-container.glass-backdrop {
+            background: rgba(0, 0, 0, 0.5) !important;
+            backdrop-filter: blur(4px) !important;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -294,7 +544,10 @@ function renderEmployeeTable() {
                 <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
                 <td>
                     <div class="user-info">
-                        <div class="user-details">
+                        <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
+                             alt="${escapeHTML(emp.full_name)}" 
+                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid #eee; vertical-align: middle;">
+                        <div class="user-details" style="display: inline-block; vertical-align: middle;">
                             <span class="name">${escapeHTML(emp.full_name)}</span>
                             <span class="email">${escapeHTML(emp.email)}</span>
                         </div>
@@ -596,8 +849,15 @@ function renderEmployeeTable() {
         <tr id="row-${emp.id}">
             <td>${escapeHTML(emp.employee_id)}</td>
             <td>
-                <div><strong>${escapeHTML(emp.full_name)}</strong></div>
-                <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
+                         alt="${escapeHTML(emp.full_name)}" 
+                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #eee; flex-shrink: 0;">
+                    <div>
+                        <strong>${escapeHTML(emp.full_name)}</strong>
+                        <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
+                    </div>
+                </div>
             </td>
             <td>${escapeHTML(emp.position)}</td>
             <td>${escapeHTML(emp.department)}</td>

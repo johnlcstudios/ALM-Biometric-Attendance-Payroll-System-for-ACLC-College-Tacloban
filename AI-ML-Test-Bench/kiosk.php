@@ -395,6 +395,31 @@
                 font-size: 6vmin;
             }
         }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; color: #fff !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
+        
+        .glass-toast-popup {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .glass-toast-title { color: #ffffff !important; font-weight: 600 !important; }
+        .glass-toast-progress { height: 3px !important; background: linear-gradient(90deg, rgba(79, 172, 254, 0.4), rgba(79, 172, 254, 0.8)) !important; }
     </style>
 </head>
 

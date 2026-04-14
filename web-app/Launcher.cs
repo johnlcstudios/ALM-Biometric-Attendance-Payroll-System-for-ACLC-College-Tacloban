@@ -2,11 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace ALMLauncher
 {
-    class Program
+    static class Program
     {
+        [STAThread]
         static void Main(string[] args)
         {
             // The launcher is expected to be in xampp\htdocs\ALM-Biometrics
