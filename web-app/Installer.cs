@@ -15,6 +15,7 @@ namespace ALMInstaller
         private Label lblStatus;
         private ProgressBar progressBar;
         private CheckBox chkDatabase;
+        private CheckBox chkDependencies;
 
         public InstallerForm()
         {
@@ -23,94 +24,106 @@ namespace ALMInstaller
 
         private void InitializeComponents()
         {
-            this.Text = "ALM Biometrics System Installer";
-            this.Size = new Size(650, 620);
+            // Professional corporate design - compact single-screen layout
+            this.Text = "ALM Biometrics System - Installer";
+            this.Size = new Size(680, 620);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(245, 247, 250);
+            this.BackColor = Color.FromArgb(255, 255, 255);
 
-            // Header Panel with gradient-like effect
+            // Professional header with brand color
             Panel headerPanel = new Panel();
-            headerPanel.Size = new Size(650, 100);
+            headerPanel.Size = new Size(680, 90);
             headerPanel.Location = new Point(0, 0);
-            headerPanel.BackColor = Color.FromArgb(30, 1, 120);
+            headerPanel.BackColor = Color.FromArgb(0, 51, 102); // Corporate blue
             this.Controls.Add(headerPanel);
 
-            // ALM Logo/Icon area
+            // Brand logo
             Label lblLogo = new Label();
             lblLogo.Text = "ALM";
             lblLogo.Font = new Font("Segoe UI", 32, FontStyle.Bold);
-            lblLogo.ForeColor = Color.White;
-            lblLogo.Location = new Point(30, 20);
+            lblLogo.ForeColor = Color.FromArgb(255, 255, 255);
+            lblLogo.Location = new Point(30, 15);
             lblLogo.AutoSize = true;
+            lblLogo.BackColor = Color.Transparent;
             headerPanel.Controls.Add(lblLogo);
 
-            // Header title
+            // Subtitle
             Label lblTitle = new Label();
-            lblTitle.Text = "Biometrics Attendance & Payroll System";
-            lblTitle.Font = new Font("Segoe UI", 14, FontStyle.Regular);
-            lblTitle.ForeColor = Color.FromArgb(200, 200, 255);
-            lblTitle.Location = new Point(30, 60);
+            lblTitle.Text = "Biometric Attendance & Payroll System";
+            lblTitle.Font = new Font("Segoe UI", 10, FontStyle.Regular);
+            lblTitle.ForeColor = Color.FromArgb(200, 220, 255);
+            lblTitle.Location = new Point(30, 52);
             lblTitle.AutoSize = true;
+            lblTitle.BackColor = Color.Transparent;
             headerPanel.Controls.Add(lblTitle);
 
             // Version badge
             Label lblVersion = new Label();
-            lblVersion.Text = "v2.3";
-            lblVersion.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblVersion.ForeColor = Color.FromArgb(150, 150, 220);
-            lblVersion.Location = new Point(560, 70);
+            lblVersion.Text = "Version 2.4.0";
+            lblVersion.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblVersion.ForeColor = Color.FromArgb(180, 200, 230);
+            lblVersion.Location = new Point(560, 55);
             lblVersion.AutoSize = true;
+            lblVersion.BackColor = Color.Transparent;
             headerPanel.Controls.Add(lblVersion);
 
             // Main content area
-            int yOffset = 120;
+            int yOffset = 110;
 
-            // Section: Installation Path
+            // Installation Path Section
             Label lblSection1 = new Label { 
-                Text = "INSTALLATION PATH", 
+                Text = "Installation Path", 
                 Location = new Point(30, yOffset), 
                 AutoSize = true,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 1, 120)
+                ForeColor = Color.FromArgb(0, 51, 102)
             };
             this.Controls.Add(lblSection1);
-            yOffset += 30;
+            yOffset += 28;
 
-            // Source path
+            // Source Directory
             Label lblSource = new Label { 
-                Text = "Source Files:", 
+                Text = "Source Directory:", 
                 Location = new Point(30, yOffset), 
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                ForeColor = Color.FromArgb(80, 80, 80)
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(60, 60, 60)
             };
             txtSource = new TextBox { 
-                Location = new Point(150, yOffset - 3), 
-                Width = 380,
-                Height = 28,
+                Location = new Point(30, yOffset + 20), 
+                Width = 510,
+                Height = 30,
                 Font = new Font("Segoe UI", 9, FontStyle.Regular),
                 BorderStyle = BorderStyle.FixedSingle
             };
-            txtSource.BackColor = Color.White;
+            txtSource.BackColor = Color.FromArgb(248, 248, 248);
             
-            // Default source is parent directory of the executable
+            // Auto-detect source path (parent directory of installer)
             try {
-                txtSource.Text = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..\\"));
+                string installerDir = AppDomain.CurrentDomain.BaseDirectory;
+                string parentDir = Path.GetFullPath(Path.Combine(installerDir, ".."));
+                
+                // Check if AI-ML-Test-Bench exists in parent directory
+                if (Directory.Exists(Path.Combine(parentDir, "AI-ML-Test-Bench"))) {
+                    txtSource.Text = parentDir;
+                } else {
+                    txtSource.Text = installerDir;
+                }
             } catch {
                 txtSource.Text = AppDomain.CurrentDomain.BaseDirectory;
             }
             
             Button btnBrowseSource = new Button { 
                 Text = "Browse", 
-                Location = new Point(540, yOffset - 4), 
-                Width = 80,
-                Height = 28,
+                Location = new Point(550, yOffset + 19), 
+                Width = 100,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(79, 172, 254),
+                BackColor = Color.FromArgb(0, 51, 102),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular)
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
             };
             btnBrowseSource.FlatAppearance.BorderSize = 0;
             btnBrowseSource.Click += (s, e) => {
@@ -122,35 +135,35 @@ namespace ALMInstaller
             this.Controls.Add(lblSource);
             this.Controls.Add(txtSource);
             this.Controls.Add(btnBrowseSource);
-            yOffset += 40;
+            yOffset += 65;
 
             // Target path
             Label lblHtdocs = new Label { 
-                Text = "XAMPP htdocs:", 
+                Text = "XAMPP htdocs Path:", 
                 Location = new Point(30, yOffset), 
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                ForeColor = Color.FromArgb(80, 80, 80)
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(60, 60, 60)
             };
             txtHtdocs = new TextBox { 
                 Text = @"C:\xampp\htdocs", 
-                Location = new Point(150, yOffset - 3), 
-                Width = 380,
-                Height = 28,
+                Location = new Point(30, yOffset + 20), 
+                Width = 510,
+                Height = 30,
                 Font = new Font("Segoe UI", 9, FontStyle.Regular),
                 BorderStyle = BorderStyle.FixedSingle
             };
-            txtHtdocs.BackColor = Color.White;
+            txtHtdocs.BackColor = Color.FromArgb(248, 248, 248);
             
             Button btnBrowseHtdocs = new Button { 
                 Text = "Browse", 
-                Location = new Point(540, yOffset - 4), 
-                Width = 80,
-                Height = 28,
+                Location = new Point(550, yOffset + 19), 
+                Width = 100,
+                Height = 30,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(79, 172, 254),
+                BackColor = Color.FromArgb(0, 51, 102),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular)
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
             };
             btnBrowseHtdocs.FlatAppearance.BorderSize = 0;
             btnBrowseHtdocs.Click += (s, e) => {
@@ -162,163 +175,166 @@ namespace ALMInstaller
             this.Controls.Add(lblHtdocs);
             this.Controls.Add(txtHtdocs);
             this.Controls.Add(btnBrowseHtdocs);
-            yOffset += 50;
+            yOffset += 65;
 
             // Separator line
             Panel separator1 = new Panel {
                 Location = new Point(30, yOffset),
-                Size = new Size(590, 1),
-                BackColor = Color.FromArgb(220, 220, 230)
+                Size = new Size(620, 1),
+                BackColor = Color.FromArgb(220, 220, 220)
             };
             this.Controls.Add(separator1);
-            yOffset += 25;
-
-            // Section: Database Setup
+            yOffset += 20;
+            
+            // Configuration Section
             Label lblSection2 = new Label { 
-                Text = "DATABASE CONFIGURATION", 
+                Text = "Configuration Options", 
                 Location = new Point(30, yOffset), 
                 AutoSize = true,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 1, 120)
+                ForeColor = Color.FromArgb(0, 51, 102)
             };
             this.Controls.Add(lblSection2);
-            yOffset += 30;
-
-            // Database setup checkbox with description
+            yOffset += 26;
+            
+            // Database setup checkbox
             Panel dbPanel = new Panel {
                 Location = new Point(30, yOffset),
-                Size = new Size(590, 90),
-                BackColor = Color.White,
+                Size = new Size(620, 70),
+                BackColor = Color.FromArgb(248, 248, 248),
                 BorderStyle = BorderStyle.FixedSingle
             };
-            
+                        
             chkDatabase = new CheckBox { 
-                Text = "Automatic Database Setup",
-                Location = new Point(15, 12), 
-                Width = 560,
+                Text = "Setup database automatically",
+                Location = new Point(15, 10), 
+                Width = 590,
                 Checked = true,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 1, 120)
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(40, 40, 40)
             };
-            
+                        
             Label lblDbDesc = new Label {
-                Text = "• Create database and run schema\n• Apply all migrations (001-003)\n• Setup encryption keys and security features",
-                Location = new Point(40, 38),
-                Width = 530,
+                Text = "Creates database, runs schema, and applies all migrations (requires XAMPP MySQL running)",
+                Location = new Point(40, 34),
+                Width = 565,
                 AutoSize = false,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-                ForeColor = Color.FromArgb(120, 120, 120)
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 100, 100)
             };
 
             dbPanel.Controls.Add(chkDatabase);
             dbPanel.Controls.Add(lblDbDesc);
             this.Controls.Add(dbPanel);
-            yOffset += 105;
+            yOffset += 80;
+
+            // Dependencies checkbox
+            Panel depPanel = new Panel {
+                Location = new Point(30, yOffset),
+                Size = new Size(620, 70),
+                BackColor = Color.FromArgb(248, 248, 248),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            chkDependencies = new CheckBox {
+                Text = "Download offline dependencies",
+                Location = new Point(15, 10),
+                Width = 590,
+                Checked = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(40, 40, 40)
+            };
+
+            Label lblDepDesc = new Label {
+                Text = "Downloads Font Awesome, SweetAlert2, and fonts for offline use (~520KB, requires internet)",
+                Location = new Point(40, 34),
+                Width = 565,
+                AutoSize = false,
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 100, 100)
+            };
+
+            depPanel.Controls.Add(chkDependencies);
+            depPanel.Controls.Add(lblDepDesc);
+            this.Controls.Add(depPanel);
+            yOffset += 85;
 
             // Separator line
             Panel separator2 = new Panel {
                 Location = new Point(30, yOffset),
-                Size = new Size(590, 1),
-                BackColor = Color.FromArgb(220, 220, 230)
+                Size = new Size(620, 1),
+                BackColor = Color.FromArgb(220, 220, 220)
             };
             this.Controls.Add(separator2);
-            yOffset += 25;
+            yOffset += 20;
 
-            // Features list panel
-            Label lblSection3 = new Label { 
-                Text = "NEW FEATURES IN v2.3", 
-                Location = new Point(30, yOffset), 
-                AutoSize = true,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 1, 120)
-            };
-            this.Controls.Add(lblSection3);
-            yOffset += 30;
-
-            Panel featuresPanel = new Panel {
-                Location = new Point(30, yOffset),
-                Size = new Size(590, 110),
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            
-            Label lblFeatures = new Label {
-                Text = "✓ Frontal Face Detection - Kiosk only scans when looking straight\n" +
-                       "✓ Fast Face Enrollment - 2x faster with quality scoring\n" +
-                       "✓ Auto Payroll Calculation - Faculty & Utility auto-calculated\n" +
-                       "✓ One-Click All Payrolls - Process General, Faculty & Utility together\n" +
-                       "✓ Enhanced Security - 2FA, encryption, audit trail, rate limiting\n" +
-                       "✓ DTR Generation - Employees can generate Daily Time Records\n" +
-                       "✓ Editable Payroll Cells - Double-click to modify values in real-time",
-                Location = new Point(15, 10),
-                Width = 560,
-                AutoSize = false,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-                ForeColor = Color.FromArgb(60, 60, 60)
-            };
-
-            featuresPanel.Controls.Add(lblFeatures);
-            this.Controls.Add(featuresPanel);
-            yOffset += 125;
-
-            // Install button - Modern style
+            // Install button
             btnInstall = new Button { 
-                Text = "⬇  Install Application", 
+                Text = "Install Now", 
                 Location = new Point(30, yOffset), 
-                Size = new Size(590, 48), 
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Size = new Size(620, 45), 
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(30, 1, 120),
+                BackColor = Color.FromArgb(0, 102, 204),
                 ForeColor = Color.White,
                 Cursor = Cursors.Hand
             };
             btnInstall.FlatAppearance.BorderSize = 0;
+            
+            // Hover effect
+            btnInstall.MouseEnter += (s, e) => {
+                btnInstall.BackColor = Color.FromArgb(0, 80, 180);
+            };
+            btnInstall.MouseLeave += (s, e) => {
+                btnInstall.BackColor = Color.FromArgb(0, 102, 204);
+            };
+            
             btnInstall.Click += BtnInstall_Click;
             this.Controls.Add(btnInstall);
-            yOffset += 60;
-
+            yOffset += 58;
+        
             // Progress section
             Label lblProgress = new Label {
                 Text = "Installation Progress:",
                 Location = new Point(30, yOffset),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                ForeColor = Color.FromArgb(80, 80, 80)
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(60, 60, 60)
             };
             this.Controls.Add(lblProgress);
-            yOffset += 22;
-
+            yOffset += 20;
+        
             progressBar = new ProgressBar { 
                 Location = new Point(30, yOffset), 
-                Width = 590, 
-                Height = 8,
+                Width = 620, 
+                Height = 6,
                 Style = ProgressBarStyle.Continuous
             };
             this.Controls.Add(progressBar);
-            yOffset += 18;
-
+            yOffset += 12;
+        
             lblStatus = new Label { 
-                Text = "● Ready to install", 
+                Text = "Ready to install", 
                 Location = new Point(30, yOffset), 
                 AutoSize = true, 
                 ForeColor = Color.FromArgb(100, 100, 100),
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
             this.Controls.Add(lblStatus);
-
+        
             // Footer
             Panel footerPanel = new Panel {
                 Location = new Point(0, 570),
-                Size = new Size(650, 50),
-                BackColor = Color.FromArgb(240, 240, 245)
+                Size = new Size(680, 50),
+                BackColor = Color.FromArgb(245, 245, 245)
             };
             
             Label lblFooter = new Label {
-                Text = "© 2026 ALM Biometrics System v2.3  •  Secure Attendance & Payroll Management",
-                Location = new Point(30, 15),
+                Text = "\u00A9 2026 ALM Biometrics System  |  Built with dedication by BSIT 3A Batch 2027",
+                Location = new Point(30, 16),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 8, FontStyle.Regular),
-                ForeColor = Color.FromArgb(150, 150, 150)
+                Font = new Font("Segoe UI", 7.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(120, 120, 120)
             };
             footerPanel.Controls.Add(lblFooter);
             this.Controls.Add(footerPanel);
@@ -340,9 +356,12 @@ namespace ALMInstaller
             }
 
             btnInstall.Enabled = false;
-            progressBar.Style = ProgressBarStyle.Marquee;
-            lblStatus.Text = "● Copying files...";
-            lblStatus.ForeColor = Color.FromArgb(79, 172, 254);
+            btnInstall.Text = "Installing...";
+            btnInstall.BackColor = Color.FromArgb(80, 80, 80);
+            progressBar.Style = ProgressBarStyle.Continuous;
+            progressBar.Value = 0;
+            lblStatus.Text = "Copying files...";
+            lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
 
             string targetPath = Path.Combine(htdocsPath, "ALM-Biometrics");
 
@@ -362,42 +381,63 @@ namespace ALMInstaller
                     // Setup database if checkbox is checked
                     if (chkDatabase.Checked) {
                         this.Invoke((MethodInvoker)delegate {
-                            lblStatus.Text = "● Setting up database...";
-                            lblStatus.ForeColor = Color.FromArgb(79, 172, 254);
+                            lblStatus.Text = "Setting up database...";
+                            lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
                         });
                         
                         SetupDatabase(targetPath);
                     }
 
+                    // Download dependencies if checkbox is checked
+                    if (chkDependencies.Checked) {
+                        this.Invoke((MethodInvoker)delegate {
+                            lblStatus.Text = "Downloading offline dependencies...";
+                            lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
+                        });
+                        
+                        DownloadDependencies(targetPath);
+                    }
+
                     this.Invoke((MethodInvoker)delegate {
                         progressBar.Style = ProgressBarStyle.Continuous;
                         progressBar.Value = 100;
-                        lblStatus.Text = "✓ Installation Complete!";
+                        lblStatus.Text = "Installation Complete!";
                         lblStatus.ForeColor = Color.FromArgb(40, 167, 69);
-                        string msg = string.Format("ALM Biometrics v2.3 installed successfully!\n\n");
+                        string msg = string.Format("ALM Biometrics v2.4.0 Build9 installed successfully!\n\n");
                         msg += "NEW FEATURES:\n";
+                        msg += "• Faculty Level Tracking (SHS, College, Both)\n";
+                        msg += "• Hire Date Management for payroll protection\n";
+                        msg += "• Resignation Decline functionality\n";
+                        msg += "• Employee Reinstatement capability\n";
+                        msg += "• Enhanced Face Enrollment (cross-device stable)\n";
+                        msg += "• Separate Name Fields (First, Last, Middle Initial)\n";
+                        msg += "• Animated Splash Screen on startup\n";
+                        msg += "• Complete Database Schema (all migrations)\n";
                         msg += "• Frontal Face Detection for accurate kiosk scanning\n";
-                        msg += "• Fast Face Enrollment (2x faster with quality scoring)\n";
-                        msg += "• Automatic Faculty & Utility Payroll Calculation\n";
-                        msg += "• One-Click processes all three payroll types\n";
                         msg += "• Enhanced Security (2FA, encryption, audit trail)\n";
-                        msg += "• Employee DTR Generation\n";
-                        msg += "• Editable Payroll Cells with real-time calculations\n\n";
+                        msg += "• Automatic Faculty & Utility Payroll Calculation\n\n";
                         msg += "You can now launch it from the Desktop shortcut.";
                         if (chkDatabase.Checked) {
-                            msg += "\n\nDatabase and migrations have been set up automatically.";
+                            msg += "\n\nDatabase and all migrations (001-004) have been set up automatically.";
+                        }
+                        if (chkDependencies.Checked) {
+                            msg += "\n\nOffline dependencies (Font Awesome, SweetAlert2, Google Fonts) have been downloaded.";
                         }
                         MessageBox.Show(msg, "Installation Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         btnInstall.Enabled = true;
+                        btnInstall.Text = "Install Now";
+                        btnInstall.BackColor = Color.FromArgb(0, 0, 0);
                     });
                 }
                 catch (Exception ex) {
                     this.Invoke((MethodInvoker)delegate {
                         progressBar.Style = ProgressBarStyle.Continuous;
-                        lblStatus.Text = "✗ Installation Error";
+                        lblStatus.Text = "Installation Failed";
                         lblStatus.ForeColor = Color.FromArgb(220, 53, 69);
                         MessageBox.Show(ex.Message, "Installation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         btnInstall.Enabled = true;
+                        btnInstall.Text = "Install Now";
+                        btnInstall.BackColor = Color.FromArgb(0, 0, 0);
                     });
                 }
             });
@@ -432,30 +472,41 @@ namespace ALMInstaller
 
                 string sqlDir = Path.Combine(targetPath, "AI-ML-Test-Bench", "sql");
                 
-                // Run schema.sql
-                string schemaFile = Path.Combine(sqlDir, "schema.sql");
-                if (File.Exists(schemaFile)) {
+                // Try complete_schema.sql first (v2.4 - all-in-one file)
+                string completeSchemaFile = Path.Combine(sqlDir, "complete_schema.sql");
+                if (File.Exists(completeSchemaFile)) {
                     this.Invoke((MethodInvoker)delegate {
-                        lblStatus.Text = "● Creating database schema...";
-                        lblStatus.ForeColor = Color.FromArgb(79, 172, 254);
+                        lblStatus.Text = "Creating database with complete schema...";
+                        lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
                     });
-                    RunSqlFile(mysqlPath, schemaFile);
+                    RunSqlFile(mysqlPath, completeSchemaFile);
                 }
-
-                // Run migrations 001 to 003
-                string migrationsDir = Path.Combine(sqlDir, "migrations");
-                if (Directory.Exists(migrationsDir)) {
-                    string[] migrationFiles = Directory.GetFiles(migrationsDir, "*.sql");
-                    Array.Sort(migrationFiles); // Ensure order: 001, 002, 003
-
-                    foreach (string migrationFile in migrationFiles) {
-                        string fileName = Path.GetFileName(migrationFile);
+                else {
+                    // Fallback to schema.sql + migrations (legacy)
+                    string schemaFile = Path.Combine(sqlDir, "schema.sql");
+                    if (File.Exists(schemaFile)) {
                         this.Invoke((MethodInvoker)delegate {
-                            lblStatus.Text = string.Format("● Applying migration: {0}", fileName);
-                            lblStatus.ForeColor = Color.FromArgb(79, 172, 254);
+                            lblStatus.Text = "Creating database schema...";
+                            lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
                         });
-                        RunSqlFile(mysqlPath, migrationFile);
-                        Thread.Sleep(500); // Small delay between migrations
+                        RunSqlFile(mysqlPath, schemaFile);
+                    }
+
+                    // Run migrations 001 to 004
+                    string migrationsDir = Path.Combine(sqlDir, "migrations");
+                    if (Directory.Exists(migrationsDir)) {
+                        string[] migrationFiles = Directory.GetFiles(migrationsDir, "*.sql");
+                        Array.Sort(migrationFiles); // Ensure order: 001, 002, 003, 004
+
+                        foreach (string migrationFile in migrationFiles) {
+                            string fileName = Path.GetFileName(migrationFile);
+                            this.Invoke((MethodInvoker)delegate {
+                                lblStatus.Text = string.Format("Applying migration: {0}", fileName);
+                                lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
+                            });
+                            RunSqlFile(mysqlPath, migrationFile);
+                            Thread.Sleep(500); // Small delay between migrations
+                        }
                     }
                 }
             }
@@ -511,6 +562,76 @@ namespace ALMInstaller
                     }
                     throw new Exception(string.Format("SQL execution error: {0}", error));
                 }
+            }
+        }
+
+        private void DownloadDependencies(string targetPath)
+        {
+            try {
+                string jsDir = Path.Combine(targetPath, "AI-ML-Test-Bench", "js");
+                string cssDir = Path.Combine(targetPath, "AI-ML-Test-Bench", "css");
+                string webfontsDir = Path.Combine(targetPath, "AI-ML-Test-Bench", "webfonts");
+
+                // Create directories if they don't exist
+                Directory.CreateDirectory(jsDir);
+                Directory.CreateDirectory(cssDir);
+                Directory.CreateDirectory(webfontsDir);
+
+                // Download SweetAlert2
+                string swalPath = Path.Combine(jsDir, "sweetalert2.all.min.js");
+                if (!File.Exists(swalPath)) {
+                    this.Invoke((MethodInvoker)delegate {
+                        lblStatus.Text = "Downloading SweetAlert2...";
+                    });
+                    DownloadFile("https://cdn.jsdelivr.net/npm/sweetalert2@11", swalPath);
+                }
+
+                // Download Font Awesome CSS
+                string faCssPath = Path.Combine(cssDir, "all.min.css");
+                if (!File.Exists(faCssPath)) {
+                    this.Invoke((MethodInvoker)delegate {
+                        lblStatus.Text = "Downloading Font Awesome...";
+                    });
+                    DownloadFile("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css", faCssPath);
+                }
+
+                // Download Font Awesome webfonts
+                string[] fonts = new string[] {
+                    "fa-solid-900.woff2",
+                    "fa-regular-400.woff2",
+                    "fa-brands-400.woff2"
+                };
+
+                foreach (string font in fonts) {
+                    string fontPath = Path.Combine(webfontsDir, font);
+                    if (!File.Exists(fontPath)) {
+                        this.Invoke((MethodInvoker)delegate {
+                            lblStatus.Text = string.Format("Downloading font: {0}", font);
+                        });
+                        string fontUrl = string.Format("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/{0}", font);
+                        DownloadFile(fontUrl, fontPath);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                // Don't fail installation if dependencies fail to download
+                // User can download them manually later
+                this.Invoke((MethodInvoker)delegate {
+                    lblStatus.Text = "Warning: Some dependencies failed to download (check internet connection)";
+                    lblStatus.ForeColor = Color.FromArgb(255, 193, 7); // Yellow warning
+                });
+            }
+        }
+
+        private void DownloadFile(string url, string destination)
+        {
+            try {
+                using (System.Net.WebClient client = new System.Net.WebClient()) {
+                    client.DownloadFile(url, destination);
+                }
+            }
+            catch (Exception ex) {
+                throw new Exception(string.Format("Failed to download {0}: {1}", Path.GetFileName(destination), ex.Message));
             }
         }
 

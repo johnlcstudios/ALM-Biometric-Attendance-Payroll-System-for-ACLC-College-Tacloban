@@ -25,6 +25,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Middle Initial is optional and automatically formatted with period
     - Auto-generation updates in real-time as user types
     - Edit mode properly parses existing full names back into separate fields
+
+### Improved
+- **Face Enrollment System**:
+    - Centered "Camera is Currently Inactive" text and icons on camera preview
+    - Added pulsing animation to camera icon for better UX
+    - Improved cross-device compatibility with adaptive camera constraints
+    - Added retry logic for model loading (3 attempts)
+    - Enhanced error handling with specific messages for different failure types
+    - Added video readiness verification before starting detection
+    - Improved detection stability with higher input size (320px)
+    - Added helpful warnings when no face is detected for extended periods
+    - Better error recovery without breaking the detection loop
+    - Mobile-friendly camera settings with front camera preference
+    - Graceful fallback for devices with different camera capabilities
+
+### Fixed
+- **Employee Directory Table UI**:
+    - Removed duplicate renderEmployeeTable function that caused conflicts
+    - Added professional styling with gradient headers and hover effects
+    - Improved employee avatar display with hover animations
+    - Added colored badges for position, faculty level, and status
+    - Better responsive design for mobile and tablet devices
+    - Enhanced action buttons with tooltips and hover effects
+    - Improved empty state messaging
+    
+- **Form Validation Errors**:
+    - Fixed invalid regex pattern `[0-9-]*` in government ID fields
+    - Updated to `[0-9\\-]*` for proper escaping
+    - Added helpful title attributes with format examples
+    - Resolved console errors: "Invalid regular expression" on employee form
+    
+- **Save Employee 422 Error**:
+    - Fixed validation issues causing Unprocessable Entity errors
+    - Improved error messages for better debugging
     
 - **Faculty Level Selection**:
     - Added faculty level designation (SHS, College, Both) during faculty registration

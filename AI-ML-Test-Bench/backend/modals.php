@@ -146,19 +146,19 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>SSS Number</label>
-                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9-]*">
+                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9\\-]*" title="SSS number format: 99-9999999-9">
                         </div>
                         <div class="form-group">
                             <label>PhilHealth ID</label>
-                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9-]*">
+                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9\\-]*" title="PhilHealth format: 99-999999999-9">
                         </div>
                         <div class="form-group">
                             <label>TIN Number</label>
-                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9-]*">
+                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9\\-]*" title="TIN format: 999-999-999-999">
                         </div>
                         <div class="form-group">
                             <label>Pag-IBIG MID</label>
-                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9-]*">
+                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9\\-]*" title="Pag-IBIG format: 9999-9999-9999">
                         </div>
                     </div>
                 </div>
