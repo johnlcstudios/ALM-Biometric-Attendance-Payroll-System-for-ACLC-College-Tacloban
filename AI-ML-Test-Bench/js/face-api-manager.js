@@ -39,21 +39,89 @@ class FaceManager {
 
     async startCamera(videoElement, width = 640, height = 480) {
         this.stopCamera(); // Ensure clean start
-        try {
-            this.stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width, height, frameRate: { ideal: 30 } } 
-            });
-            videoElement.srcObject = this.stream;
-            return new Promise((resolve) => {
-                videoElement.onloadedmetadata = () => resolve(this.stream);
-            });
-        } catch (err) {
-            console.error("FaceManager: Camera access failed", err);
-            if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-                throw new Error("Camera is already in use by another tab or application.");
+        
+        // Try different camera constraints for better cross-device compatibility
+        const constraints = [
+            // First try: Ideal settings
+            {
+                video: { 
+                    width: { ideal: width }, 
+                    height: { ideal: height },
+                    frameRate: { ideal: 30, min: 15 },
+                    facingMode: 'user'  // Front camera for mobile
+                }
+            },
+            // Second try: Minimal constraints
+            {
+                video: { 
+                    width: { min: 320, ideal: width }, 
+                    height: { min: 240, ideal: height },
+                    facingMode: 'user'
+                }
+            },
+            // Third try: Any available camera
+            {
+                video: true
             }
-            throw new Error("Failed to access camera. Please check permissions.");
+        ];
+        
+        let lastError = null;
+        
+        for (const constraint of constraints) {
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia(constraint);
+                
+                // Verify stream is active
+                if (!this.stream.active || this.stream.getTracks().length === 0) {
+                    throw new Error("Camera stream is not active");
+                }
+                
+                videoElement.srcObject = this.stream;
+                
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error("Camera initialization timeout"));
+                    }, 10000);
+                    
+                    videoElement.onloadedmetadata = () => {
+                        clearTimeout(timeout);
+                        
+                        // Verify video dimensions are valid
+                        if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
+                            reject(new Error("Invalid video dimensions"));
+                            return;
+                        }
+                        
+                        resolve(this.stream);
+                    };
+                    
+                    videoElement.onerror = (err) => {
+                        clearTimeout(timeout);
+                        reject(new Error("Video element error: " + err.message));
+                    };
+                });
+            } catch (err) {
+                console.warn(`Camera constraint set failed:`, err);
+                lastError = err;
+                
+                // Clean up failed stream
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+            }
         }
+        
+        // All attempts failed
+        console.error("FaceManager: Camera access failed", lastError);
+        if (lastError && (lastError.name === 'NotReadableError' || lastError.name === 'TrackStartError')) {
+            throw new Error("Camera is already in use by another tab or application. Please close other apps using the camera.");
+        } else if (lastError && lastError.name === 'NotAllowedError') {
+            throw new Error("Camera permission denied. Please allow camera access in your browser settings.");
+        } else if (lastError && lastError.name === 'NotFoundError') {
+            throw new Error("No camera found on this device.");
+        }
+        throw new Error("Failed to access camera. Please check permissions and ensure no other app is using the camera.");
     }
 
     stopCamera() {

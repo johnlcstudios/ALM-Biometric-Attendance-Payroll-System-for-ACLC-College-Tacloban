@@ -577,25 +577,24 @@ function renderEmployeeTable() {
         const facultyLevel = (isFaculty && emp.faculty_level) ? emp.faculty_level : '---';
         const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '---';
         const isResigned = (emp.status || 'Active') === 'Resigned';
+        const statusLabel = emp.status || 'Active';
+        const statusClass = statusLabel.toLowerCase().replace(/\s+/g, '-');
 
         const actionHtml = isFaculty ? `
-            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
-                <i class="fas fa-book"></i> View (${loadCount})
+            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')" title="View Subject Loads">
+                <i class="fas fa-book"></i> <span class="badge">${loadCount}</span>
             </button>
-            <button class="btn btn-primary btn-sm" onclick="addSubjectLoadModal('${emp.id}')">
-                <i class="fas fa-plus"></i> Add Load
-            </button>
-        ` : '---';
+        ` : '<span class="text-muted">---</span>';
 
         const buttonsHtml = isResigned ? `
             <div class="action-buttons">
-                <button class="btn-icon text-success" title="Reinstate" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
-                <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon text-success" title="Reinstate Employee" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
+                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
             </div>
         ` : `
             <div class="action-buttons">
-                <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon text-danger" title="Delete Employee" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
             </div>
         `;
 
@@ -606,23 +605,23 @@ function renderEmployeeTable() {
                     <div class="user-info">
                         <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
                              alt="${escapeHTML(emp.full_name)}" 
-                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid #eee; vertical-align: middle;">
-                        <div class="user-details" style="display: inline-block; vertical-align: middle;">
+                             class="employee-avatar">
+                        <div class="user-details">
                             <span class="name">${escapeHTML(emp.full_name)}</span>
-                            <span class="email">${escapeHTML(emp.email)}</span>
+                            <span class="email">${escapeHTML(emp.email || 'No email')}</span>
                         </div>
                     </div>
                 </td>
-                <td>${escapeHTML(emp.position)}</td>
-                <td>${escapeHTML(emp.department)}</td>
-                <td>${escapeHTML(facultyLevel)}</td>
-                <td>${hireDate}</td>
+                <td><span class="position-badge">${escapeHTML(emp.position)}</span></td>
+                <td>${escapeHTML(emp.department || '---')}</td>
+                <td>${isFaculty ? `<span class="faculty-badge faculty-${facultyLevel.toLowerCase()}">${escapeHTML(facultyLevel)}</span>` : '<span class="text-muted">---</span>'}</td>
+                <td><span class="hire-date">${hireDate}</span></td>
                 <td>${actionHtml}</td>
-                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
+                <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
                 <td>${buttonsHtml}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="9" class="text-center">No employees found.</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="text-center text-muted">No employees found.</td></tr>';
 }
 
 function renderMasterSubjects() {
@@ -893,49 +892,6 @@ async function printSpecializedPayroll(tableId, title) {
 }
 
 // --- Employee Management ---
-function renderEmployeeTable() {
-    const tbody = document.getElementById('employeeTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = employees.map(emp => {
-        const isFaculty = (emp.position || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'education';
-        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
-        const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
-        const statusClass = statusLabel.toLowerCase().replace(' ', '-');
-
-        return `
-        <tr id="row-${emp.id}">
-            <td>${escapeHTML(emp.employee_id)}</td>
-            <td>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
-                         alt="${escapeHTML(emp.full_name)}" 
-                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #eee; flex-shrink: 0;">
-                    <div>
-                        <strong>${escapeHTML(emp.full_name)}</strong>
-                        <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
-                    </div>
-                </div>
-            </td>
-            <td>${escapeHTML(emp.position)}</td>
-            <td>${escapeHTML(emp.department)}</td>
-            <td>
-                ${isFaculty ? `
-                    <span class="badge badge-info" style="cursor: pointer; padding: 5px 10px; border-radius: 4px; background: #3498db; color: white;" onclick="viewFacultyLoads('${emp.id}')">
-                        ${loadCount} Loads
-                    </span>
-                ` : '<span class="text-muted">---</span>'}
-            </td>
-            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
-            <td>
-                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-                <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
-                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
-            </td>
-        </tr>
-    `;
-    }).join('');
-}
 
 function openAddLoadModal(empId) {
     const emp = employees.find(e => e.id == empId);
@@ -2990,10 +2946,48 @@ async function initFaceRegistration() {
     placeholderText.innerText = "Initializing AI Models...";
 
     try {
-        await faceManager.loadModels();
+        // Load models with retry logic for stability
+        let modelLoadAttempts = 0;
+        const maxModelAttempts = 3;
+        
+        while (modelLoadAttempts < maxModelAttempts) {
+            try {
+                await faceManager.loadModels();
+                break;
+            } catch (err) {
+                modelLoadAttempts++;
+                if (modelLoadAttempts >= maxModelAttempts) {
+                    throw new Error("Failed to load face recognition models after multiple attempts. Please refresh the page.");
+                }
+                placeholderText.innerText = `Retrying model load (${modelLoadAttempts}/${maxModelAttempts})...`;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        
         placeholderText.innerText = "Starting Camera...";
 
-        await faceManager.startCamera(video);
+        // Start camera with device-specific settings for better compatibility
+        await faceManager.startCamera(video, 640, 480);
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("Camera timeout. Please check permissions.")), 10000);
+            
+            if (video.readyState >= 2) {
+                clearTimeout(timeout);
+                resolve();
+            } else {
+                video.onloadeddata = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                video.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error("Failed to load video stream."));
+                };
+            }
+        });
+        
         placeholder.style.display = 'none';
 
         startBtn.style.display = 'none';
@@ -3003,59 +2997,79 @@ async function initFaceRegistration() {
         faceManager.registrationActive = true;
         faceManager.isProcessing = false;
 
-        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        // Use adaptive detection settings for better cross-device compatibility
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ 
+            inputSize: 320,  // Higher input size for better accuracy
+            scoreThreshold: 0.5  // Balanced threshold
+        });
+
+        let noFaceCount = 0;
+        const maxNoFaceFrames = 30; // Reset stability after 30 frames without face
 
         const loop = async () => {
             if (!faceManager.stream || !faceManager.registrationActive) return;
 
             if (!faceManager.isProcessing) {
-                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                try {
+                    const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                if (detection) {
-                    // Check stability
-                    const isStable = faceManager.checkStability(detection.detection.box);
-                    
-                    // Check if face is frontal for better enrollment quality
-                    const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
-                    const isFrontal = frontalCheck.isFrontal;
-                    
-                    let status, color;
-                    
-                    if (!isFrontal) {
-                        // Face not looking straight
-                        if (!frontalCheck.details.yawOk) {
-                            status = "TURN FACE TO CAMERA";
-                        } else if (!frontalCheck.details.pitchOk) {
-                            status = "LOOK STRAIGHT";
-                        } else if (!frontalCheck.details.rollOk) {
-                            status = "KEEP HEAD LEVEL";
+                    if (detection) {
+                        noFaceCount = 0; // Reset counter when face is detected
+                        
+                        // Check stability
+                        const isStable = faceManager.checkStability(detection.detection.box);
+                        
+                        // Check if face is frontal for better enrollment quality
+                        const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
+                        const isFrontal = frontalCheck.isFrontal;
+                        
+                        let status, color;
+                        
+                        if (!isFrontal) {
+                            // Face not looking straight
+                            if (!frontalCheck.details.yawOk) {
+                                status = "TURN FACE TO CAMERA";
+                            } else if (!frontalCheck.details.pitchOk) {
+                                status = "LOOK STRAIGHT";
+                            } else if (!frontalCheck.details.rollOk) {
+                                status = "KEEP HEAD LEVEL";
+                            } else {
+                                status = "FACE CAMERA";
+                            }
+                            color = "#f39c12"; // Orange
+                        } else if (!isStable) {
+                            status = "HOLD STILL...";
+                            color = "#f39c12"; // Orange
                         } else {
-                            status = "FACE CAMERA";
+                            // Both frontal and stable - ready to capture!
+                            status = "✓ PERFECT! CAPTURING...";
+                            color = "#27ae60"; // Green
                         }
-                        color = "#f39c12"; // Orange
-                    } else if (!isStable) {
-                        status = "HOLD STILL...";
-                        color = "#f39c12"; // Orange
-                    } else {
-                        // Both frontal and stable - ready to capture!
-                        status = "✓ PERFECT! CAPTURING...";
-                        color = "#27ae60"; // Green
-                    }
 
-                    faceManager.drawDetection(canvas, video, detection, status, color);
+                        faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    // Only capture if face is both frontal AND stable
-                    if (isFrontal && isStable) {
-                        faceManager.isProcessing = true;
-                        setTimeout(() => saveFaceRegistration(), 300);
+                        // Only capture if face is both frontal AND stable
+                        if (isFrontal && isStable) {
+                            faceManager.isProcessing = true;
+                            setTimeout(() => saveFaceRegistration(), 300);
+                        } else {
+                            captureBtn.disabled = !isFrontal; // Enable only if frontal
+                        }
                     } else {
-                        captureBtn.disabled = !isFrontal; // Enable only if frontal
+                        noFaceCount++;
+                        faceManager.stabilityCounter = 0;
+                        captureBtn.disabled = true;
+                        
+                        // Show helpful message if no face detected for too long
+                        if (noFaceCount > maxNoFaceFrames && noFaceCount % 30 === 0) {
+                            showToast("No face detected. Please ensure good lighting and look at the camera.", "warning");
+                        }
                     }
-                } else {
-                    faceManager.stabilityCounter = 0;
-                    captureBtn.disabled = true;
+                } catch (err) {
+                    console.error("Detection error:", err);
+                    // Don't break the loop on detection errors
                 }
             }
             requestAnimationFrame(loop);

@@ -1,4 +1,234 @@
-:root {
+:root {/* Employee Table Styles */
+.employee-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 12px;
+    border: 2px solid #e0e0e0;
+    vertical-align: middle;
+    transition: transform 0.2s ease;
+}
+
+.employee-avatar:hover {
+    transform: scale(1.1);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.user-details .name {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.user-details .email {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+.position-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: white;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.faculty-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.faculty-shs {
+    background: #3498db;
+    color: white;
+}
+
+.faculty-college {
+    background: #9b59b6;
+    color: white;
+}
+
+.faculty-both {
+    background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+    color: white;
+}
+
+.hire-date {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-active {
+    background: #27ae60;
+    color: white;
+}
+
+.status-inactive {
+    background: #95a5a6;
+    color: white;
+}
+
+.status-on-leave {
+    background: #f39c12;
+    color: white;
+}
+
+.status-probationary {
+    background: #3498db;
+    color: white;
+}
+
+.status-contractual {
+    background: #9b59b6;
+    color: white;
+}
+
+.status-resigned {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #555;
+}
+
+.btn-icon:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.1);
+}
+
+.btn-icon.text-success:hover {
+    background: rgba(39, 174, 96, 0.1);
+    color: #27ae60;
+}
+
+.btn-icon.text-danger:hover {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+}
+
+/* Table Container */
+.table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#employeeTable {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+#employeeTable thead {
+    background: none;
+    color: white;
+}
+
+#employeeTable th {
+    padding: 14px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#employeeTable td {
+    padding: 12px;
+    border-bottom: 1px solid #ecf0f1;
+    vertical-align: middle;
+}
+
+#employeeTable tbody tr:hover {
+    background: #f8f9fa;
+}
+
+#employeeTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Responsive Table */
+@media (max-width: 1024px) {
+    #employeeTable {
+        font-size: 0.85rem;
+    }
+    
+    .employee-avatar {
+        width: 35px;
+        height: 35px;
+    }
+}
+
+@media (max-width: 768px) {
+    #employeeTable th,
+    #employeeTable td {
+        padding: 8px 6px;
+        font-size: 0.8rem;
+    }
+    
+    .employee-avatar {
+        width: 30px;
+        height: 30px;
+        margin-right: 8px;
+    }
+    
+    .user-details .name {
+        font-size: 0.85rem;
+    }
+    
+    .user-details .email {
+        font-size: 0.7rem;
+    }
+}
+
+
     --primary-color: #1e0178;
     --accent-color: #db261f;
     --secondary-color: #6c757d;
@@ -1610,6 +1840,60 @@ select {
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+#camera-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.placeholder-content {
+    color: #888;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem;
+}
+
+#camera-placeholder i {
+    font-size: 5rem;
+    margin: 0;
+    opacity: 0.6;
+    animation: pulse-icon 2s ease-in-out infinite;
+}
+
+#camera-placeholder p {
+    font-size: 1.2rem;
+    margin: 0;
+    font-weight: 500;
+    color: #aaa;
+}
+
+#camera-placeholder small {
+    font-size: 0.9rem;
+    color: #777;
+    line-height: 1.4;
+}
+
+@keyframes pulse-icon {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.9;
+    }
+}
+
 .camera-preview.registered {
     border-color: var(--danger-color) !important;
     box-shadow: 0 0 25px rgba(219, 38, 31, 0.5);
@@ -1635,16 +1919,6 @@ select {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
-}
-
-#camera-placeholder {
-    color: #444;
-    text-align: center;
-}
-
-#camera-placeholder i {
-    font-size: 4rem;
-    margin-bottom: 1rem;
 }
 
 #overlay {
@@ -1764,9 +2038,31 @@ select {
     .biometrics-container {
         grid-template-columns: 1fr;
     }
+    
+    .camera-preview {
+        width: 350px;
+        height: 350px;
+    }
 }
 
 @media (max-width: 768px) {
+    .camera-preview {
+        width: 300px;
+        height: 300px;
+    }
+    
+    #camera-placeholder i {
+        font-size: 4rem;
+    }
+    
+    #camera-placeholder p {
+        font-size: 1rem;
+    }
+    
+    #camera-placeholder small {
+        font-size: 0.85rem;
+    }
+    
     .sidebar {
         width: 80px;
         padding: 1.5rem 0.5rem;

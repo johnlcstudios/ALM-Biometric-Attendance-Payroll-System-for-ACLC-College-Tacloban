@@ -64,17 +64,26 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payroll System Hub - <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></title>
-    <!-- Same head links as before -->
+    
+    <!-- Google Fonts - Inter (with local fallback) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" onerror="this.href='css/inter-fonts.css'">
+    
+    <!-- Font Awesome (local with CDN fallback) -->
+    <link rel="stylesheet" href="css/all.min.css" onerror="this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'">
+    
+    <!-- JavaScript Libraries -->
     <script src="js/chart.min.js"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js?v=2.1"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- SweetAlert2 (local with CDN fallback) -->
+    <script src="js/sweetalert2.all.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/sweetalert2@11'"></script>
+    
+    <!-- Main Stylesheet -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
