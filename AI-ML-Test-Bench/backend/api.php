@@ -14,6 +14,11 @@ try {
     apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
 
+function softDelete($pdo, $table, $id) {
+    $stmt = $pdo->prepare("UPDATE $table SET is_deleted = 1 WHERE id = ? AND company_id = ? AND is_deleted = 0");
+    return $stmt->execute([$id, $_SESSION['company_id']]);
+}
+
 $action = $_GET['action'] ?? '';
 
 // Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
@@ -342,7 +347,7 @@ try {
         case 'get_allowance_categories':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
+$stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? AND is_deleted = 0 ORDER BY name ASC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
@@ -359,11 +364,11 @@ try {
         case 'get_employee_allowances':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
+$stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
-                                 JOIN employees e ON ea.employee_id = e.id 
-                                 JOIN allowance_categories ac ON ea.category_id = ac.id 
-                                 WHERE ea.company_id = ? ORDER BY ea.created_at DESC");
+                                 JOIN employees e ON ea.employee_id = e.id AND e.is_deleted = 0
+                                 JOIN allowance_categories ac ON ea.category_id = ac.id AND ac.is_deleted = 0
+                                 WHERE ea.company_id = ? AND ea.is_deleted = 0 ORDER BY ea.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
@@ -381,8 +386,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'];
-            $stmt = $pdo->prepare("DELETE FROM allowance_categories WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'allowance_categories', $id);
             echo json_encode(['success' => true, 'message' => 'Category deleted']);
             break;
 
@@ -390,8 +394,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'];
-            $stmt = $pdo->prepare("DELETE FROM employee_allowances WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'employee_allowances', $id);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
             break;
 
@@ -444,8 +447,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'];
-            $stmt = $pdo->prepare("DELETE FROM employee_deductions WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'employee_deductions', $id);
             echo json_encode(['success' => true, 'message' => 'Assignment deleted']);
             break;
 
@@ -555,7 +557,7 @@ try {
         case 'get_employees':
             if (!isset($_SESSION['company_id']))
                 exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
+$stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ? AND e.is_deleted = 0");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
@@ -673,8 +675,7 @@ try {
             $id = $_GET['id'] ?? '';
             $errors = validateId($id, 'id');
             rejectInvalidPayload($errors);
-            $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'employees', $id);
             echo json_encode(['success' => true]);
             break;
 
@@ -1161,10 +1162,16 @@ try {
                     }
 
                     $net_pay = $earned_pay - $total_deductions;
+                    $payroll_type = 'General';
+                    if (strcasecmp($category, 'Faculty') === 0) {
+                        $payroll_type = 'Faculty';
+                    } elseif (strcasecmp($category, 'Utility') === 0) {
+                        $payroll_type = 'Utility';
+                    }
 
                     $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', ?)");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $payroll_type]);
                 }
                 $pdo->commit();
                 $cat_msg = ($category === 'all') ? 'all employees' : "$category staff";
@@ -1327,8 +1334,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM deductions WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'deductions', $id);
             echo json_encode(['success' => true, 'message' => 'Deduction category deleted']);
             break;
 
@@ -1486,8 +1492,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'subjects', $id);
             echo json_encode(['success' => true]);
             break;
 
@@ -1504,8 +1509,7 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? '';
-            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?");
-            $stmt->execute([$id, $_SESSION['company_id']]);
+softDelete($pdo, 'subject_loads', $id);
             echo json_encode(['success' => true]);
             break;
 

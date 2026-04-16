@@ -220,6 +220,24 @@ CREATE TABLE IF NOT EXISTS subject_loads (
     FOREIGN KEY (faculty_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
+-- Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id          INT           AUTO_INCREMENT PRIMARY KEY,
+    company_id  INT           NOT NULL,
+    user_id     INT           DEFAULT NULL,
+    username    VARCHAR(100)  NOT NULL DEFAULT 'system',
+    action      VARCHAR(100)  NOT NULL,
+    description TEXT          NOT NULL,
+    target_id   INT           DEFAULT NULL,
+    ip_address  VARCHAR(45)   DEFAULT NULL,
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE SET NULL
+);
+CREATE INDEX idx_audit_logs_company    ON audit_logs(company_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_action     ON audit_logs(action);
+
 -- Insert Demo Company
 INSERT IGNORE INTO companies (id, name, admin_email) VALUES (1, 'ALM Tech Solutions', 'hr@almtech.com');
 
