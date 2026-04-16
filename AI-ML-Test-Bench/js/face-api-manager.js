@@ -90,9 +90,14 @@ class FaceManager {
 
     async captureSamples(videoElement, onProgress = null) {
         const samples = [];
+        // Optimization: Use TinyFaceDetector for faster sampling if supported, 
+        // but for descriptors we need landmarks which are best with SSD or Tiny + Landmarks.
+        // We'll stick to SSD but reduce the number of samples for Kiosk if needed.
         const options = new faceapi.SsdMobilenetv1Options({ minConfidence: this.config.minConfidence });
         
-        for (let i = 0; i < 15 && samples.length < this.config.sampleCount; i++) {
+        // Faster sampling: reduce delay and max attempts
+        const maxAttempts = 10; 
+        for (let i = 0; i < maxAttempts && samples.length < this.config.sampleCount; i++) {
             if (onProgress) onProgress(samples.length + 1, this.config.sampleCount);
             
             const detection = await faceapi.detectSingleFace(videoElement, options)
@@ -102,15 +107,17 @@ class FaceManager {
             if (detection && detection.descriptor) {
                 samples.push(Array.from(detection.descriptor));
             }
-            // Small delay between captures for diversity
-            await new Promise(r => setTimeout(r, 100));
+            // Optimization: Reduced delay for faster capture
+            if (samples.length < this.config.sampleCount) {
+                await new Promise(r => setTimeout(r, 50)); 
+            }
         }
 
-        if (samples.length < 3) {
-            throw new Error("Could not capture enough clear face samples. Please ensure good lighting.");
+        if (samples.length < 1) { // Efficiency: allow single high-quality sample if needed
+            throw new Error("Could not capture clear face samples. Please ensure good lighting.");
         }
 
-        // Average descriptors for a more robust representative descriptor
+        // Average descriptors
         const averaged = new Float32Array(128).fill(0);
         for (const s of samples) {
             for (let j = 0; j < 128; j++) averaged[j] += s[j];
@@ -143,6 +150,48 @@ class FaceManager {
             ctx.fillText(statusText, -(x + width / 2), y + height + 30);
             ctx.restore();
         }
+    }
+
+    /**
+     * Estimates face pose (yaw and pitch) based on landmarks
+     * @param {faceapi.FaceLandmarks68} landmarks 
+     * @returns {Object} { yaw, pitch, isFrontFacing }
+     */
+    estimatePose(landmarks) {
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const nose = landmarks.getNose();
+        const mouth = landmarks.getMouth();
+        const jaw = landmarks.getJawOutline();
+
+        // 1. Calculate Yaw (Left/Right rotation)
+        // Ratio of distances from nose tip to jaw edges
+        const noseTip = nose[6]; // Tip of the nose
+        const jawLeft = jaw[0];  // Far left jaw
+        const jawRight = jaw[16]; // Far right jaw
+
+        const distLeft = Math.sqrt(Math.pow(noseTip.x - jawLeft.x, 2) + Math.pow(noseTip.y - jawLeft.y, 2));
+        const distRight = Math.sqrt(Math.pow(noseTip.x - jawRight.x, 2) + Math.pow(noseTip.y - jawRight.y, 2));
+        
+        const yawRatio = distLeft / distRight;
+        // Ideally 1.0 for front facing. < 0.6 or > 1.6 usually means side view.
+        
+        // 2. Calculate Pitch (Up/Down rotation)
+        // Distance from nose bridge to nose tip vs bridge to chin
+        const noseBridge = nose[0];
+        const chin = jaw[8];
+        const bridgeToTip = Math.abs(noseTip.y - noseBridge.y);
+        const bridgeToChin = Math.abs(chin.y - noseBridge.y);
+        const pitchRatio = bridgeToTip / bridgeToChin;
+        // Ideally around 0.35-0.45. < 0.2 (looking down) or > 0.6 (looking up).
+
+        const isFrontFacing = (yawRatio > 0.6 && yawRatio < 1.6) && (pitchRatio > 0.25 && pitchRatio < 0.55);
+
+        return {
+            yaw: yawRatio,
+            pitch: pitchRatio,
+            isFrontFacing: isFrontFacing
+        };
     }
 }
 
