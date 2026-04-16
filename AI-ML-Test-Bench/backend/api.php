@@ -94,9 +94,40 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                 $hdmf_loans = 0;
                 $hdmf_mp2 = 0;
-                $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2;
+                
+                // Fetch employee-specific allowances
+                $stmt_allowances = $pdo->prepare("SELECT ea.*, ac.name, ac.type, ac.rate FROM employee_allowances ea JOIN allowance_categories ac ON ea.category_id = ac.id WHERE ea.employee_id = ? AND ea.company_id = ? AND (ea.effective_date IS NULL OR ea.effective_date <= ?)");
+                $stmt_allowances->execute([$emp['id'], $company_id, $end_date]);
+                $employee_allowances = $stmt_allowances->fetchAll();
+                
+                // Calculate total allowances
+                $total_allowances = 0;
+                foreach ($employee_allowances as $allowance) {
+                    $amount = $allowance['override_amount'] ?? null;
+                    if ($amount === null) {
+                        $amount = $allowance['type'] === 'Percentage' ? $basic_pay * ($allowance['rate'] / 100) : $allowance['rate'];
+                    }
+                    $total_allowances += (float)$amount;
+                }
+                
+                // Fetch employee-specific deductions
+                $stmt_emp_deductions = $pdo->prepare("SELECT ed.*, d.name, d.type, d.value FROM employee_deductions ed JOIN deductions d ON ed.deduction_id = d.id WHERE ed.employee_id = ? AND ed.company_id = ? AND (ed.effective_date IS NULL OR ed.effective_date <= ?)");
+                $stmt_emp_deductions->execute([$emp['id'], $company_id, $end_date]);
+                $employee_deductions = $stmt_emp_deductions->fetchAll();
+                
+                // Calculate employee-specific deductions
+                $employee_specific_deductions = 0;
+                foreach ($employee_deductions as $deduction) {
+                    $amount = $deduction['override_amount'] ?? null;
+                    if ($amount === null) {
+                        $amount = $deduction['type'] === 'percentage' ? $basic_pay * ($deduction['value'] / 100) : $deduction['value'];
+                    }
+                    $employee_specific_deductions += (float)$amount;
+                }
+                
+                $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions;
                 $honorarium = 0;
-                $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium) - $total_deduction;
+                $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances) - $total_deduction;
                 
                 $breakdown = [
                     'load_pay' => $load_pay,
@@ -104,11 +135,13 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'differential' => $differential,
                     'substitution' => $substitution,
                     'adj_plus' => $adj_plus,
+                    'total_allowances' => $total_allowances,
                     'absences' => $absences_deduction,
                     'late_ut' => $late_ut,
                     'hdmf_cont' => $hdmf_cont,
                     'hdmf_loans' => $hdmf_loans,
                     'hdmf_mp2' => $hdmf_mp2,
+                    'employee_deductions' => $employee_specific_deductions,
                     'total_deduction' => $total_deduction,
                     'honorarium' => $honorarium,
                     'days_present' => $days_present,
@@ -130,8 +163,39 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                 $hdmf_loans = 0;
                 $cash_advance = 0;
-                $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance;
-                $net_pay = ($earned + $ot_holiday + $adj_plus) - $total_deduction;
+                
+                // Fetch employee-specific allowances
+                $stmt_allowances = $pdo->prepare("SELECT ea.*, ac.name, ac.type, ac.rate FROM employee_allowances ea JOIN allowance_categories ac ON ea.category_id = ac.id WHERE ea.employee_id = ? AND ea.company_id = ? AND (ea.effective_date IS NULL OR ea.effective_date <= ?)");
+                $stmt_allowances->execute([$emp['id'], $company_id, $end_date]);
+                $employee_allowances = $stmt_allowances->fetchAll();
+                
+                // Calculate total allowances
+                $total_allowances = 0;
+                foreach ($employee_allowances as $allowance) {
+                    $amount = $allowance['override_amount'] ?? null;
+                    if ($amount === null) {
+                        $amount = $allowance['type'] === 'Percentage' ? $earned * ($allowance['rate'] / 100) : $allowance['rate'];
+                    }
+                    $total_allowances += (float)$amount;
+                }
+                
+                // Fetch employee-specific deductions
+                $stmt_emp_deductions = $pdo->prepare("SELECT ed.*, d.name, d.type, d.value FROM employee_deductions ed JOIN deductions d ON ed.deduction_id = d.id WHERE ed.employee_id = ? AND ed.company_id = ? AND (ed.effective_date IS NULL OR ed.effective_date <= ?)");
+                $stmt_emp_deductions->execute([$emp['id'], $company_id, $end_date]);
+                $employee_deductions = $stmt_emp_deductions->fetchAll();
+                
+                // Calculate employee-specific deductions
+                $employee_specific_deductions = 0;
+                foreach ($employee_deductions as $deduction) {
+                    $amount = $deduction['override_amount'] ?? null;
+                    if ($amount === null) {
+                        $amount = $deduction['type'] === 'percentage' ? $earned * ($deduction['value'] / 100) : $deduction['value'];
+                    }
+                    $employee_specific_deductions += (float)$amount;
+                }
+                
+                $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
+                $net_pay = ($earned + $ot_holiday + $adj_plus + $total_allowances) - $total_deduction;
                 $atm = $net_pay;
                 $non_atm = 0;
                 
@@ -140,11 +204,13 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'earned' => $earned,
                     'ot_holiday' => $ot_holiday,
                     'adj_plus' => $adj_plus,
+                    'total_allowances' => $total_allowances,
                     'late_ut' => $late_ut,
                     'adj_minus' => $adj_minus,
                     'hdmf_cont' => $hdmf_cont,
                     'hdmf_loans' => $hdmf_loans,
                     'cash_advance' => $cash_advance,
+                    'employee_deductions' => $employee_specific_deductions,
                     'total_deduction' => $total_deduction,
                     'atm' => $atm,
                     'non_atm' => $non_atm,
@@ -636,9 +702,40 @@ try {
                         $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                         $hdmf_loans = 0;
                         $hdmf_mp2 = 0;
-                        $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2;
+                        
+                        // Fetch employee-specific allowances
+                        $stmt_allowances = $pdo->prepare("SELECT ea.*, ac.name, ac.type, ac.rate FROM employee_allowances ea JOIN allowance_categories ac ON ea.category_id = ac.id WHERE ea.employee_id = ? AND ea.company_id = ? AND (ea.effective_date IS NULL OR ea.effective_date <= ?)");
+                        $stmt_allowances->execute([$emp['id'], $company_id, $end_date]);
+                        $employee_allowances = $stmt_allowances->fetchAll();
+                        
+                        // Calculate total allowances
+                        $total_allowances = 0;
+                        foreach ($employee_allowances as $allowance) {
+                            $amount = $allowance['override_amount'] ?? null;
+                            if ($amount === null) {
+                                $amount = $allowance['type'] === 'Percentage' ? $basic_pay * ($allowance['rate'] / 100) : $allowance['rate'];
+                            }
+                            $total_allowances += (float)$amount;
+                        }
+                        
+                        // Fetch employee-specific deductions
+                        $stmt_emp_deductions = $pdo->prepare("SELECT ed.*, d.name, d.type, d.value FROM employee_deductions ed JOIN deductions d ON ed.deduction_id = d.id WHERE ed.employee_id = ? AND ed.company_id = ? AND (ed.effective_date IS NULL OR ed.effective_date <= ?)");
+                        $stmt_emp_deductions->execute([$emp['id'], $company_id, $end_date]);
+                        $employee_deductions = $stmt_emp_deductions->fetchAll();
+                        
+                        // Calculate employee-specific deductions
+                        $employee_specific_deductions = 0;
+                        foreach ($employee_deductions as $deduction) {
+                            $amount = $deduction['override_amount'] ?? null;
+                            if ($amount === null) {
+                                $amount = $deduction['type'] === 'percentage' ? $basic_pay * ($deduction['value'] / 100) : $deduction['value'];
+                            }
+                            $employee_specific_deductions += (float)$amount;
+                        }
+                        
+                        $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions;
                         $honorarium = 0;
-                        $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium) - $total_deduction;
+                        $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances) - $total_deduction;
 
                         $breakdown = [
                             'load_pay' => $load_pay,
@@ -646,11 +743,13 @@ try {
                             'differential' => $differential,
                             'substitution' => $substitution,
                             'adj_plus' => $adj_plus,
+                            'total_allowances' => $total_allowances,
                             'absences' => $absences_deduction,
                             'late_ut' => $late_ut,
                             'hdmf_cont' => $hdmf_cont,
                             'hdmf_loans' => $hdmf_loans,
                             'hdmf_mp2' => $hdmf_mp2,
+                            'employee_deductions' => $employee_specific_deductions,
                             'total_deduction' => $total_deduction,
                             'honorarium' => $honorarium,
                             'days_present' => $days_present,
@@ -672,8 +771,39 @@ try {
                         $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                         $hdmf_loans = 0;
                         $cash_advance = 0;
-                        $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance;
-                        $net_pay = ($earned + $ot_holiday + $adj_plus) - $total_deduction;
+                        
+                        // Fetch employee-specific allowances
+                        $stmt_allowances = $pdo->prepare("SELECT ea.*, ac.name, ac.type, ac.rate FROM employee_allowances ea JOIN allowance_categories ac ON ea.category_id = ac.id WHERE ea.employee_id = ? AND ea.company_id = ? AND (ea.effective_date IS NULL OR ea.effective_date <= ?)");
+                        $stmt_allowances->execute([$emp['id'], $company_id, $end_date]);
+                        $employee_allowances = $stmt_allowances->fetchAll();
+                        
+                        // Calculate total allowances
+                        $total_allowances = 0;
+                        foreach ($employee_allowances as $allowance) {
+                            $amount = $allowance['override_amount'] ?? null;
+                            if ($amount === null) {
+                                $amount = $allowance['type'] === 'Percentage' ? $earned * ($allowance['rate'] / 100) : $allowance['rate'];
+                            }
+                            $total_allowances += (float)$amount;
+                        }
+                        
+                        // Fetch employee-specific deductions
+                        $stmt_emp_deductions = $pdo->prepare("SELECT ed.*, d.name, d.type, d.value FROM employee_deductions ed JOIN deductions d ON ed.deduction_id = d.id WHERE ed.employee_id = ? AND ed.company_id = ? AND (ed.effective_date IS NULL OR ed.effective_date <= ?)");
+                        $stmt_emp_deductions->execute([$emp['id'], $company_id, $end_date]);
+                        $employee_deductions = $stmt_emp_deductions->fetchAll();
+                        
+                        // Calculate employee-specific deductions
+                        $employee_specific_deductions = 0;
+                        foreach ($employee_deductions as $deduction) {
+                            $amount = $deduction['override_amount'] ?? null;
+                            if ($amount === null) {
+                                $amount = $deduction['type'] === 'percentage' ? $earned * ($deduction['value'] / 100) : $deduction['value'];
+                            }
+                            $employee_specific_deductions += (float)$amount;
+                        }
+                        
+                        $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
+                        $net_pay = ($earned + $ot_holiday + $adj_plus + $total_allowances) - $total_deduction;
                         $atm = $net_pay;
                         $non_atm = 0;
 
@@ -682,11 +812,13 @@ try {
                             'earned' => $earned,
                             'ot_holiday' => $ot_holiday,
                             'adj_plus' => $adj_plus,
+                            'total_allowances' => $total_allowances,
                             'late_ut' => $late_ut,
                             'adj_minus' => $adj_minus,
                             'hdmf_cont' => $hdmf_cont,
                             'hdmf_loans' => $hdmf_loans,
                             'cash_advance' => $cash_advance,
+                            'employee_deductions' => $employee_specific_deductions,
                             'total_deduction' => $total_deduction,
                             'atm' => $atm,
                             'non_atm' => $non_atm,
@@ -1669,6 +1801,39 @@ try {
                             $total_deductions += $deduction['value'];
                         }
                     }
+                    
+                    // Fetch employee-specific allowances
+                    $stmt_allowances = $pdo->prepare("SELECT ea.*, ac.name, ac.type, ac.rate FROM employee_allowances ea JOIN allowance_categories ac ON ea.category_id = ac.id WHERE ea.employee_id = ? AND ea.company_id = ? AND (ea.effective_date IS NULL OR ea.effective_date <= ?)");
+                    $stmt_allowances->execute([$emp['id'], $_SESSION['company_id'], $end_date]);
+                    $employee_allowances = $stmt_allowances->fetchAll();
+                    
+                    // Calculate total allowances
+                    $total_allowances = 0;
+                    foreach ($employee_allowances as $allowance) {
+                        $amount = $allowance['override_amount'] ?? null;
+                        if ($amount === null) {
+                            $amount = $allowance['type'] === 'Percentage' ? $earned_pay * ($allowance['rate'] / 100) : $allowance['rate'];
+                        }
+                        $total_allowances += (float)$amount;
+                    }
+                    
+                    // Fetch employee-specific deductions
+                    $stmt_emp_deductions = $pdo->prepare("SELECT ed.*, d.name, d.type, d.value FROM employee_deductions ed JOIN deductions d ON ed.deduction_id = d.id WHERE ed.employee_id = ? AND ed.company_id = ? AND (ed.effective_date IS NULL OR ed.effective_date <= ?)");
+                    $stmt_emp_deductions->execute([$emp['id'], $_SESSION['company_id'], $end_date]);
+                    $employee_deductions = $stmt_emp_deductions->fetchAll();
+                    
+                    // Calculate employee-specific deductions
+                    $employee_specific_deductions = 0;
+                    foreach ($employee_deductions as $deduction) {
+                        $amount = $deduction['override_amount'] ?? null;
+                        if ($amount === null) {
+                            $amount = $deduction['type'] === 'percentage' ? $earned_pay * ($deduction['value'] / 100) : $deduction['value'];
+                        }
+                        $employee_specific_deductions += (float)$amount;
+                    }
+                    
+                    // Add employee-specific deductions to total
+                    $total_deductions += $employee_specific_deductions;
 
                     $stmt_loans = $pdo->prepare("SELECT id, amount FROM loans WHERE employee_id = ? AND company_id = ? AND status = 'Approved'");
                     $stmt_loans->execute([$emp['id'], $_SESSION['company_id']]);
@@ -1679,7 +1844,7 @@ try {
                         $pdo->prepare("UPDATE loans SET status = 'Paid' WHERE id = ?")->execute([$loan['id']]);
                     }
 
-                    $net_pay = $earned_pay - $total_deductions;
+                    $net_pay = $earned_pay + $total_allowances - $total_deductions;
 
                     $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
                                          VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");

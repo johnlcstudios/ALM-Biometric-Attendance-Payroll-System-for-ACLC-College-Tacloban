@@ -52,8 +52,24 @@
                     </div>
                     
                     <div class="form-group-custom">
-                        <label>Deduction Types</label>
-                        <div class="selection-box-gray" id="deductionTypesList">
+                        <label>Select Deduction Types</label>
+                        <div class="multi-select-container" id="deductionTypesList">
+                            <div class="multi-select-header" onclick="toggleMultiSelect('deduction')">
+                                <span class="multi-select-placeholder">Select deduction types...</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="multi-select-dropdown" id="deductionDropdown">
+                                <div class="multi-select-search">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" placeholder="Search..." id="deductionSearch" oninput="filterMultiSelect('deduction')">
+                                </div>
+                                <div class="multi-select-options" id="deductionOptions">
+                                    <!-- Options will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="multi-select-selected" id="deductionSelected">
+                                <!-- Selected items will appear here -->
+                            </div>
                         </div>
                     </div>
 

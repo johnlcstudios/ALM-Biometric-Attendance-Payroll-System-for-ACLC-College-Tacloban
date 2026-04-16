@@ -38,7 +38,92 @@ try {
         if (!$silent) echo "'dob' column already exists in 'employees' table.\n";
     }
 
-    // 1.1 Update status ENUM in 'employees' table
+    // 1.1 Check for 'faculty_level' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'faculty_level'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'faculty_level' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN faculty_level ENUM('SHS', 'College', 'Both', '') DEFAULT '' AFTER position");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'faculty_level' column already exists in 'employees' table.\n";
+    }
+
+    // 1.2 Check for 'hire_date' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'hire_date'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'hire_date' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN hire_date DATE AFTER faculty_level");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'hire_date' column already exists in 'employees' table.\n";
+    }
+
+    // 1.3 Check for 'contact_no' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'contact_no'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'contact_no' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN contact_no VARCHAR(20) AFTER email");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'contact_no' column already exists in 'employees' table.\n";
+    }
+
+    // 1.4 Check for 'gender' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'gender'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'gender' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN gender ENUM('Male', 'Female', 'Other') DEFAULT 'Male' AFTER contact_no");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'gender' column already exists in 'employees' table.\n";
+    }
+
+    // 1.5 Check for 'profile_picture' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'profile_picture'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'profile_picture' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN profile_picture VARCHAR(255) AFTER gender");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'profile_picture' column already exists in 'employees' table.\n";
+    }
+
+    // 1.6 Check for 'reinstated_at' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'reinstated_at'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'reinstated_at' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN reinstated_at DATETIME NULL AFTER hire_date");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'reinstated_at' column already exists in 'employees' table.\n";
+    }
+
+    // 1.7 Check for 'reinstated_by' column in 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'reinstated_by'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'reinstated_by' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN reinstated_by INT NULL AFTER reinstated_at");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'reinstated_by' column already exists in 'employees' table.\n";
+    }
+
+    // 1.8 Check for 'is_active' column in 'users' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM users LIKE 'is_active'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'is_active' column to 'users' table... ";
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER email");
+        if (!$silent) echo "DONE\n";
+        
+        // Set all existing users as active
+        if (!$silent) echo "Setting existing users as active... ";
+        $pdo->exec("UPDATE users SET is_active = TRUE WHERE is_active IS NULL");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'is_active' column already exists in 'users' table.\n";
+    }
+
+    // 1.9 Update status ENUM in 'employees' table
     if (!$silent) echo "Updating status ENUM in 'employees' table... ";
     $pdo->exec("ALTER TABLE employees MODIFY COLUMN status ENUM('Active', 'Inactive', 'On Leave', 'Probationary', 'Contractual', 'Resigned') DEFAULT 'Active'");
     if (!$silent) echo "DONE\n";

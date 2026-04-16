@@ -27,6 +27,9 @@ if (isset($_SESSION['user_id'])) {
 <!-- SweetAlert2 (local with CDN fallback) -->
 <script src="js/sweetalert2.all.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/sweetalert2@11'"></script>
 
+<!-- Custom Context Menu Styles -->
+<link rel="stylesheet" href="css/style.css">
+
 <style>
 * {
     margin: 0;
@@ -765,6 +768,9 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
     }
 });
 </script>
+
+<!-- Custom Context Menu -->
+<script src="js/context-menu.js?v=1.0"></script>
 
 </body>
 </html>
