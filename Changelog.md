@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.9] **Saturday Release**  - 2026-04-12
+
+### Merge
+- Merged `Frontend` branch into `main` branch.
+
+### Added
+- **Modernized Notification System**:
+    - Replaced all legacy PHP `echo` alerts and native JavaScript `alert`, `confirm`, and `prompt` dialogs with a modern GUI-based notification system powered by **SweetAlert2**.
+    - Implemented `backend/notifications.php` helper to handle server-side triggered alerts and toasts.
+    - Standardized success, error, warning, and info messages with consistent icons and auto-dismissing toasts for non-critical feedback.
+- **Frontend Integration**:
+    - Merged the latest enhancements and bug fixes from the `Frontend` branch into the core system.
+
+### Changed
+- **System Initialization**:
+    - Refactored `js/script.js` to integrate SweetAlert2 modals for critical user interactions, ensuring a smoother and more professional user experience.
+    - Updated `setup-db.php`, `backend/db.php`, and `backend/update_db.php` to use GUI-based progress reporting.
+
 ## [1.4.5] - 2026-04-09
 
 ### Added

@@ -5,6 +5,7 @@
  */
 
 require_once 'db.php';
+require_once 'notifications.php';
 
 if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -21,6 +22,7 @@ if (php_sapi_name() !== 'cli' && !defined('INTERNAL_UPDATE')) {
 $silent = defined('INTERNAL_UPDATE') && INTERNAL_UPDATE === true;
 
 if (!$silent) {
+    echo "<!DOCTYPE html><html><head><title>Database Update</title><script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script><style>body{font-family:sans-serif;padding:20px;line-height:1.6;background:#f4f7f6;} .container{background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:800px;margin:0 auto;} h2{color:#1e0178;border-bottom:2px solid #1e0178;padding-bottom:10px;} pre{background:#2d2d2d;color:#ccc;padding:15px;border-radius:5px;overflow-x:auto;font-size:14px;}</style></head><body><div class='container'>";
     echo "<h2>Biometric Attendance & Payroll System - Database Updater</h2>";
     echo "<pre>";
 }
@@ -317,12 +319,20 @@ try {
         if (!$silent) echo "'subject_loads' table already exists.\n";
     }
 
-    if (!$silent) echo "\n<b>Database update completed successfully!</b>";
-    if (!$silent) echo "\n<a href='index.php'>Return to Dashboard</a>";
+    if (!$silent) {
+        echo "\n<b>Database update completed successfully!</b>";
+        echo "\n<a href='index.php'>Return to Dashboard</a>";
+        echo "</pre></div>";
+        showNotification("Database update completed successfully!", "success", "index.php");
+        echo "</body></html>";
+    }
 
 } catch (Exception $e) {
-    if (!$silent) echo "\n<span style='color:red;'>ERROR: " . $e->getMessage() . "</span>";
+    if (!$silent) {
+        echo "\n<span style='color:red;'>ERROR: " . $e->getMessage() . "</span>";
+        echo "</pre></div>";
+        showNotification("Database update failed: " . $e->getMessage(), "error");
+        echo "</body></html>";
+    }
 }
-
-if (!$silent) echo "</pre>";
 ?>

@@ -67,6 +67,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script src="js/face-api-manager.js"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
