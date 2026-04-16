@@ -30,23 +30,6 @@
         </div>
     </div>
 
-    <div class="attendance-controls card">
-        <div class="control-group">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="attendanceSearch" placeholder="Search by name or ID..." oninput="attendanceFilter(this)">
-
-            </div>
-        </div>
-        <div class="control-group right">
-            <div class="filter-item">
-                <label><i class="fas fa-calendar-day"></i> Filter Date</label>
-                <input type="date" id="attendanceDateFilter" class="form-control-gray">
-            </div>
-            <button class="btn btn-secondary" onclick="exportAttendance()"><i class="fas fa-download"></i> Export</button>
-        </div>
-    </div>
-
     <div class="table-container modern-table-wrapper">
         <table id="attendanceTable" class="modern-table">
             <thead>

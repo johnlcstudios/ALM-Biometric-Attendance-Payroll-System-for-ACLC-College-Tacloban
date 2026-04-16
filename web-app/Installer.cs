@@ -16,6 +16,7 @@ namespace ALMInstaller
         private ProgressBar progressBar;
         private CheckBox chkDatabase;
         private CheckBox chkDependencies;
+        private CheckBox chkOpenDiagnostic;
 
         public InstallerForm()
         {
@@ -26,7 +27,7 @@ namespace ALMInstaller
         {
             // Professional corporate design - compact single-screen layout
             this.Text = "ALM Biometrics System - Installer";
-            this.Size = new Size(680, 620);
+            this.Size = new Size(680, 700);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -61,7 +62,7 @@ namespace ALMInstaller
 
             // Version badge
             Label lblVersion = new Label();
-            lblVersion.Text = "Version 2.4.0";
+            lblVersion.Text = "Version 2.5.0";
             lblVersion.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             lblVersion.ForeColor = Color.FromArgb(180, 200, 230);
             lblVersion.Location = new Point(560, 55);
@@ -259,6 +260,37 @@ namespace ALMInstaller
             this.Controls.Add(depPanel);
             yOffset += 85;
 
+            // Open diagnostic tool checkbox
+            Panel diagPanel = new Panel {
+                Location = new Point(30, yOffset),
+                Size = new Size(620, 70),
+                BackColor = Color.FromArgb(248, 248, 248),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            chkOpenDiagnostic = new CheckBox {
+                Text = "Open Face-API Models diagnostic tool after installation",
+                Location = new Point(15, 10),
+                Width = 590,
+                Checked = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(40, 40, 40)
+            };
+
+            Label lblDiagDesc = new Label {
+                Text = "Verifies that face recognition models are properly configured and accessible",
+                Location = new Point(40, 34),
+                Width = 565,
+                AutoSize = false,
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 100, 100)
+            };
+
+            diagPanel.Controls.Add(chkOpenDiagnostic);
+            diagPanel.Controls.Add(lblDiagDesc);
+            this.Controls.Add(diagPanel);
+            yOffset += 85;
+
             // Separator line
             Panel separator2 = new Panel {
                 Location = new Point(30, yOffset),
@@ -324,7 +356,7 @@ namespace ALMInstaller
         
             // Footer
             Panel footerPanel = new Panel {
-                Location = new Point(0, 570),
+                Location = new Point(0, 650),
                 Size = new Size(680, 50),
                 BackColor = Color.FromArgb(245, 245, 245)
             };
@@ -398,13 +430,33 @@ namespace ALMInstaller
                         DownloadDependencies(targetPath);
                     }
 
+                    // Open diagnostic tool if checkbox is checked
+                    if (chkOpenDiagnostic.Checked) {
+                        try {
+                            string diagnosticUrl = "http://localhost/ALM-Biometrics/AI-ML-Test-Bench/check-models.html";
+                            Process.Start(new ProcessStartInfo {
+                                FileName = diagnosticUrl,
+                                UseShellExecute = true
+                            });
+                        } catch {
+                            // Ignore if browser can't open
+                        }
+                    }
+
                     this.Invoke((MethodInvoker)delegate {
                         progressBar.Style = ProgressBarStyle.Continuous;
                         progressBar.Value = 100;
                         lblStatus.Text = "Installation Complete!";
                         lblStatus.ForeColor = Color.FromArgb(40, 167, 69);
-                        string msg = string.Format("ALM Biometrics v2.4.0 Build9 installed successfully!\n\n");
+                        string msg = string.Format("ALM Biometrics v2.5.0 installed successfully!\n\n");
                         msg += "NEW FEATURES:\n";
+                        msg += "• Enhanced Payslip with Detailed Deduction Breakdown\n";
+                        msg += "• Employee-Specific Allowances in Payroll\n";
+                        msg += "• Employee-Specific Deductions in Payroll\n";
+                        msg += "• Smart Model Loading (multi-path fallback)\n";
+                        msg += "• Face-API Models Setup Checker Tool\n";
+                        msg += "• Improved Error Messages & Diagnostics\n";
+                        msg += "• MIME Type Configuration for Model Files\n";
                         msg += "• Faculty Level Tracking (SHS, College, Both)\n";
                         msg += "• Hire Date Management for payroll protection\n";
                         msg += "• Resignation Decline functionality\n";
@@ -418,11 +470,12 @@ namespace ALMInstaller
                         msg += "• Automatic Faculty & Utility Payroll Calculation\n\n";
                         msg += "You can now launch it from the Desktop shortcut.";
                         if (chkDatabase.Checked) {
-                            msg += "\n\nDatabase and all migrations (001-004) have been set up automatically.";
+                            msg += "\n\nDatabase and all migrations have been set up automatically.";
                         }
                         if (chkDependencies.Checked) {
                             msg += "\n\nOffline dependencies (Font Awesome, SweetAlert2, Google Fonts) have been downloaded.";
                         }
+                        msg += "\n\nTIP: Run check-models.html to verify face recognition setup.";
                         MessageBox.Show(msg, "Installation Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         btnInstall.Enabled = true;
                         btnInstall.Text = "Install Now";

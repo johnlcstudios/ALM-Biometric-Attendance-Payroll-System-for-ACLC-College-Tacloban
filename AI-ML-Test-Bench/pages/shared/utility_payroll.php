@@ -39,6 +39,7 @@
                     <th>Net Pay</th>
                     <th>ATM</th>
                     <th>Non ATM</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="utilityPayrollTableBody">

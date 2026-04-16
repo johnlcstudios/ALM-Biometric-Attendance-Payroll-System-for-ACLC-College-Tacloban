@@ -1,5 +1,5 @@
 <!-- Modals -->
-<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 100001; pointer-events: none;"></div>
 
 <div id="employeeModal" class="modal">
     <div class="modal-content large-modal">

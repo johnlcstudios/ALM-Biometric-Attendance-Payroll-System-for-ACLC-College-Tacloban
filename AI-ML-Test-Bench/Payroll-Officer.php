@@ -66,7 +66,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
 </head>
 <body class="role-payroll">
     <div class="app-container">
-        <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 999999; display: flex; align-items: center; justify-content: center; pointer-events: auto;">
             <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: var(--primary-color);"></i>
         </div>
 
