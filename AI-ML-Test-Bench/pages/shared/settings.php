@@ -107,7 +107,7 @@ $company = $stmt_company->fetch();
         <div class="settings-card">
             <h3>Admin Tools</h3>
             <div class="setting-item">
-                <div>
+                <!-- <div>
                     <strong>Manage Access</strong>
                     <p class="small text-muted">Assign Payroll Officers and HR roles.</p>
                 </div>
@@ -119,7 +119,7 @@ $company = $stmt_company->fetch();
                     <p class="small text-muted">Configure academic units for Faculty.</p>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="showPage('subject_loads')">Configure Loads</button>
-            </div>
+            </div> -->
             <div class="setting-item">
                 <div>
                     <strong>Company Code</strong>
@@ -128,10 +128,7 @@ $company = $stmt_company->fetch();
                 </div>
                 <input type="text" value="<?php echo htmlspecialchars($company['company_code'], ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
             </div>
-        </div>
-        <?php endif; ?>
-
-        <div class="settings-card">
+            <div class="settings-card">
             <h3>Backup & Security</h3>
             <div class="setting-item">
                 <div>
@@ -157,5 +154,9 @@ $company = $stmt_company->fetch();
                 <button class="btn btn-secondary btn-sm" onclick="openModal('passwordModal')">Change Password</button>
             </div>
         </div>
+        </div>
+        <?php endif; ?>
+
+        
     </div>
 </section>
