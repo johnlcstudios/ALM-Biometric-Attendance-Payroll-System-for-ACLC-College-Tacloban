@@ -139,7 +139,7 @@ $company = $stmt_company->fetch();
                     <strong>System Backup</strong>
                     <p class="small text-muted">Download current database state.</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="Swal.fire({ icon: 'info', title: 'Backup Note', text: 'Backup functionality is handled via MySQL Workbench or phpMyAdmin for security.', confirmButtonColor: '#1e0178' })">Download SQL</button>
+                <button class="btn btn-secondary btn-sm" onclick="window.open('backend/backup.php?action=download')">Download SQL</button>
             </div>
             <div class="setting-item">
                 <div>
