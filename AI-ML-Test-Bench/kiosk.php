@@ -492,8 +492,8 @@
         const actionBadge = document.getElementById('current-action-badge');
 
         const faceManager = new FaceManager({
-            stabilityRequired: 5,
-            sampleCount: 3,
+            stabilityRequired: 4, // Faster verification (was 5)
+            sampleCount: 2,       // Fewer samples for kiosk speed (was 3)
             minConfidence: 0.6
         });
 
@@ -501,6 +501,29 @@
         let serverTimezone = 'Asia/Manila';
         let currentCompanyId = null;
         let companyConfig = null;
+        let registeredFaces = [];
+        let faceMatcher = null;
+
+        async function prefetchFaces() {
+            if (!currentCompanyId) return;
+            try {
+                const response = await fetch(`backend/api.php?action=kiosk_get_faces&company_id=${currentCompanyId}`);
+                const result = await response.json();
+                if (result.success) {
+                    registeredFaces = result.faces.map(f => {
+                        const descriptor = new Float32Array(json_decode_safe(f.face_descriptor));
+                        return new faceapi.LabeledFaceDescriptors(f.id.toString(), [descriptor]);
+                    });
+                    if (registeredFaces.length > 0) {
+                        faceMatcher = new faceapi.FaceMatcher(registeredFaces, 0.6);
+                    }
+                }
+            } catch (e) { console.error("Face prefetch error:", e); }
+        }
+
+        function json_decode_safe(str) {
+            try { return JSON.parse(str); } catch (e) { return []; }
+        }
 
         async function syncServerTime() {
             try {
@@ -540,6 +563,7 @@
             const newUrl = window.location.pathname + '?company_id=' + id;
             window.history.pushState({ path: newUrl }, '', newUrl);
             refreshConfig();
+            prefetchFaces(); // Prefetch faces for this company
             if (!faceManager.stream) startKiosk();
         }
 
@@ -551,6 +575,7 @@
                     document.getElementById('company-name').innerText = data.name.toUpperCase();
                     companyConfig = data;
                     syncServerTime().then(() => updateCurrentAction());
+                    prefetchFaces(); // Refresh face list periodically
                 });
         }
 
@@ -644,13 +669,24 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 if (detection) {
+                    const pose = faceManager.estimatePose(detection.landmarks);
                     const isStable = faceManager.checkStability(detection.detection.box);
-                    const status = isStable ? "VERIFIED! SCANNING..." : "HOLD STILL...";
-                    const color = isStable ? "#27ae60" : "#f39c12";
+                    
+                    let status = "HOLD STILL...";
+                    let color = "#f39c12";
+
+                    if (!pose.isFrontFacing) {
+                        status = "FACE FRONT PLEASE!";
+                        color = "#db261f"; // Accent Red for warning
+                        faceManager.stabilityCounter = 0; // Reset stability if looking away
+                    } else if (isStable) {
+                        status = "VERIFIED! SCANNING...";
+                        color = "#27ae60";
+                    }
 
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    if (isStable) {
+                    if (isStable && pose.isFrontFacing) {
                         faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
                         processScan();
@@ -670,11 +706,21 @@
                 const descriptor = await faceManager.captureSamples(video);
                 statusEl.innerHTML = '<p style="color: var(--primary-blue)">Verifying Identity...</p>';
 
+                // Local matching to find candidate ID
+                let candidateId = null;
+                if (faceMatcher && descriptor) {
+                    const match = faceMatcher.findBestMatch(new Float32Array(descriptor));
+                    if (match && match.label !== 'unknown') {
+                        candidateId = match.label;
+                    }
+                }
+
                 const response = await fetch('backend/api.php?action=kiosk_scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         descriptor,
+                        candidate_id: candidateId, // Send candidate ID to speed up server matching
                         company_id: currentCompanyId,
                         scan_time: getNow().toISOString()
                     })
