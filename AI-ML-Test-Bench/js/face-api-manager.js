@@ -22,19 +22,42 @@ class FaceManager {
 
     async loadModels() {
         if (this.modelsLoaded) return true;
-        try {
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(this.config.modelUrl),
-                faceapi.nets.ssdMobilenetv1.loadFromUri(this.config.modelUrl),
-                faceapi.nets.faceLandmark68Net.loadFromUri(this.config.modelUrl),
-                faceapi.nets.faceRecognitionNet.loadFromUri(this.config.modelUrl)
-            ]);
-            this.modelsLoaded = true;
-            return true;
-        } catch (err) {
-            console.error("FaceManager: Model loading failed", err);
-            throw new Error("Failed to load face recognition models.");
+        
+        // Try multiple times with different paths
+        const pathsToTry = [
+            this.config.modelUrl,
+            './models/',
+            'models/',
+            '/models/',
+            window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/models/'
+        ];
+        
+        let lastError = null;
+        
+        for (const modelPath of pathsToTry) {
+            try {
+                console.log(`FaceManager: Trying to load models from: ${modelPath}`);
+                
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(modelPath),
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(modelPath),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(modelPath)
+                ]);
+                
+                this.modelsLoaded = true;
+                console.log(`FaceManager: Models loaded successfully from: ${modelPath}`);
+                return true;
+            } catch (err) {
+                console.warn(`FaceManager: Failed to load models from ${modelPath}:`, err.message);
+                lastError = err;
+                // Continue to next path
+            }
         }
+        
+        // All paths failed
+        console.error("FaceManager: Model loading failed from all paths", lastError);
+        throw new Error("Failed to load face recognition models. Please check browser console for details.");
     }
 
     async startCamera(videoElement, width = 640, height = 480) {

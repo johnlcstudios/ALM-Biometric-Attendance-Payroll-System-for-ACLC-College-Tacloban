@@ -483,6 +483,8 @@
             border: 1px solid rgba(255, 255, 255, 0.25) !important;
             border-radius: 20px !important;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            z-index: 100001 !important;
+            position: relative !important;
         }
         .glass-toast-title { color: #ffffff !important; font-weight: 600 !important; }
         .glass-toast-progress { height: 3px !important; background: linear-gradient(90deg, rgba(79, 172, 254, 0.4), rgba(79, 172, 254, 0.8)) !important; }
@@ -714,16 +716,57 @@
             const statusLabel = document.getElementById('loading-status');
             try {
                 statusLabel.innerText = "Loading AI Models...";
+                statusLabel.style.color = "#f39c12";
+                
                 await faceManager.loadModels();
-
-                statusLabel.innerText = "Starting Camera...";
-                await faceManager.startCamera(video);
-
-                document.getElementById('placeholder').style.display = 'none';
-                detectLoop();
+                
+                statusLabel.innerText = "AI Models Loaded ✓";
+                statusLabel.style.color = "#27ae60";
+                
+                setTimeout(async () => {
+                    statusLabel.innerText = "Starting Camera...";
+                    statusLabel.style.color = "#f39c12";
+                    
+                    try {
+                        await faceManager.startCamera(video);
+                        document.getElementById('placeholder').style.display = 'none';
+                        statusLabel.innerText = "System Ready";
+                        statusLabel.style.color = "#27ae60";
+                        detectLoop();
+                    } catch (cameraErr) {
+                        console.error('Camera Error:', cameraErr);
+                        statusLabel.innerHTML = `<p class="text-danger">Camera Error: ${cameraErr.message}</p>`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Camera Access Failed',
+                            html: `<p>${cameraErr.message}</p>
+                                   <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                   Please ensure:<br>
+                                   • Camera is not being used by another application<br>
+                                   • Browser has camera permissions<br>
+                                   • You're using HTTPS or localhost</p>`,
+                            confirmButtonText: 'Try Again'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    }
+                }, 500);
+                
             } catch (err) {
-                console.error(err);
-                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`;
+                console.error('Model Loading Error:', err);
+                statusLabel.innerHTML = `<p class="text-danger">Failed to load AI models</p>`;
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'AI Models Failed to Load',
+                    html: `<p style="text-align: left; font-size: 0.9em;">
+                           <strong>Possible causes:</strong><br>
+                           • Model files are missing from <code>models/</code> folder<br>
+                           • Web server is not configured correctly<br>
+                           • Browser cannot access the model files<br><br>
+                           <strong>Check browser console (F12) for detailed errors.</strong></p>`,
+                    footer: `<a href="javascript:location.reload()" style="color: #667eea;">Click here to retry</a>`
+                });
             }
         }
 

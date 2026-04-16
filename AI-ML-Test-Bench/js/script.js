@@ -96,11 +96,14 @@ function showToast(message, type = 'info') {
         customClass: {
             popup: 'glass-toast-popup',
             title: 'glass-toast-title',
-            timerProgressBar: 'glass-toast-progress'
+            timerProgressBar: 'glass-toast-progress',
+            container: 'swal2-toast-container'
         },
         didOpen: (toast) => {
             toast.addEventListener('mouseenter', Swal.stopTimer)
             toast.addEventListener('mouseleave', Swal.resumeTimer)
+            // Ensure toast doesn't block interactions with elements behind it when closed
+            toast.style.pointerEvents = 'auto';
         }
     });
 
@@ -110,15 +113,356 @@ function showToast(message, type = 'info') {
     });
 }
 
+// ==========================================
+// TABLE PAGINATION, SEARCH & FILTER SYSTEM
+// ==========================================
+
+// Global table state management
+const TableState = {
+    employees: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    attendance: {
+        currentPage: 1,
+        rowsPerPage: 15,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    payroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    facultyPayroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    utilityPayroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    }
+};
+
+// Initialize table with pagination, search, and filters
+function initializeTable(tableName, options = {}) {
+    const state = TableState[tableName];
+    if (!state) return;
+    
+    state.rowsPerPage = options.rowsPerPage || state.rowsPerPage;
+    
+    // Create controls container if it doesn't exist
+    const tableSection = document.getElementById(tableName === 'employees' ? 'employees' : 
+                                                  tableName === 'attendance' ? 'attendance' : 
+                                                  tableName === 'payroll' ? 'payroll' :
+                                                  tableName === 'facultyPayroll' ? 'faculty_payroll' : 'utility_payroll');
+    
+    if (!tableSection) return;
+    
+    // Add controls before table
+    let controlsContainer = tableSection.querySelector('.table-controls');
+    if (!controlsContainer) {
+        controlsContainer = document.createElement('div');
+        controlsContainer.className = 'table-controls';
+        controlsContainer.innerHTML = generateTableControlsHTML(tableName, options);
+        
+        const tableWrapper = tableSection.querySelector('.table-container') || 
+                            tableSection.querySelector('.payroll-table-container') ||
+                            tableSection.querySelector('.modern-table-wrapper') ||
+                            tableSection.querySelector('table');
+        
+        if (tableWrapper) {
+            tableWrapper.parentNode.insertBefore(controlsContainer, tableWrapper);
+        }
+    }
+    
+    // Add pagination after table
+    let paginationContainer = tableSection.querySelector('.table-pagination');
+    if (!paginationContainer) {
+        paginationContainer = document.createElement('div');
+        paginationContainer.className = 'table-pagination';
+        paginationContainer.id = `${tableName}-pagination`;
+        
+        const tableWrapper = tableSection.querySelector('.table-container') || 
+                            tableSection.querySelector('.payroll-table-container') ||
+                            tableSection.querySelector('.modern-table-wrapper') ||
+                            tableSection.querySelector('table');
+        
+        if (tableWrapper) {
+            tableWrapper.parentNode.insertBefore(paginationContainer, tableWrapper.nextSibling);
+        }
+    }
+    
+    // Attach event listeners
+    attachTableEventListeners(tableName, options);
+}
+
+// Generate HTML for table controls
+function generateTableControlsHTML(tableName, options) {
+    const showSearch = options.showSearch !== false;
+    const showFilters = options.showFilters !== false;
+    const showRowsPerPage = options.showRowsPerPage !== false;
+    
+    let html = '<div class="table-controls-left">';
+    
+    // Search box
+    if (showSearch) {
+        html += `
+            <div class="table-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="${tableName}-search" placeholder="Search by name or employee ID..." oninput="handleTableSearch('${tableName}', this.value)">
+            </div>
+        `;
+    }
+    
+    // Filters
+    if (showFilters && options.filters) {
+        html += '<div class="table-filters">';
+        options.filters.forEach(filter => {
+            html += generateFilterHTML(tableName, filter);
+        });
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    
+    // Right side - Rows per page
+    if (showRowsPerPage) {
+        html += `
+            <div class="table-controls-right">
+                <div class="rows-per-page">
+                    <label>Rows per page:</label>
+                    <select id="${tableName}-rows" onchange="handleRowsPerPageChange('${tableName}', this.value)">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
+// Generate individual filter HTML
+function generateFilterHTML(tableName, filter) {
+    switch(filter.type) {
+        case 'select':
+            return `
+                <div class="table-filter-item">
+                    <label>${filter.label}</label>
+                    <select id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                        <option value="">All</option>
+                        ${filter.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        case 'date':
+            return `
+                <div class="table-filter-item">
+                    <label>${filter.label}</label>
+                    <input type="date" id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                </div>
+            `;
+        default:
+            return '';
+    }
+}
+
+// Attach event listeners to table controls
+function attachTableEventListeners(tableName, options) {
+    // Set initial rows per page value
+    const rowsSelect = document.getElementById(`${tableName}-rows`);
+    if (rowsSelect) {
+        rowsSelect.value = TableState[tableName].rowsPerPage;
+    }
+}
+
+// Handle search input
+function handleTableSearch(tableName, searchTerm) {
+    TableState[tableName].searchTerm = searchTerm.toLowerCase();
+    TableState[tableName].currentPage = 1; // Reset to first page on search
+    refreshTable(tableName);
+}
+
+// Handle filter change
+function handleTableFilter(tableName, filterId, value) {
+    TableState[tableName].filters[filterId] = value;
+    TableState[tableName].currentPage = 1; // Reset to first page on filter change
+    refreshTable(tableName);
+}
+
+// Handle rows per page change
+function handleRowsPerPageChange(tableName, value) {
+    TableState[tableName].rowsPerPage = parseInt(value);
+    TableState[tableName].currentPage = 1; // Reset to first page
+    refreshTable(tableName);
+}
+
+// Apply search and filters to data
+function applyTableFilters(tableName, data, searchFields = ['full_name', 'employee_id', 'emp_code']) {
+    const state = TableState[tableName];
+    let filtered = data;
+    
+    // Apply search
+    if (state.searchTerm) {
+        filtered = filtered.filter(item => {
+            return searchFields.some(field => {
+                const value = item[field];
+                return value && value.toString().toLowerCase().includes(state.searchTerm);
+            });
+        });
+    }
+    
+    // Apply filters
+    Object.keys(state.filters).forEach(filterId => {
+        const filterValue = state.filters[filterId];
+        if (filterValue) {
+            filtered = filtered.filter(item => {
+                if (filterId === 'position') return item.position === filterValue;
+                if (filterId === 'department') return item.department === filterValue;
+                if (filterId === 'status') return item.status === filterValue;
+                if (filterId === 'date') return item.log_date === filterValue;
+                if (filterId === 'dateFrom') return item.log_date >= filterValue;
+                if (filterId === 'dateTo') return item.log_date <= filterValue;
+                if (filterId === 'period') return item.period === filterValue;
+                // Add more filter logic as needed
+                return true;
+            });
+        }
+    });
+    
+    state.filteredData = filtered;
+    return filtered;
+}
+
+// Get paginated data
+function getPaginatedData(tableName, filteredData) {
+    const state = TableState[tableName];
+    const start = (state.currentPage - 1) * state.rowsPerPage;
+    const end = start + state.rowsPerPage;
+    return filteredData.slice(start, end);
+}
+
+// Render pagination controls
+function renderPagination(tableName, totalItems) {
+    const state = TableState[tableName];
+    const totalPages = Math.ceil(totalItems / state.rowsPerPage);
+    const paginationContainer = document.getElementById(`${tableName}-pagination`);
+    
+    if (!paginationContainer) return;
+    
+    const startItem = totalItems === 0 ? 0 : (state.currentPage - 1) * state.rowsPerPage + 1;
+    const endItem = Math.min(state.currentPage * state.rowsPerPage, totalItems);
+    
+    let html = `
+        <div class="pagination-info">
+            Showing <strong>${startItem}-${endItem}</strong> of <strong>${totalItems}</strong> records
+        </div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" onclick="changePage('${tableName}', 1)" ${state.currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-angle-double-left"></i> First
+            </button>
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-angle-left"></i> Prev
+            </button>
+    `;
+    
+    // Page numbers
+    html += '<div class="pagination-numbers">';
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, state.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="page-number ${i === state.currentPage ? 'active' : ''}" onclick="changePage('${tableName}', ${i})">${i}</button>`;
+    }
+    html += '</div>';
+    
+    html += `
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage + 1})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
+                Next <i class="fas fa-angle-right"></i>
+            </button>
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${totalPages})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
+                Last <i class="fas fa-angle-double-right"></i>
+            </button>
+        </div>
+    `;
+    
+    paginationContainer.innerHTML = html;
+}
+
+// Change page
+function changePage(tableName, page) {
+    const state = TableState[tableName];
+    const filteredData = state.filteredData;
+    const totalPages = Math.ceil(filteredData.length / state.rowsPerPage);
+    
+    if (page < 1 || page > totalPages) return;
+    
+    state.currentPage = page;
+    refreshTable(tableName);
+}
+
+// Refresh table display
+function refreshTable(tableName) {
+    switch(tableName) {
+        case 'employees':
+            renderEmployeeTable();
+            break;
+        case 'attendance':
+            renderAttendanceTable();
+            break;
+        case 'payroll':
+            renderPayrollTable();
+            break;
+        case 'facultyPayroll':
+            loadFacultyPayroll('latest');
+            break;
+        case 'utilityPayroll':
+            loadUtilityPayroll('latest');
+            break;
+    }
+}
+
+// ==========================================
+// END TABLE PAGINATION SYSTEM
+// ==========================================
+
 // Helper function for glass morphism modal dialogs
 function showGlassModal(options = {}) {
     const defaultOptions = {
         customClass: {
             popup: 'glass-modal',
-            container: 'glass-backdrop'
+            container: 'glass-backdrop',
+            backdrop: 'swal2-backdrop'
         },
         background: 'transparent',
-        backdrop: 'rgba(0,0,0,0.5)'
+        backdrop: 'rgba(0,0,0,0.6)',
+        showClass: {
+            popup: 'swal2-show'
+        },
+        hideClass: {
+            popup: 'swal2-hide'
+        }
     };
     
     const mergedOptions = { ...defaultOptions, ...options };
@@ -145,6 +489,20 @@ if (!document.getElementById('toast-styles')) {
             min-width: 320px !important;
             max-width: 400px !important;
             animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            z-index: 100001 !important;
+            position: relative !important;
+        }
+        
+        /* Toast container - highest z-index */
+        .swal2-container.swal2-top-end,
+        .swal2-container.swal2-top-right {
+            z-index: 100001 !important;
+            pointer-events: none !important;
+        }
+        
+        .swal2-container.swal2-top-end > .swal2-popup,
+        .swal2-container.swal2-top-right > .swal2-popup {
+            pointer-events: auto !important;
         }
         
         .glass-toast-popup.swal2-icon-success {
@@ -571,7 +929,58 @@ function renderEmployeeTable() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = employees.map(emp => {
+    // Initialize table with pagination and search
+    if (!document.getElementById('employees-search')) {
+        initializeTable('employees', {
+            rowsPerPage: 10,
+            showSearch: true,
+            showFilters: true,
+            filters: [
+                {
+                    id: 'position',
+                    label: 'Position',
+                    type: 'select',
+                    options: [
+                        { value: 'Faculty', label: 'Faculty' },
+                        { value: 'Staff', label: 'Staff' },
+                        { value: 'Utility', label: 'Utility' },
+                        { value: 'Payroll Officer', label: 'Payroll Officer' }
+                    ]
+                },
+                {
+                    id: 'department',
+                    label: 'Department',
+                    type: 'select',
+                    options: [
+                        { value: 'IT', label: 'Information Technology' },
+                        { value: 'Education', label: 'Education' },
+                        { value: 'Admin', label: 'Administration' },
+                        { value: 'Utility', label: 'General Services' }
+                    ]
+                },
+                {
+                    id: 'status',
+                    label: 'Status',
+                    type: 'select',
+                    options: [
+                        { value: 'Active', label: 'Active' },
+                        { value: 'Probationary', label: 'Probationary' },
+                        { value: 'Contractual', label: 'Contractual' },
+                        { value: 'Resigned', label: 'Resigned' }
+                    ]
+                }
+            ]
+        });
+    }
+
+    // Apply filters and search
+    const filteredEmployees = applyTableFilters('employees', employees, ['full_name', 'employee_id', 'emp_code']);
+    
+    // Get paginated data
+    const paginatedEmployees = getPaginatedData('employees', filteredEmployees);
+    
+    // Render table rows
+    tbody.innerHTML = paginatedEmployees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
         const facultyLevel = (isFaculty && emp.faculty_level) ? emp.faculty_level : '---';
@@ -622,6 +1031,9 @@ function renderEmployeeTable() {
             </tr>
         `;
     }).join('') || '<tr><td colspan="9" class="text-center text-muted">No employees found.</td></tr>';
+    
+    // Render pagination
+    renderPagination('employees', filteredEmployees.length);
 }
 
 function renderMasterSubjects() {
@@ -1339,18 +1751,39 @@ function resetEmpModal() {
 function renderAttendanceTable() {
     const tbody = document.getElementById('attendanceTableBody');
     if (!tbody) return;
-    const dateFilter = document.getElementById('attendanceDateFilter').value;
-
-    let filteredLogs = attendanceLogs;
-    if (dateFilter) {
-        filteredLogs = attendanceLogs.filter(log => log.log_date === dateFilter);
+    
+    // Initialize table with pagination and search
+    if (!document.getElementById('attendance-search')) {
+        initializeTable('attendance', {
+            rowsPerPage: 15,
+            showSearch: true,
+            showFilters: true,
+            filters: [
+                {
+                    id: 'dateFrom',
+                    label: 'From Date',
+                    type: 'date'
+                },
+                {
+                    id: 'dateTo',
+                    label: 'To Date',
+                    type: 'date'
+                }
+            ]
+        });
     }
 
+    // Apply filters and search (name and employee ID only)
+    const filteredAttendance = applyTableFilters('attendance', attendanceLogs, ['full_name', 'emp_code']);
+    
+    // Get paginated data
+    const paginatedAttendance = getPaginatedData('attendance', filteredAttendance);
+    
     // Update Summary Stats
-    const totalLogs = filteredLogs.length;
-    const ontimeCount = filteredLogs.filter(l => l.status === 'On-Time').length;
-    const lateCount = filteredLogs.filter(l => l.status === 'Late').length;
-    const absentCount = filteredLogs.filter(l => l.status === 'Absent').length;
+    const totalLogs = filteredAttendance.length;
+    const ontimeCount = filteredAttendance.filter(l => l.status === 'On-Time').length;
+    const lateCount = filteredAttendance.filter(l => l.status === 'Late').length;
+    const absentCount = filteredAttendance.filter(l => l.status === 'Absent').length;
 
     if (document.getElementById('att-total-logs')) {
         document.getElementById('att-total-logs').innerText = totalLogs;
@@ -1359,7 +1792,7 @@ function renderAttendanceTable() {
         document.getElementById('att-absent-count').innerText = absentCount;
     }
 
-    tbody.innerHTML = filteredLogs.map(log => {
+    tbody.innerHTML = paginatedAttendance.map(log => {
         const status = log.status || '---';
         const statusClass = status.toLowerCase().replace(' ', '-');
 
@@ -1396,7 +1829,10 @@ function renderAttendanceTable() {
             </td>
         </tr>
     `;
-    }).join('');
+    }).join('') || '<tr><td colspan="8" class="text-center text-muted">No attendance records found.</td></tr>';
+    
+    // Render pagination
+    renderPagination('attendance', filteredAttendance.length);
 }
 
 function viewAttendanceDetails(id) {
@@ -1596,9 +2032,17 @@ async function loadFacultyPayroll(period = 'latest') {
                 <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
                 <td class="currency editable" data-field="honorarium" data-id="${p.id}">₱${honorarium.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="17" class="text-center">No faculty payroll records for this period.</td></tr>';
+    }).join('') || '<tr><td colspan="18" class="text-center">No faculty payroll records for this period.</td></tr>';
     
     // Make cells editable with auto-calculation
     makePayrollCellsEditable('faculty');
@@ -1660,9 +2104,17 @@ async function loadUtilityPayroll(period = 'latest') {
                 <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
                 <td class="currency atm">₱${atm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency non-atm">₱${nonAtm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="15" class="text-center">No utility payroll records for this period.</td></tr>';
+    }).join('') || '<tr><td colspan="16" class="text-center">No utility payroll records for this period.</td></tr>';
     
     // Make cells editable with auto-calculation
     makePayrollCellsEditable('utility');
@@ -1917,6 +2369,7 @@ function renderPayrollTable() {
                     <td><span class="status-badge status-active">Completed</span></td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye"></i> View</button>
+                        <button class="btn btn-primary btn-sm" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print"></i> Print All</button>
                     </td>
                 </tr>
             `).join('');
@@ -1972,6 +2425,389 @@ function viewBatch(period) {
         html: report,
         confirmButtonColor: '#1e0178'
     });
+}
+
+// View and Print Individual Payslip (for Faculty/Utility pages)
+async function viewAndPrintPayslip(employeeId, period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payslip&employee_id=${employeeId}&period=${encodeURIComponent(period)}`);
+        const p = await response.json();
+        
+        if (!p || p.error) {
+            return showToast("Failed to fetch payslip data.", 'error');
+        }
+
+        // Parse breakdown data
+        let breakdown = {};
+        try {
+            breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+        } catch (e) {
+            console.error('Error parsing breakdown:', e);
+        }
+
+        // Build payslip HTML for modal
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        const netPay = parseFloat(p.net_pay) || 0;
+        
+        let earningsHTML = '';
+        let deductionsHTML = '';
+        
+        // Earnings
+        earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Basic Pay</span><span style="color: #27ae60; font-weight: 600;">₱${basicPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        
+        if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Total Allowances</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.total_allowances).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Load Pay</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.load_pay).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Overtime</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.overtime).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Differential</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.differential).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Substitution</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.substitution).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Adjustments (+)</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.adj_plus).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">OT/Holiday Pay</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.ot_holiday).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Honorarium</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.honorarium).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        // Deductions
+        if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Absences</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.absences).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Late/Undertime</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.late_ut).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Contribution</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_cont).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Loans</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_loans).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF MP2</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_mp2).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Cash Advance</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.cash_advance).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        // Show individual employee-specific deductions with details
+        if (breakdown.employee_deductions_details && breakdown.employee_deductions_details.length > 0) {
+            breakdown.employee_deductions_details.forEach(function(deduction) {
+                const amount = parseFloat(deduction.amount);
+                if (amount > 0) {
+                    deductionsHTML += `<div class="payslip-item deduction"><span>${escapeHTML(deduction.name)}</span><span style="color: #c0392b; font-weight: 600;">-₱${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+                }
+            });
+        } else if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+            // Fallback to total if details not available
+            deductionsHTML += `<div class="payslip-item deduction"><span>Employee Deductions</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.employee_deductions).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Adjustments (-)</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.adj_minus).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+
+        const payslipHTML = `
+            <div style="text-align: left; max-width: 700px; margin: 0 auto;">
+                <div style="text-align: center; border-bottom: 3px solid #1e0178; padding-bottom: 15px; margin-bottom: 20px;">
+                    <h2 style="color: #1e0178; margin: 0;">OFFICIAL PAYSLIP</h2>
+                    <p style="margin: 5px 0; color: #666;">${escapeHTML(p.company_name || 'Company Name')}</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Name:</strong> ${escapeHTML(p.full_name)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Employee ID:</strong> ${escapeHTML(p.emp_code)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Position:</strong> ${escapeHTML(p.position)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Period:</strong> ${escapeHTML(p.period)}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h4 style="color: #1e0178; border-bottom: 2px solid #1e0178; padding-bottom: 5px;">EARNINGS</h4>
+                        ${earningsHTML}
+                    </div>
+                    <div>
+                        <h4 style="color: #c0392b; border-bottom: 2px solid #c0392b; padding-bottom: 5px;">DEDUCTIONS</h4>
+                        ${deductionsHTML}
+                    </div>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #1e0178, #667eea); color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 20px;">
+                    <div style="font-size: 14px; margin-bottom: 5px;">NET PAY</div>
+                    <div style="font-size: 28px; font-weight: bold;">₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: #999; font-size: 11px; font-style: italic;">
+                    This is a computer-generated payslip and does not require a signature.
+                </div>
+            </div>
+        `;
+
+        await Swal.fire({
+            title: 'Employee Payslip',
+            html: payslipHTML,
+            width: '800px',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-print"></i> Print PDF',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#1e0178',
+            customClass: {
+                popup: 'glass-modal'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Print as PDF
+                printIndividualPayslip(employeeId, period);
+            }
+        });
+        
+    } catch (err) {
+        console.error('Error viewing payslip:', err);
+        showToast("Failed to load payslip.", 'error');
+    }
+}
+
+// Print Individual Payslip as PDF
+async function printIndividualPayslip(employeeId, period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payslip&employee_id=${employeeId}&period=${encodeURIComponent(period)}`);
+        const p = await response.json();
+        
+        if (!p || p.error) {
+            return showToast("Failed to fetch payslip data.", 'error');
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFillColor(30, 1, 120);
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.text('OFFICIAL PAYSLIP', 105, 20, { align: 'center' });
+        doc.setFontSize(10);
+        const companyName = p.company_name || 'Company';
+        doc.text(companyName, 105, 30, { align: 'center' });
+
+        // Employee Info
+        doc.setTextColor(0);
+        doc.setFontSize(12);
+        doc.text('EMPLOYEE DETAILS', 20, 55);
+        doc.line(20, 57, 190, 57);
+        
+        doc.setFontSize(10);
+        const fullName = p.full_name || 'N/A';
+        const empCode = p.emp_code || 'N/A';
+        const position = p.position || 'N/A';
+        const periodText = p.period || 'N/A';
+        const createdAt = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A';
+        
+        doc.text(`Name: ${fullName}`, 20, 65);
+        doc.text(`ID: ${empCode}`, 20, 72);
+        doc.text(`Position: ${position}`, 20, 79);
+        doc.text(`Period: ${periodText}`, 130, 65);
+        doc.text(`Date: ${createdAt}`, 130, 72);
+
+        // Parse breakdown data
+        let breakdown = {};
+        try {
+            breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+        } catch (e) {
+            console.error('Error parsing breakdown:', e);
+        }
+
+        // Financials
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        const netPay = parseFloat(p.net_pay) || 0;
+        
+        // Build earnings and deductions arrays
+        const earnings = [];
+        const deductionsList = [];
+        
+        // Add basic pay
+        earnings.push(['Basic Pay', `PHP ${basicPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        
+        // Add allowances if present
+        if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+            earnings.push(['Total Allowances', `PHP ${parseFloat(breakdown.total_allowances).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add faculty-specific earnings
+        if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+            earnings.push(['Load Pay', `PHP ${parseFloat(breakdown.load_pay).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+            earnings.push(['Overtime', `PHP ${parseFloat(breakdown.overtime).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+            earnings.push(['Differential', `PHP ${parseFloat(breakdown.differential).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+            earnings.push(['Substitution', `PHP ${parseFloat(breakdown.substitution).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+            earnings.push(['Adjustments (+)', `PHP ${parseFloat(breakdown.adj_plus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+            earnings.push(['OT/Holiday Pay', `PHP ${parseFloat(breakdown.ot_holiday).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+            earnings.push(['Honorarium', `PHP ${parseFloat(breakdown.honorarium).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add deductions
+        if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+            deductionsList.push(['Absences', `- PHP ${parseFloat(breakdown.absences).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+            deductionsList.push(['Late/Undertime', `- PHP ${parseFloat(breakdown.late_ut).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+            deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+            deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+            deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+            deductionsList.push(['Cash Advance', `- PHP ${parseFloat(breakdown.cash_advance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Show individual employee-specific deductions with details
+        if (breakdown.employee_deductions_details && breakdown.employee_deductions_details.length > 0) {
+            breakdown.employee_deductions_details.forEach(function(deduction) {
+                const amount = parseFloat(deduction.amount);
+                if (amount > 0) {
+                    deductionsList.push([deduction.name, `- PHP ${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+                }
+            });
+        } else if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+            // Fallback to total if details not available
+            deductionsList.push(['Employee-Specific Deductions', `- PHP ${parseFloat(breakdown.employee_deductions).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+            deductionsList.push(['Adjustments (-)', `- PHP ${parseFloat(breakdown.adj_minus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add total deductions if not already itemized
+        if (deductionsList.length === 0) {
+            const deductions = parseFloat(p.deductions) || 0;
+            deductionsList.push(['Total Deductions', `- PHP ${deductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Calculate totals for display
+        const totalEarnings = earnings.reduce((sum, item) => {
+            const amount = parseFloat(item[1].replace('PHP ', '').replace(/,/g, ''));
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        const totalDeductions = deductionsList.reduce((sum, item) => {
+            const amount = parseFloat(item[1].replace('- PHP ', '').replace(/,/g, ''));
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        // Create table with earnings and deductions side by side
+        const maxRows = Math.max(earnings.length, deductionsList.length);
+        const tableBody = [];
+        
+        for (let i = 0; i < maxRows; i++) {
+            const earning = earnings[i] || ['', ''];
+            const deduction = deductionsList[i] || ['', ''];
+            tableBody.push([earning[0], earning[1], deduction[0], deduction[1]]);
+        }
+        
+        // Add totals row
+        tableBody.push([
+            'TOTAL EARNINGS', 
+            `PHP ${totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+            'TOTAL DEDUCTIONS', 
+            `- PHP ${totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+        ]);
+        
+        doc.autoTable({
+            startY: 90,
+            head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
+            body: tableBody,
+            theme: 'striped',
+            headStyles: { fillColor: [30, 1, 120] },
+            styles: { fontSize: 9 },
+            columnStyles: {
+                0: { fontStyle: 'bold' },
+                2: { fontStyle: 'bold' }
+            }
+        });
+
+        const netY = doc.lastAutoTable.finalY + 20;
+        doc.setFillColor(232, 232, 232);
+        doc.rect(20, netY - 10, 170, 20, 'F');
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text('NET PAY:', 30, netY + 3);
+        doc.text(`PHP ${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 180, netY + 3, { align: 'right' });
+
+        const safePeriod = periodText.replace(/[^a-zA-Z0-9]/g, '_');
+        doc.save(`Payslip_${empCode}_${safePeriod}.pdf`);
+        showToast('Payslip PDF generated!', 'success');
+        
+    } catch (err) {
+        console.error('Error printing payslip:', err);
+        showToast("Failed to generate payslip PDF.", 'error');
+    }
+}
+
+// Print All Payslips for a Batch
+async function printBatchPayslips(period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payroll_by_period&period=${encodeURIComponent(period)}`);
+        const result = await response.json();
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            return showToast("No payroll records found for this period.", 'error');
+        }
+
+        const employees = result.data;
+        
+        const { value: confirmPrint } = await Swal.fire({
+            title: 'Print All Payslips',
+            html: `<p>Generate PDF payslips for <strong>${employees.length} employees</strong> for period <strong>${escapeHTML(period)}</strong>?</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-print"></i> Yes, Print All',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#1e0178'
+        });
+
+        if (!confirmPrint) return;
+
+        showToast(`Generating ${employees.length} payslips...`, 'info');
+
+        // Generate PDFs one by one
+        for (const emp of employees) {
+            await printIndividualPayslip(emp.employee_id, period);
+            // Small delay to prevent browser blocking
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        showToast(`Successfully generated ${employees.length} payslips!`, 'success');
+        
+    } catch (err) {
+        console.error('Error printing batch payslips:', err);
+        showToast("Failed to generate batch payslips.", 'error');
+    }
 }
 
 // --- Leave ---

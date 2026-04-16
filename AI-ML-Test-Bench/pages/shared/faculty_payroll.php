@@ -41,6 +41,7 @@
                     <th>Total Deduction</th>
                     <th>Honorarium</th>
                     <th>Net Pay</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="facultyPayrollTableBody">

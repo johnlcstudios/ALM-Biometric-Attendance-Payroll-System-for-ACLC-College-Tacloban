@@ -117,12 +117,21 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 
                 // Calculate employee-specific deductions
                 $employee_specific_deductions = 0;
+                $employee_deductions_breakdown = []; // Store individual deduction details
                 foreach ($employee_deductions as $deduction) {
                     $amount = $deduction['override_amount'] ?? null;
                     if ($amount === null) {
                         $amount = $deduction['type'] === 'percentage' ? $basic_pay * ($deduction['value'] / 100) : $deduction['value'];
                     }
-                    $employee_specific_deductions += (float)$amount;
+                    $amount = (float)$amount;
+                    $employee_specific_deductions += $amount;
+                    
+                    // Store individual deduction details
+                    $employee_deductions_breakdown[] = [
+                        'name' => $deduction['name'],
+                        'type' => $deduction['type'],
+                        'amount' => $amount
+                    ];
                 }
                 
                 $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions;
@@ -142,6 +151,7 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'hdmf_loans' => $hdmf_loans,
                     'hdmf_mp2' => $hdmf_mp2,
                     'employee_deductions' => $employee_specific_deductions,
+                    'employee_deductions_details' => $employee_deductions_breakdown,
                     'total_deduction' => $total_deduction,
                     'honorarium' => $honorarium,
                     'days_present' => $days_present,
@@ -186,12 +196,21 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 
                 // Calculate employee-specific deductions
                 $employee_specific_deductions = 0;
+                $employee_deductions_breakdown = []; // Store individual deduction details
                 foreach ($employee_deductions as $deduction) {
                     $amount = $deduction['override_amount'] ?? null;
                     if ($amount === null) {
                         $amount = $deduction['type'] === 'percentage' ? $earned * ($deduction['value'] / 100) : $deduction['value'];
                     }
-                    $employee_specific_deductions += (float)$amount;
+                    $amount = (float)$amount;
+                    $employee_specific_deductions += $amount;
+                    
+                    // Store individual deduction details
+                    $employee_deductions_breakdown[] = [
+                        'name' => $deduction['name'],
+                        'type' => $deduction['type'],
+                        'amount' => $amount
+                    ];
                 }
                 
                 $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
@@ -211,6 +230,7 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'hdmf_loans' => $hdmf_loans,
                     'cash_advance' => $cash_advance,
                     'employee_deductions' => $employee_specific_deductions,
+                    'employee_deductions_details' => $employee_deductions_breakdown,
                     'total_deduction' => $total_deduction,
                     'atm' => $atm,
                     'non_atm' => $non_atm,
@@ -1892,14 +1912,35 @@ try {
         case 'get_payslip':
             if (!isset($_SESSION['user_id']))
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            
+            // Support both id-based and employee_id+period-based lookups
             $payslip_id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
-            if (!$payslip_id || $payslip_id <= 0) {
-                echo json_encode(['success' => false, 'message' => 'Invalid payslip ID']);
-                break;
+            $employee_id = filter_var($_GET['employee_id'] ?? '', FILTER_VALIDATE_INT);
+            $period = $_GET['period'] ?? '';
+            
+            if ($payslip_id && $payslip_id > 0) {
+                // Lookup by payslip ID
+                $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position, e.department, c.name as company_name FROM payroll p JOIN employees e ON p.employee_id = e.id JOIN companies c ON p.company_id = c.id WHERE p.id = ? AND p.company_id = ?");
+                $stmt->execute([$payslip_id, $_SESSION['company_id']]);
+                $result = $stmt->fetch();
+                if ($result) {
+                    echo json_encode($result);
+                } else {
+                    echo json_encode(['error' => 'Payslip not found']);
+                }
+            } elseif ($employee_id && $employee_id > 0 && $period) {
+                // Lookup by employee_id and period
+                $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position, e.department, c.name as company_name FROM payroll p JOIN employees e ON p.employee_id = e.id JOIN companies c ON p.company_id = c.id WHERE p.employee_id = ? AND p.period = ? AND p.company_id = ?");
+                $stmt->execute([$employee_id, $period, $_SESSION['company_id']]);
+                $result = $stmt->fetch();
+                if ($result) {
+                    echo json_encode($result);
+                } else {
+                    echo json_encode(['error' => 'Payslip not found for this employee and period']);
+                }
+            } else {
+                echo json_encode(['error' => 'Invalid parameters. Provide either id or employee_id+period']);
             }
-            $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position, e.department FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.id = ? AND p.company_id = ?");
-            $stmt->execute([$payslip_id, $_SESSION['company_id']]);
-            echo json_encode($stmt->fetch());
             break;
 
         case 'get_leave_requests':
@@ -2407,6 +2448,20 @@ try {
             $stmt = $pdo->prepare("SELECT period, SUM(net_pay) as total_disbursed, COUNT(*) as staff_count, MAX(created_at) as processing_date FROM payroll WHERE company_id = ? GROUP BY period ORDER BY processing_date DESC");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'get_payroll_by_period':
+            if (!isset($_SESSION['company_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $period = $_GET['period'] ?? '';
+            if (!$period) {
+                echo json_encode(['success' => false, 'message' => 'Period is required']);
+                break;
+            }
+            $stmt = $pdo->prepare("SELECT p.*, e.full_name, e.employee_id as emp_code, e.position FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? AND p.period = ? ORDER BY e.full_name ASC");
+            $stmt->execute([$_SESSION['company_id'], $period]);
+            $records = $stmt->fetchAll();
+            echo json_encode(['success' => true, 'data' => $records, 'period' => $period]);
             break;
 
         case 'get_companies':

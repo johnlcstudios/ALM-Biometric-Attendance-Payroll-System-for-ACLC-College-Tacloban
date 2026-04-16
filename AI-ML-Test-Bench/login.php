@@ -362,8 +362,8 @@ body {
         <img src="assets/logo.jpg" alt="Logo" class="logo">
 
         <h2>Login</h2>
-        <p>Welcome back! Please login to access your account.</p>
-        <p>This is an EXPERIMENTAL BRANCH. Use at your own risk.</p>
+        <p><strong><h2 style="color: #fff; font-size: 16px; ">Welcome back!</h2></strong><br> Please login to access your account.</p>
+        <p style="color: #fff; font-size: 14px;">This is an EXPERIMENTAL BRANCH. Use at your own risk.</p>
 
         <form id="loginForm">
             <div class="form-group">

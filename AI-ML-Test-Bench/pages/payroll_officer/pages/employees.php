@@ -1,9 +1,6 @@
 <section id="employees" class="page">
     <div class="page-header">
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="employeeSearch" placeholder="Search employees..." oninput="filterTable(this, 'employeeTable')">
-        </div>
+        
         <!-- <button class="btn btn-primary" onclick="openModal('employeeModal')">
             <i class="fas fa-plus"></i> Add Employee
         </button> -->
