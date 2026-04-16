@@ -18,6 +18,9 @@ if (isset($_SESSION['user_id'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<!-- Custom Context Menu Styles -->
+<link rel="stylesheet" href="css/style.css">
+
     <style>
         * {
             margin: 0;
@@ -270,6 +273,9 @@ if (isset($_SESSION['user_id'])) {
             }
         };
     </script>
+
+<!-- Custom Context Menu -->
+<script src="js/context-menu.js?v=1.0"></script>
 
 </body>
 

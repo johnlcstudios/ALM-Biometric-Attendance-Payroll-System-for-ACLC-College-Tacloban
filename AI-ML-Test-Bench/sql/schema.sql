@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role ENUM('HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee') DEFAULT 'Employee',
     email VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 );
@@ -50,10 +51,15 @@ CREATE TABLE IF NOT EXISTS employees (
     full_name VARCHAR(255) NOT NULL,
     dob DATE,
     position VARCHAR(100),
+    faculty_level ENUM('SHS', 'College', 'Both', '') DEFAULT '', -- SHS, College, Both, or empty for non-faculty
+    hire_date DATE,
     department VARCHAR(100),
     basic_salary DECIMAL(10, 2),
     status ENUM('Active', 'Inactive', 'On Leave', 'Probationary', 'Contractual', 'Resigned') DEFAULT 'Active',
     email VARCHAR(255),
+    contact_no VARCHAR(20),
+    gender ENUM('Male', 'Female', 'Other') DEFAULT 'Male',
+    profile_picture VARCHAR(255),
     sss VARCHAR(50),
     tin VARCHAR(50),
     philhealth VARCHAR(50),

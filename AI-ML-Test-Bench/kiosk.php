@@ -9,6 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js?v=2.0"></script>
+    
+    <!-- Custom Context Menu Styles -->
+    <link rel="stylesheet" href="css/style.css">
     <style>
         :root {
             --primary-blue: #1e0178;
@@ -861,6 +864,9 @@
         init();
 
     </script>
+    
+    <!-- Custom Context Menu -->
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 
 </html>

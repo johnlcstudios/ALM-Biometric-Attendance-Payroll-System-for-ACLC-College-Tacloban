@@ -2322,50 +2322,254 @@ async function addAllowanceCategory() {
     }
 }
 
+// ============================================================================
+// MULTI-SELECT COMPONENT FUNCTIONS
+// ============================================================================
+
+// Toggle dropdown visibility
+function toggleMultiSelect(type) {
+    const dropdown = document.getElementById(`${type}Dropdown`);
+    const header = dropdown?.previousElementSibling;
+    
+    if (dropdown) {
+        const isOpen = dropdown.classList.contains('show');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.multi-select-dropdown.show').forEach(d => {
+            d.classList.remove('show');
+            d.previousElementSibling?.classList.remove('active');
+        });
+        
+        // Toggle current dropdown
+        if (!isOpen) {
+            dropdown.classList.add('show');
+            header?.classList.add('active');
+        }
+    }
+}
+
+// Toggle individual option selection
+function toggleMultiSelectOption(type, id) {
+    const option = document.querySelector(`#${type}Options .multi-select-option[data-id="${id}"]`);
+    const checkbox = option?.querySelector('input[type="checkbox"]');
+    
+    if (option && checkbox) {
+        const isSelected = option.classList.contains('selected');
+        
+        if (isSelected) {
+            option.classList.remove('selected');
+            checkbox.checked = false;
+        } else {
+            option.classList.add('selected');
+            checkbox.checked = true;
+        }
+        
+        updateSelectedTags(type);
+    }
+}
+
+// Update selected tags display
+function updateSelectedTags(type) {
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option.selected`);
+    const selectedContainer = document.getElementById(`${type}Selected`);
+    const header = document.querySelector(`#${type}TypesList .multi-select-header`);
+    const clearBtn = document.querySelector(`#${type}TypesList .multi-select-clear`);
+    
+    if (!selectedContainer || !header) return;
+    
+    // Clear existing tags
+    selectedContainer.innerHTML = '';
+    
+    if (options.length === 0) {
+        header.innerHTML = `
+            <span class="multi-select-placeholder">Select ${type} types...</span>
+            <i class="fas fa-chevron-down"></i>
+        `;
+        if (clearBtn) clearBtn.classList.remove('show');
+    } else {
+        // Update header with count
+        header.innerHTML = `
+            <span>${options.length} ${type}(s) selected</span>
+            <i class="fas fa-chevron-down"></i>
+        `;
+        
+        // Add clear button if not exists
+        if (!clearBtn) {
+            const newClearBtn = document.createElement('button');
+            newClearBtn.className = 'multi-select-clear';
+            newClearBtn.innerHTML = '<i class="fas fa-times"></i>';
+            newClearBtn.onclick = (e) => {
+                e.stopPropagation();
+                clearAllSelections(type);
+            };
+            header.appendChild(newClearBtn);
+        }
+        if (clearBtn) clearBtn.classList.add('show');
+        
+        // Create tags for each selected option
+        options.forEach(option => {
+            const id = option.dataset.id;
+            const label = option.querySelector('.multi-select-label')?.textContent;
+            const meta = option.querySelector('.multi-select-meta')?.textContent;
+            
+            const tag = document.createElement('div');
+            tag.className = 'multi-select-tag';
+            tag.innerHTML = `
+                <span>${label}</span>
+                <div class="multi-select-tag-remove" onclick="removeMultiSelectOption('${type}', ${id})">
+                    <i class="fas fa-times"></i>
+                </div>
+            `;
+            selectedContainer.appendChild(tag);
+        });
+    }
+}
+
+// Remove a specific selection
+function removeMultiSelectOption(type, id) {
+    const option = document.querySelector(`#${type}Options .multi-select-option[data-id="${id}"]`);
+    const checkbox = option?.querySelector('input[type="checkbox"]');
+    
+    if (option && checkbox) {
+        option.classList.remove('selected');
+        checkbox.checked = false;
+        updateSelectedTags(type);
+    }
+}
+
+// Clear all selections
+function clearAllSelections(type) {
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option.selected`);
+    options.forEach(option => {
+        option.classList.remove('selected');
+        const checkbox = option.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = false;
+    });
+    updateSelectedTags(type);
+}
+
+// Get selected IDs
+function getSelectedMultiSelectIds(type) {
+    const selected = [];
+    document.querySelectorAll(`#${type}Options .multi-select-option.selected`).forEach(option => {
+        selected.push(parseInt(option.dataset.id));
+    });
+    return selected;
+}
+
+// Filter options based on search
+function filterMultiSelect(type) {
+    const searchTerm = document.getElementById(`${type}Search`)?.value.toLowerCase() || '';
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option`);
+    
+    options.forEach(option => {
+        const label = option.querySelector('.multi-select-label')?.textContent.toLowerCase() || '';
+        const meta = option.querySelector('.multi-select-meta')?.textContent.toLowerCase() || '';
+        
+        if (label.includes(searchTerm) || meta.includes(searchTerm)) {
+            option.style.display = 'flex';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.multi-select-container')) {
+        document.querySelectorAll('.multi-select-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+            dropdown.previousElementSibling?.classList.remove('active');
+        });
+    }
+});
+
 async function assignAllowance() {
     const employee_id = document.getElementById('assignEmployeeSelect').value;
-    const category_id = document.querySelector('input[name="allowanceTypeRadio"]:checked')?.value;
+    const selectedCategories = getSelectedMultiSelectIds('allowance');
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!employee_id || !category_id) return showToast("Please select an employee and an allowance category.", 'error');
+    if (!employee_id) return showToast("Please select an employee.", 'error');
+    if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
 
-    const response = await fetch('backend/api.php?action=assign_employee_allowance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id, category_id, override_amount, effective_date })
-    });
-    const result = await response.json();
-    showToast(result.message, result.success ? 'success' : 'error');
-    if (result.success) {
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Assign each selected category
+    for (const category_id of selectedCategories) {
+        try {
+            const response = await fetch('backend/api.php?action=assign_employee_allowance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_id, category_id, override_amount, effective_date })
+            });
+            const result = await response.json();
+            if (result.success) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (error) {
+            errorCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`${successCount} allowance(s) assigned successfully!`, 'success');
         renderAllowances();
+    }
+    if (errorCount > 0) {
+        showToast(`${errorCount} allowance(s) failed to assign.`, 'error');
     }
 }
 
 async function applyAllowanceToAll() {
-    const category_id = document.querySelector('input[name="allowanceTypeRadio"]:checked')?.value;
+    const selectedCategories = getSelectedMultiSelectIds('allowance');
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!category_id) return showToast("Please select an allowance category first.", 'error');
+    if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
     
     const confirmResult = await Swal.fire({
-        title: 'Confirm Action',
-        text: "Are you sure you want to apply this allowance to ALL active employees?",
-        icon: 'question',
+        title: 'Confirm Bulk Action',
+        html: `Apply <strong>${selectedCategories.length}</strong> allowance(s) to <strong>ALL</strong> active employees?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes, apply it!'
+        confirmButtonText: 'Yes, apply to all!',
+        confirmButtonColor: '#667eea'
     });
 
     if (confirmResult.isConfirmed) {
-        const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category_id, override_amount, effective_date })
-        });
-        const result = await response.json();
-        showToast(result.message, result.success ? 'success' : 'error');
-        if (result.success) renderAllowances();
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Apply each selected category to all employees
+        for (const category_id of selectedCategories) {
+            try {
+                const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category_id, override_amount, effective_date })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                errorCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            showToast(`${successCount} allowance(s) applied to all employees!`, 'success');
+            renderAllowances();
+        }
+        if (errorCount > 0) {
+            showToast(`${errorCount} allowance(s) failed to apply.`, 'error');
+        }
     }
 }
 
@@ -2388,16 +2592,23 @@ async function renderAllowances() {
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
     }
 
-    // 2. Render Assignment List for Radio Selection
-    const typesList = document.getElementById('allowanceTypesList');
-    if (typesList) {
-        typesList.innerHTML = categories.map(c => `
-            <div class="selection-item-gray">
-                <input type="radio" name="allowanceTypeRadio" value="${c.id}" id="allowance_${c.id}">
-                <label for="allowance_${c.id}">${c.name} (${c.type}: ${c.rate})</label>
+    // 2. Render Assignment List for Multi-Select
+    const optionsContainer = document.getElementById('allowanceOptions');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = categories.map(c => `
+            <div class="multi-select-option" data-id="${c.id}" onclick="toggleMultiSelectOption('allowance', ${c.id})">
+                <input type="checkbox" id="allowance_${c.id}" value="${c.id}">
+                <div class="multi-select-checkbox">
+                    <i class="fas fa-check"></i>
+                </div>
+                <span class="multi-select-label">${c.name}</span>
+                <span class="multi-select-meta">${c.type}: ₱${parseFloat(c.rate).toLocaleString()}</span>
             </div>
-        `).join('') || '<p class="text-muted p-2">No categories available.</p>';
+        `).join('') || '<p class="text-muted p-3 text-center">No categories available.</p>';
     }
+    
+    // Clear selected tags
+    updateSelectedTags('allowance');
 
     // 3. Populate Employee Dropdown
     const empSelect = document.getElementById('assignEmployeeSelect');
@@ -2495,46 +2706,90 @@ async function addDeductionCategory() {
 
 async function assignDeduction() {
     const employee_id = document.getElementById('assignDeductionEmployeeSelect').value;
-    const deduction_id = document.querySelector('input[name="deductionTypeRadio"]:checked')?.value;
+    const selectedDeductions = getSelectedMultiSelectIds('deduction');
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!employee_id || !deduction_id) return showToast("Please select an employee and a deduction category.", 'error');
+    if (!employee_id) return showToast("Please select an employee.", 'error');
+    if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
 
-    const response = await fetch('backend/api.php?action=assign_employee_deduction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id, deduction_id, override_amount, effective_date })
-    });
-    const result = await response.json();
-    showToast(result.message, result.success ? 'success' : 'error');
-    if (result.success) renderDeductions();
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Assign each selected deduction
+    for (const deduction_id of selectedDeductions) {
+        try {
+            const response = await fetch('backend/api.php?action=assign_employee_deduction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_id, deduction_id, override_amount, effective_date })
+            });
+            const result = await response.json();
+            if (result.success) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (error) {
+            errorCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`${successCount} deduction(s) assigned successfully!`, 'success');
+        renderDeductions();
+    }
+    if (errorCount > 0) {
+        showToast(`${errorCount} deduction(s) failed to assign.`, 'error');
+    }
 }
 
 async function applyDeductionToAll() {
-    const deduction_id = document.querySelector('input[name="deductionTypeRadio"]:checked')?.value;
+    const selectedDeductions = getSelectedMultiSelectIds('deduction');
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!deduction_id) return showToast("Please select a deduction category first.", 'error');
+    if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
     
     const confirmResult = await Swal.fire({
-        title: 'Confirm Action',
-        text: "Are you sure you want to apply this deduction to ALL active employees?",
-        icon: 'question',
+        title: 'Confirm Bulk Action',
+        html: `Apply <strong>${selectedDeductions.length}</strong> deduction(s) to <strong>ALL</strong> active employees?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes, apply it!'
+        confirmButtonText: 'Yes, apply to all!',
+        confirmButtonColor: '#667eea'
     });
 
     if (confirmResult.isConfirmed) {
-        const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deduction_id, override_amount, effective_date })
-        });
-        const result = await response.json();
-        showToast(result.message, result.success ? 'success' : 'error');
-        if (result.success) renderDeductions();
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Apply each selected deduction to all employees
+        for (const deduction_id of selectedDeductions) {
+            try {
+                const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deduction_id, override_amount, effective_date })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                errorCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            showToast(`${successCount} deduction(s) applied to all employees!`, 'success');
+            renderDeductions();
+        }
+        if (errorCount > 0) {
+            showToast(`${errorCount} deduction(s) failed to apply.`, 'error');
+        }
     }
 }
 
@@ -2557,16 +2812,23 @@ async function renderDeductions() {
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
     }
 
-    // 2. Radio Selection List
-    const typesList = document.getElementById('deductionTypesList');
-    if (typesList) {
-        typesList.innerHTML = categories.map(c => `
-            <div class="selection-item-gray">
-                <input type="radio" name="deductionTypeRadio" value="${c.id}" id="deduction_${c.id}">
-                <label for="deduction_${c.id}">${c.name} (${c.type}: ${c.value})</label>
+    // 2. Multi-Select List
+    const optionsContainer = document.getElementById('deductionOptions');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = categories.map(c => `
+            <div class="multi-select-option" data-id="${c.id}" onclick="toggleMultiSelectOption('deduction', ${c.id})">
+                <input type="checkbox" id="deduction_${c.id}" value="${c.id}">
+                <div class="multi-select-checkbox">
+                    <i class="fas fa-check"></i>
+                </div>
+                <span class="multi-select-label">${c.name}</span>
+                <span class="multi-select-meta">${c.type}: ₱${parseFloat(c.value).toLocaleString()}</span>
             </div>
-        `).join('') || '<p class="text-muted p-2">No categories available.</p>';
+        `).join('') || '<p class="text-muted p-3 text-center">No categories available.</p>';
     }
+    
+    // Clear selected tags
+    updateSelectedTags('deduction');
 
     // 3. Employee Dropdown
     const empSelect = document.getElementById('assignDeductionEmployeeSelect');

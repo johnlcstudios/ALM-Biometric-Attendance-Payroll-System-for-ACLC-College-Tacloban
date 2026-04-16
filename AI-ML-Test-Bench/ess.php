@@ -534,11 +534,16 @@ $position = $emp['position'] ?? 'Staff';
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             
-            document.getElementById(pageId).classList.add('active');
-            btn.classList.add('active');
+            const pageElement = document.getElementById(pageId);
+            if (pageElement) {
+                pageElement.classList.add('active');
+            }
             
-            const title = btn.innerText.trim();
-            document.getElementById('current-page-title').innerText = title;
+            if (btn) {
+                btn.classList.add('active');
+                const title = btn.innerText.trim();
+                document.getElementById('current-page-title').innerText = title;
+            }
         }
 
         function switchRequestTab(type, btn) {
@@ -841,7 +846,8 @@ $position = $emp['position'] ?? 'Staff';
             doc.setFontSize(22);
             doc.text('OFFICIAL PAYSLIP', 105, 20, { align: 'center' });
             doc.setFontSize(10);
-            doc.text(essData.profile.company_name, 105, 30, { align: 'center' });
+            const companyName = (essData && essData.profile && essData.profile.company_name) || 'Company';
+            doc.text(companyName, 105, 30, { align: 'center' });
 
             // Employee Info
             doc.setTextColor(0);
@@ -850,23 +856,142 @@ $position = $emp['position'] ?? 'Staff';
             doc.line(20, 57, 190, 57);
             
             doc.setFontSize(10);
-            doc.text(`Name: ${p.full_name}`, 20, 65);
-            doc.text(`ID: ${p.emp_code}`, 20, 72);
-            doc.text(`Position: ${p.position}`, 20, 79);
-            doc.text(`Period: ${p.period}`, 130, 65);
-            doc.text(`Date: ${new Date(p.created_at).toLocaleDateString()}`, 130, 72);
+            const fullName = p.full_name || 'N/A';
+            const empCode = p.emp_code || 'N/A';
+            const position = p.position || 'N/A';
+            const period = p.period || 'N/A';
+            const createdAt = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A';
+            
+            doc.text(`Name: ${fullName}`, 20, 65);
+            doc.text(`ID: ${empCode}`, 20, 72);
+            doc.text(`Position: ${position}`, 20, 79);
+            doc.text(`Period: ${period}`, 130, 65);
+            doc.text(`Date: ${createdAt}`, 130, 72);
+
+            // Parse breakdown data
+            let breakdown = {};
+            try {
+                breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+            } catch (e) {
+                console.error('Error parsing breakdown:', e);
+            }
 
             // Financials
+            const basicPay = parseFloat(p.basic_pay) || 0;
+            const deductions = parseFloat(p.deductions) || 0;
+            const netPay = parseFloat(p.net_pay) || 0;
+            
+            // Build earnings and deductions arrays
+            const earnings = [];
+            const deductionsList = [];
+            
+            // Add basic pay
+            earnings.push(['Basic Pay', `PHP ${basicPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            
+            // Add allowances if present
+            if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+                earnings.push(['Total Allowances', `PHP ${parseFloat(breakdown.total_allowances).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add faculty-specific earnings
+            if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+                earnings.push(['Load Pay', `PHP ${parseFloat(breakdown.load_pay).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+                earnings.push(['Overtime', `PHP ${parseFloat(breakdown.overtime).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+                earnings.push(['Differential', `PHP ${parseFloat(breakdown.differential).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+                earnings.push(['Substitution', `PHP ${parseFloat(breakdown.substitution).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+                earnings.push(['Adjustments (+)', `PHP ${parseFloat(breakdown.adj_plus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+                earnings.push(['OT/Holiday Pay', `PHP ${parseFloat(breakdown.ot_holiday).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+                earnings.push(['Honorarium', `PHP ${parseFloat(breakdown.honorarium).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add utility-specific earnings
+            if (breakdown.earned && parseFloat(breakdown.earned) > 0 && breakdown.rate_per_day) {
+                earnings.push(['Earned for the Period', `PHP ${parseFloat(breakdown.earned).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add deductions
+            if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+                deductionsList.push(['Absences', `- PHP ${parseFloat(breakdown.absences).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+                deductionsList.push(['Late/Undertime', `- PHP ${parseFloat(breakdown.late_ut).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+                deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+                deductionsList.push(['Cash Advance', `- PHP ${parseFloat(breakdown.cash_advance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+                deductionsList.push(['Employee-Specific Deductions', `- PHP ${parseFloat(breakdown.employee_deductions).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+                deductionsList.push(['Adjustments (-)', `- PHP ${parseFloat(breakdown.adj_minus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add total deductions if not already itemized
+            if (deductionsList.length === 0) {
+                deductionsList.push(['Total Deductions', `- PHP ${deductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Calculate totals for display
+            const totalEarnings = earnings.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+            
+            const totalDeductions = deductionsList.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('- PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+            
+            // Create table with earnings and deductions side by side
+            const maxRows = Math.max(earnings.length, deductionsList.length);
+            const tableBody = [];
+            
+            for (let i = 0; i < maxRows; i++) {
+                const earning = earnings[i] || ['', ''];
+                const deduction = deductionsList[i] || ['', ''];
+                tableBody.push([earning[0], earning[1], deduction[0], deduction[1]]);
+            }
+            
+            // Add totals row
+            tableBody.push([
+                'TOTAL EARNINGS', 
+                `PHP ${totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                'TOTAL DEDUCTIONS', 
+                `- PHP ${totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            ]);
+            
             doc.autoTable({
                 startY: 90,
                 head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
-                body: [
-                    ['Basic Pay', `PHP ${parseFloat(p.basic_pay).toLocaleString()}`, 'Total Deductions', `PHP ${parseFloat(p.deductions).toLocaleString()}`],
-                    ['', '', '', ''],
-                    ['TOTAL EARNINGS', `PHP ${parseFloat(p.basic_pay).toLocaleString()}`, 'TOTAL DEDUCTIONS', `PHP ${parseFloat(p.deductions).toLocaleString()}`]
-                ],
+                body: tableBody,
                 theme: 'striped',
-                headStyles: { fillColor: [30, 1, 120] }
+                headStyles: { fillColor: [30, 1, 120] },
+                styles: { fontSize: 9 },
+                columnStyles: {
+                    0: { fontStyle: 'bold' },
+                    2: { fontStyle: 'bold' }
+                }
             });
 
             const netY = doc.lastAutoTable.finalY + 20;
@@ -875,9 +1000,10 @@ $position = $emp['position'] ?? 'Staff';
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text('NET PAY:', 30, netY + 3);
-            doc.text(`PHP ${parseFloat(p.net_pay).toLocaleString()}`, 180, netY + 3, { align: 'right' });
+            doc.text(`PHP ${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 180, netY + 3, { align: 'right' });
 
-            doc.save(`Payslip_${p.emp_code}_${p.period.replace(/[\/\s]/g, '_')}.pdf`);
+            const safePeriod = period.replace(/[^a-zA-Z0-9]/g, '_');
+            doc.save(`Payslip_${empCode}_${safePeriod}.pdf`);
         }
 
         async function logout() {
@@ -910,5 +1036,6 @@ $position = $emp['position'] ?? 'Staff';
 
         loadESS();
     </script>
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>

@@ -52,8 +52,24 @@
                     </div>
                     
                     <div class="form-group-custom">
-                        <label>Allowance Types</label>
-                        <div class="selection-box-gray" id="allowanceTypesList">
+                        <label>Select Allowance Types</label>
+                        <div class="multi-select-container" id="allowanceTypesList">
+                            <div class="multi-select-header" onclick="toggleMultiSelect('allowance')">
+                                <span class="multi-select-placeholder">Select allowance types...</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="multi-select-dropdown" id="allowanceDropdown">
+                                <div class="multi-select-search">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" placeholder="Search..." id="allowanceSearch" oninput="filterMultiSelect('allowance')">
+                                </div>
+                                <div class="multi-select-options" id="allowanceOptions">
+                                    <!-- Options will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="multi-select-selected" id="allowanceSelected">
+                                <!-- Selected items will appear here -->
+                            </div>
                         </div>
                     </div>
 

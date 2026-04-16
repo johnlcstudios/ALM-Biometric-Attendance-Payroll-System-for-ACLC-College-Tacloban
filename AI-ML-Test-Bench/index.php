@@ -383,5 +383,6 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
         const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
     <script src="js/script.js?v=2.3"></script>
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>
