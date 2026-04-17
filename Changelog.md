@@ -5,7 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.4.0] - *Build9*  - 2026-04-14
+## [2.5.0] - **Thursday Release** - 2024-10-20
+
+### Added
+- **Unified Responsive CSS Framework** (`css/responsive-payroll.css`):
+  - Standardized button dimensions (42px height) across entire system
+  - Kiosk/ESS/Mobile/Desktop full responsiveness
+  - Touch-optimized for large kiosk screens
+  - Landscape kiosk support + high-DPI retina displays
+  - iOS Safari zoom prevention
+
+### Changed
+- **Button Uniformity**:
+  - All buttons now 42px height, 10px/16px padding, 14px font
+  - Consistent hover/transform animations
+  - Gradient backgrounds + enhanced shadows
+- **Dropdown Standardization**:
+  - All system dropdowns now use "Select a..." as default option (17+ dropdowns updated)
+
+### Fixed
+- **Payroll Page Inline Styles**: Removed conflicting header-right flex
+- **Calendar Page btn-sm**: Standardized small button sizing
+- **modals.php**: Updated 7 dropdowns (Gender, Position, Faculty Level, Department, Status, Subject, Payroll Category)
+
+
+## [2.4.0] - *Build9 Experimental*  - 2026-04-14
 
 ### Added
 - **Animated Splash Screen**:
@@ -338,60 +362,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Last Update: 04/09/26 01:57PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
-**P0** Fix face enrollment UI redundancy: remove duplicate text, clarify instructions, rename to “Face Registration”.
-
-**P0** Ensure enrollment flow stability: prevent broken states during face capture and submission.
-
-**P1** Improve enrollment UX: clearer feedback for successful/failed enrollment.
-
+<<Pending>>
 --- 
 
 ### Backend — Task Backlog (Priority-Ordered)
-**P0** Fix dashboard data mismatch: ensure attendance logs and dashboard graphs use same data source and queries.
-
-**P0** Fix empty report exports: ensure data is fetched before generating downloadable files.
-
-**P0** Fix data not loading on initial page load (Payroll, Deduction, Allowance, Faculty pages): enforce automatic data fetch on endpoint call.
-
-**P0** Fix export/print/PDF generation: ensure backend handlers return correct file output with valid data.
-
-**P0** Fix delayed data rendering issue: eliminate dependency on trigger actions (Export/Print) before data appears.
-
-**P1** Add pagination support: implement LIMIT/OFFSET for Employees, Payroll, Attendance, and Tables.
-
-**P1** Standardize API responses: consistent JSON format for all modules.
-
-**P1** Add error handling: return proper status codes and debug messages.
-
-**P2** Optimize queries: improve performance for large datasets.
-
+<<Pending>>
 --- 
 
 ### Frontend — Task Backlog (Priority-Ordered)
-**P0** Fix all non-functional buttons:
-    - Attendance Logs (Action buttons)
-    - Payroll (Export/Print)
-    - PDF actions
-
-**P0** Fix data rendering issues: ensure tables load data on page initialization.
-
-**P0** Fix search functionality (Attendance Logs): restrict search to Name/ID only (exclude STATUS).
-
-**P0** Fix async handling: ensure proper fetch/await logic and prevent race conditions.
-
-**P0** Prevent double-trigger bugs: disable buttons during API calls.
-
-**P1** Implement pagination UI across all tables.
-
-**P1** Add table limits and consistent layouts.
-
-**P1** Remove redundant text across pages.
-
-**P1** Improve UI consistency (buttons, tables, labels).
-
-**P2** Improve loading states (spinners, skeletons).
-
-**P2** Enhance responsiveness for large tables.
+<<Pending>>
 
 --- 
 
