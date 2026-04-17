@@ -4441,4 +4441,147 @@ window.onload = () => {
             });
         }
     }
+
+    // Payroll Bulk Operations Initialization (Task 1.3)
+    initPayrollBulkSelection();
 };
+
+// Payroll Bulk Operations Functions (NEW for Task 1.3)
+let selectedPayrollRows = new Set();
+
+function initPayrollBulkSelection() {
+    // Add select-all checkbox to payroll header if not exists
+    const payrollHeader = document.querySelector('#payrollTable thead tr');
+    if (payrollHeader && !payrollHeader.querySelector('th.select-col')) {
+        const selectTh = document.createElement('th');
+        selectTh.className = 'select-col';
+        selectTh.innerHTML = '<input type="checkbox" id="selectAllPayroll" onchange="toggleSelectAllPayroll(this.checked)">';
+        payrollHeader.prepend(selectTh);
+        
+        // Add checkboxes to table body rows
+        const tableBody = document.querySelector('#payrollTableBody');
+        const observer = new MutationObserver(addRowCheckboxes);
+        observer.observe(tableBody, { childList: true });
+        addRowCheckboxes(); // Initial call
+    }
+}
+
+function addRowCheckboxes() {
+    document.querySelectorAll('#payrollTableBody tr:not(:has(input[type="checkbox"]))').forEach(row => {
+        const checkboxTd = document.createElement('td');
+        checkboxTd.className = 'select-col';
+        checkboxTd.innerHTML = '<input type="checkbox" class="payroll-row-select" onchange="togglePayrollRowSelection(this)">';
+        row.prepend(checkboxTd);
+    });
+}
+
+function toggleSelectAllPayroll(checked) {
+    document.querySelectorAll('.payroll-row-select').forEach(cb => {
+        cb.checked = checked;
+        togglePayrollRowSelection(cb);
+    });
+}
+
+function togglePayrollRowSelection(checkbox) {
+    const row = checkbox.closest('tr');
+    const payrollId = row.dataset.payrollId || row.cells[1]?.textContent.trim(); // Fallback to period cell
+    
+    if (checkbox.checked) {
+        selectedPayrollRows.add(payrollId);
+        row.classList.add('table-selected');
+    } else {
+        selectedPayrollRows.delete(payrollId);
+        row.classList.remove('table-selected');
+    }
+}
+
+async function bulkSalaryAdjustment(multiplier) {
+    if (selectedPayrollRows.size === 0) {
+        showToast('Select rows first or use "ALL" option', 'warning');
+        return;
+    }
+
+    const {isConfirmed} = await Swal.fire({
+        title: 'Bulk Salary Adjustment',
+        html: `Apply ${(multiplier*100-100).toFixed(1)}% adjustment to ${selectedPayrollRows.size} selected payroll rows?`,
+        icon: 'question',
+        showCancelButton: true
+    });
+
+    if (isConfirmed) {
+        const response = await fetch('backend/api.php?action=bulk_payroll_adjustment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                payroll_ids: Array.from(selectedPayrollRows),
+                multiplier: multiplier
+            })
+        });
+
+        const result = await response.json();
+        showToast(result.message || (result.success ? 'Bulk adjustment complete!' : 'Failed'), result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            selectedPayrollRows.clear();
+            document.querySelectorAll('#payrollTable tr.table-selected').forEach(r => r.classList.remove('table-selected'));
+            renderPayrollTable(); // Refresh
+        }
+    }
+}
+
+async function bulkUpdateSelected() {
+    if (selectedPayrollRows.size === 0) {
+        showToast('No rows selected', 'warning');
+        return;
+    }
+
+    const {value} = await Swal.fire({
+        title: 'Bulk Update Selected',
+        html: `
+            <input id="bulkAmount" class="swal2-input" type="number" step="0.01" placeholder="Enter new amount">
+            <select id="bulkField" class="swal2-select">
+                <option value="basic_pay">Basic Pay</option>
+                <option value="net_pay">Net Pay</option>
+                <option value="allowances">Allowances</option>
+            </select>
+        `,
+        preConfirm: () => ({
+            amount: parseFloat(document.getElementById('bulkAmount').value),
+            field: document.getElementById('bulkField').value
+        })
+    });
+
+    if (value) {
+        const response = await fetch('backend/api.php?action=bulk_payroll_update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                payroll_ids: Array.from(selectedPayrollRows),
+                field: value.field,
+                value: value.amount
+            })
+        });
+
+        const result = await response.json();
+        showToast(result.message || 'Bulk update complete!', result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            selectedPayrollRows.clear();
+            renderPayrollTable();
+        }
+    }
+}
+
+// Add CSS for bulk selection
+if (!document.getElementById('bulk-styles')) {
+    const style = document.createElement('style');
+    style.id = 'bulk-styles';
+    style.textContent = `
+        .select-col { width: 50px; text-align: center; }
+        .table-selected { background: #e3f2fd !important; }
+        #payrollTable input[type="checkbox"] { transform: scale(1.2); }
+        .bulk-actions { display: flex; gap: 8px; margin: 0 10px; }
+        .bulk-actions .btn { padding: 6px 12px; font-size: 0.85em; }
+    `;
+    document.head.appendChild(style);
+}

@@ -42,6 +42,7 @@ $allowedActions = [
     'run_specialized_payroll',
     'update_payroll_field', 'revoke_payroll_access',
     'get_payslip', 'get_deduction_breakdown',
+    'bulk_payroll_adjustment', 'bulk_payroll_update',
     
     // Deductions
     'get_deductions', 'save_deduction', 'delete_deduction',
@@ -83,8 +84,15 @@ $allowedActions = [
     'get_server_time',
     
     // Audit & Notifications
-    'get_audit_logs', 'get_notifications'
+    'get_notifications',
+    
+    // NEW: Payroll Calendar & Improvements (Phase 1)
+    'get_payroll_schedule', 'save_payroll_schedule', 'validate_payroll_readiness',
+    'calculate_taxes', 'apply_payroll_taxes'
 ];
+
+
+
 
 // Get and sanitize action parameter
 $action = getParam('action', '', 'string');
@@ -2582,6 +2590,129 @@ try {
             echo json_encode($stmt->fetch());
             break;
 
+        case 'get_payroll_schedule':
+            if (!isPayrollOrHigher()) {
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            }
+            
+            // Create table if not exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS payroll_schedule (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                period VARCHAR(50),
+                cutoff_start DATE,
+                cutoff_end DATE,
+                run_date DATE,
+                payroll_type ENUM('general','faculty','utility','all') DEFAULT 'all',
+                status ENUM('pending','ready','overdue','completed') DEFAULT 'pending',
+                employee_count INT DEFAULT 0,
+                est_amount DECIMAL(10,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+            )");
+            
+            $stmt = $pdo->prepare("SELECT * FROM payroll_schedule WHERE company_id = ? ORDER BY run_date ASC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_payroll_schedule':
+            if (!isPayrollOrHigher()) {
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $errors = validateRequired($data, ['start_date', 'end_date', 'run_date']);
+            $errors = array_merge($errors, validateDateRange($data['start_date'], $data['end_date']));
+            rejectInvalidPayload($errors);
+            
+            $period = date('m/Y', strtotime($data['start_date']));
+            
+            // Create table if not exists (idempotent)
+            $pdo->exec("CREATE TABLE IF NOT EXISTS payroll_schedule (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                period VARCHAR(50),
+                cutoff_start DATE,
+                cutoff_end DATE,
+                run_date DATE,
+                payroll_type ENUM('general','faculty','utility','all') DEFAULT 'all',
+                status ENUM('pending','ready','overdue','completed') DEFAULT 'pending',
+                employee_count INT DEFAULT 0,
+                est_amount DECIMAL(10,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+            )");
+            
+            $stmt = $pdo->prepare("INSERT INTO payroll_schedule (company_id, period, cutoff_start, cutoff_end, run_date, payroll_type) VALUES (?, ?, ?, ?, ?, ?) 
+                                   ON DUPLICATE KEY UPDATE cutoff_start=VALUES(cutoff_start), cutoff_end=VALUES(cutoff_end), run_date=VALUES(run_date)");
+            $stmt->execute([$_SESSION['company_id'], $period, $data['start_date'], $data['end_date'], $data['run_date'], $data['type'] ?? 'all']);
+            
+            echo json_encode(['success' => true, 'message' => 'Schedule saved']);
+            break;
+
+        case 'validate_payroll_readiness':
+            if (!isPayrollOrHigher()) {
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            }
+            
+            $schedule_id = filter_var($_GET['schedule_id'] ?? 0, FILTER_VALIDATE_INT);
+            if (!$schedule_id) {
+                echo json_encode(['success' => false, 'message' => 'Schedule ID required']);
+                break;
+            }
+            
+            $stmt = $pdo->prepare("SELECT * FROM payroll_schedule WHERE id = ? AND company_id = ?");
+            $stmt->execute([$schedule_id, $_SESSION['company_id']]);
+            $schedule = $stmt->fetch();
+            if (!$schedule) {
+                echo json_encode(['success' => false, 'message' => 'Schedule not found']);
+                break;
+            }
+            
+            $today = date('Y-m-d');
+            $coverage = [];
+            
+            // Check attendance completeness
+            $end_date = $schedule['cutoff_end'];
+            $stmt_coverage = $pdo->prepare("SELECT 
+                e.id, e.full_name,
+                COUNT(a.id) as logged_days,
+                DATEDIFF(?, ?) + 1 as total_days
+            FROM employees e 
+            LEFT JOIN attendance a ON a.employee_id = e.id AND a.log_date BETWEEN ? AND ? AND a.check_in IS NOT NULL
+            WHERE e.company_id = ? AND e.status = 'Active'
+            GROUP BY e.id");
+            $stmt_coverage->execute([$end_date, $schedule['cutoff_start'], $schedule['cutoff_start'], $end_date, $_SESSION['company_id']]);
+            
+            $ready_count = 0;
+            $total_employees = 0;
+            $est_amount = 0;
+            
+            while ($emp = $stmt_coverage->fetch()) {
+                $total_employees++;
+                $coverage_pct = ($emp['logged_days'] / $emp['total_days']) * 100;
+                if ($coverage_pct >= 95) $ready_count++; // 95% threshold
+                
+                // Rough est amount based on basic_salary
+                $est_amount += $emp['basic_salary'] ?? 0;
+            }
+            
+            $status = ($ready_count / max(1, $total_employees)) >= 0.9 ? 'ready' : 'pending';
+            if ($today > $schedule['run_date']) $status = 'overdue';
+            
+echo json_encode([
+                'success' => true,
+                'status' => $status,
+                'attendance_coverage' => round(($ready_count / max(1, $total_employees)) * 100, 1) . '%',
+                'ready_employees' => $ready_count,
+                'total_employees' => $total_employees,
+                'est_disbursement' => number_format($est_amount, 2),
+                'cutoff_complete' => $today <= $schedule['cutoff_end']
+            ]);
+            break;
+
+
         case 'get_server_time':
             $cid = $_GET['company_id'] ?? $_SESSION['company_id'] ?? null;
             if ($cid) {
@@ -2601,6 +2732,99 @@ try {
             ]);
             break;
 
+        case 'calculate_taxes':
+            require_once 'payroll_tax.php';
+            $company_id = $_SESSION['company_id'] ?? $_GET['company_id'] ?? 1;
+            $gross_pay = $_POST['gross_pay'] ?? 0;
+            $employee_data = $_POST['employee_data'] ?? [];
+            
+            $engine = new PayrollTaxEngine($pdo, $company_id);
+            $taxes = $engine->calculateGovContributions($gross_pay, $employee_data);
+            echo json_encode(['success' => true, 'taxes' => $taxes]);
+            break;
+            
+        case 'apply_payroll_taxes':
+            if (!isPayrollOrHigher()) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            require_once 'payroll_tax.php';
+            $payroll_id = $_POST['payroll_id'] ?? 0;
+            if (!$payroll_id) {
+                echo json_encode(['success' => false, 'message' => 'Payroll ID required']);
+                break;
+            }
+            
+            $company_id = $_SESSION['company_id'];
+            $engine = new PayrollTaxEngine($pdo, $company_id);
+            $success = $engine->applyTaxesToPayroll($payroll_id);
+            
+            echo json_encode(['success' => $success]);
+            break;
+
+        case 'bulk_payroll_adjustment':
+            if (!isPayrollOrHigher()) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_ids = $data['payroll_ids'] ?? [];
+            $multiplier = (float) ($data['multiplier'] ?? 1.0);
+            
+            if (empty($payroll_ids)) {
+                echo json_encode(['success' => false, 'message' => 'No payroll IDs provided']);
+                break;
+            }
+            
+            $placeholders = implode(',', array_fill(0, count($payroll_ids), '?'));
+            $stmt = $pdo->prepare("UPDATE payroll SET 
+                basic_pay = basic_pay * ?,
+                net_pay = net_pay * ?
+                WHERE id IN ($placeholders) AND company_id = ?
+            ");
+            $params = array_merge([$multiplier, $multiplier], $payroll_ids, [$_SESSION['company_id']]);
+            $stmt->execute($params);
+            
+            logAudit($pdo, $_SESSION['company_id'], $_SESSION['user_id'], 'BULK_PAYROLL_ADJUSTMENT', 'payroll', json_encode($payroll_ids), "Multiplier: $multiplier");
+            
+            echo json_encode([
+                'success' => true,
+                'message' => "Adjusted " . count($payroll_ids) . " payroll records by x$multiplier factor"
+            ]);
+            break;
+
+        case 'bulk_payroll_update':
+            if (!isPayrollOrHigher()) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_ids = $data['payroll_ids'] ?? [];
+            $field = $data['field'] ?? '';
+            $value = $data['value'] ?? null;
+            
+            $allowed_fields = ['basic_pay', 'net_pay', 'allowances'];
+            if (empty($payroll_ids) || !in_array($field, $allowed_fields) || $value === null) {
+                echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+                break;
+            }
+            
+            $placeholders = implode(',', array_fill(0, count($payroll_ids), '?'));
+            $stmt = $pdo->prepare("UPDATE payroll SET `$field` = ? WHERE id IN ($placeholders) AND company_id = ?");
+            $params = array_merge([$value], $payroll_ids, [$_SESSION['company_id']]);
+            $stmt->execute($params);
+            
+            logAudit($pdo, $_SESSION['company_id'], $_SESSION['user_id'], 'BULK_PAYROLL_UPDATE', 'payroll', json_encode($payroll_ids), "$field = $value");
+            
+            echo json_encode([
+                'success' => true,
+                'message' => "Updated $field for " . count($payroll_ids) . " payroll records"
+            ]);
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
             break;
@@ -2609,3 +2833,5 @@ try {
     echo json_encode(['success' => false, 'message' => 'API Error: ' . $e->getMessage()]);
 }
 ?>
+
+
