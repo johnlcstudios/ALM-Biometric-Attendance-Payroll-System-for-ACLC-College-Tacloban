@@ -71,7 +71,9 @@
                         <div class="form-group">
                             <label><i class="fas fa-venus-mars"></i> Gender</label>
                             <select name="gender">
+                                <option value="">Select a Gender</option>
                                 <option value="Male">Male</option>
+
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
                             </select>
@@ -89,7 +91,9 @@
                         <div class="form-group">
                             <label><i class="fas fa-id-badge"></i> Position <span class="required text-danger">*</span></label>
                             <select name="position" onchange="toggleSubjectStep()" required>
+                                <option value="">Select a Posiion</option>
                                 <option value="Faculty">Full-Time Faculty</option>
+
                                 <option value="Staff">Regular Staff</option>
                                 <option value="Utility">Utility Staff</option>
                                 <option value="Payroll Officer">Payroll Officer</option>
@@ -98,7 +102,8 @@
                         <div class="form-group" id="facultyLevelGroup" style="display:none;">
                             <label><i class="fas fa-graduation-cap"></i> Faculty Level <span class="required text-danger">*</span></label>
                             <select name="faculty_level">
-                                <option value="">Select Level...</option>
+                                <option value="">Select a Faculty Level</option>
+
                                 <option value="SHS">Senior High School (SHS)</option>
                                 <option value="College">College</option>
                                 <option value="Both">Both SHS & College</option>
@@ -107,7 +112,9 @@
                         <div class="form-group">
                             <label><i class="fas fa-building"></i> Department <span class="required text-danger">*</span></label>
                             <select name="department" required>
+                                <option value="">Select a Department</option>
                                 <option value="IT">Information Technology</option>
+
                                 <option value="Education">Education</option>
                                 <option value="Admin">Administration</option>
                                 <option value="Utility">General Services</option>
@@ -124,7 +131,9 @@
                         <div class="form-group">
                             <label><i class="fas fa-user-tag"></i> Employment Status</label>
                             <select name="status">
+                                <option value="">Select a...</option>
                                 <option value="Active">Active</option>
+
                                 <option value="Probationary">Probationary</option>
                                 <option value="Contractual">Contractual</option>
                             </select>
@@ -223,7 +232,8 @@
                 <div class="form-group">
                     <label>Select Subject</label>
                     <select id="loadSubjectSelect" class="form-control" onchange="onLoadSubjectChange(this.value)">
-                        <option value="">-- Choose Subject --</option>
+                        <option value="">Select a...</option>
+
                         <!-- Dynamic Content -->
                     </select>
                 </div>
@@ -313,7 +323,9 @@
                 <div class="form-group">
                     <label>Filter by Category/Position</label>
                     <select id="payrollCategorySelect" class="form-control">
+                        <option value="">Select a...</option>
                         <option value="all">All Employees</option>
+
                         <option value="Faculty">Full-Time Faculty</option>
                         <option value="Staff">Regular Staff</option>
                         <option value="Utility">Utility Staff</option>
