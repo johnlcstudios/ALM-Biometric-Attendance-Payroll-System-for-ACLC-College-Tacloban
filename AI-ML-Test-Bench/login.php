@@ -451,7 +451,7 @@ body {
             margin-bottom: 40px;
             opacity: 0.9;
             font-weight: 300;
-        ">Version 2.4.0 - Build9</p>
+        ">Version 2.5.0 - Viewport Alpha </p>
         
         <!-- Credits -->
         <div style="

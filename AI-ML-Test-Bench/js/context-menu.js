@@ -1381,7 +1381,7 @@ function showSystemInfo() {
     if (typeof Swal !== 'undefined') {
         Swal.fire({
             title: 'System Information',
-            html: '<p><strong>Version:</strong> 2.4.0</p><p><strong>Build:</strong> 9</p><p><strong>Last Updated:</strong> April 2026</p>',
+            html: '<p><strong>Version:</strong> 2.5.0</p><p><strong>Build:</strong> 9</p><p><strong>Last Updated:</strong> April 2026</p>',
             icon: 'info',
             confirmButtonText: 'Close'
         });

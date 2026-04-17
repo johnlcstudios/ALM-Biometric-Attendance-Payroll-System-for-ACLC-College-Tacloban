@@ -11,7 +11,7 @@ This directory contains all database schema and migration files for the ALM Biom
 - Use this for **NEW installations**
 - Contains: Base schema + Migrations 001-004
 - **One-file setup** - no need to run individual migrations
-- Version: 2.4.0 - Build9
+- Version: 2.5.0 - 
 
 ### 📁 `migrations/` (Individual Migration Files)
 - `001_security_improvements.sql` - Password resets & login attempts tables
@@ -56,7 +56,7 @@ If you already have the database set up and want to apply only new migrations:
 
 ## Schema Version
 
-- **Current Version:** 2.4.0 - Build9
+- **Current Version:** 2.5.0 - 
 - **Last Updated:** April 2026
 - **Database:** alm_biometrics
 
@@ -106,7 +106,7 @@ If you already have the database set up and want to apply only new migrations:
 | 002 | 002_company_code_and_password_reset.sql | Company code (duplicate) |
 | 003 | 003_add_profile_picture.sql | Profile picture column |
 | 004 | 004_alm_features_v2.4.sql | Faculty level, hire date, resignation tracking |
-| **2.4.0** | **complete_schema.sql** | **ALL-in-ONE complete schema** ⭐ |
+| **2.5.0** | **complete_schema.sql** | **ALL-in-ONE complete schema** ⭐ |
 
 ## Notes
 
