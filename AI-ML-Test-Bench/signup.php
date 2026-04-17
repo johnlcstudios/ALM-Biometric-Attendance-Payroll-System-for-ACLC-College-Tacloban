@@ -174,9 +174,19 @@ if (isset($_SESSION['user_id'])) {
             <form id="signupForm">
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="text" name="company_name" placeholder="Company Name" required>
+                        <input type="text" name="company_name" id="company_name" placeholder="Company Name" required>
                         <i class="fas fa-building"></i>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <input type="text" name="company_code" id="company_code" placeholder="Company Code (auto-generated)" maxlength="20">
+                        <i class="fas fa-hashtag"></i>
+                    </div>
+                    <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                        Leave empty for auto-generation (e.g., ABCD-XY12) or enter custom code
+                    </small>
                 </div>
 
                 <div class="form-group">
@@ -218,6 +228,15 @@ if (isset($_SESSION['user_id'])) {
     </div>
 
     <script>
+        // Auto-generate company code suggestion
+        document.getElementById('company_name').addEventListener('input', function() {
+            const companyName = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
+            if (companyName.length >= 2) {
+                const randomCode = Math.random().toString(36).substr(2,4).toUpperCase();
+                document.getElementById('company_code').placeholder = companyName + '-' + randomCode;
+            }
+        });
+
         document.getElementById('signupForm').onsubmit = async (e) => {
             e.preventDefault();
 
@@ -250,14 +269,12 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: 'Registration successful! You can now login.',
+                    html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br>You can now <a href="login.php">login</a>.`,
                     customClass: {
                         popup: 'glass-modal',
                         container: 'glass-backdrop'
                     },
                     background: 'transparent'
-                }).then(() => {
-                    window.location.href = 'login.php';
                 });
             } else {
                 Swal.fire({

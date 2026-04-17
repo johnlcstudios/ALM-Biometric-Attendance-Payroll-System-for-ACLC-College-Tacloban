@@ -637,6 +637,7 @@ try {
         case 'signup':
             $data = json_decode(file_get_contents('php://input'), true);
             $company_name = $data['company_name'] ?? '';
+            $company_code = $data['company_code'] ?? ''; // New field from frontend
             $username = $data['username'] ?? '';
             $email = $data['email'] ?? '';
             $password = $data['password'] ?? '';
@@ -646,10 +647,21 @@ try {
                 break;
             }
 
+            // Auto-generate company_code if empty (fallback like secure-setup.php)
+            if (empty($company_code)) {
+                $base = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $company_name), 0, 4));
+                do {
+                    $company_code = $base . '-' . substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 4);
+                    $stmt_check = $pdo->prepare("SELECT id FROM companies WHERE company_code = ?");
+                    $stmt_check->execute([$company_code]);
+                } while ($stmt_check->fetch()); // Ensure uniqueness
+            }
+
             $pdo->beginTransaction();
             try {
-                $stmt = $pdo->prepare("INSERT INTO companies (name, admin_email) VALUES (?, ?)");
-                $stmt->execute([$company_name, $email]);
+                // FIXED: Include company_code in INSERT
+                $stmt = $pdo->prepare("INSERT INTO companies (name, admin_email, company_code) VALUES (?, ?, ?)");
+                $stmt->execute([$company_name, $email, $company_code]);
                 $company_id = $pdo->lastInsertId();
 
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -657,7 +669,11 @@ try {
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
 
                 $pdo->commit();
-                echo json_encode(['success' => true]);
+                echo json_encode([
+                    'success' => true, 
+                    'company_code' => $company_code,
+                    'message' => 'Account created successfully. Company Code: ' . $company_code
+                ]);
             } catch (Exception $e) {
                 $pdo->rollBack();
                 echo json_encode(['success' => false, 'message' => 'Signup failed: ' . $e->getMessage()]);
