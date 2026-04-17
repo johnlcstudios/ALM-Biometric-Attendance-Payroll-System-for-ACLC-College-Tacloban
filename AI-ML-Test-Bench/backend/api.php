@@ -19,7 +19,80 @@ try {
     apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
 
-$action = $_GET['action'] ?? '';
+// Whitelist of allowed actions to prevent unauthorized access
+$allowedActions = [
+    // Authentication
+    'login', 'logout', 'forgot_password', 'reset_password', 'reset_password_with_token', 'verify_2fa',
+    'signup', 'change_password',
+    
+    // Dashboard & ESS
+    'get_dashboard_stats', 'get_ess_data',
+    
+    // Employee Management
+    'get_employees', 'save_employee', 'delete_employee', 'reinstate_employee',
+    'upload_profile_picture',
+    
+    // Attendance
+    'get_attendance', 'add_attendance', 'update_attendance', 'flag_attendance',
+    'check_in_out', 'biometric_check', 'kiosk_scan',
+    
+    // Payroll
+    'run_payroll', 'get_payroll_batches', 'get_payroll_by_period', 'get_payroll',
+    'get_faculty_payroll', 'get_utility_payroll',
+    'run_specialized_payroll',
+    'update_payroll_field', 'revoke_payroll_access',
+    'get_payslip', 'get_deduction_breakdown',
+    
+    // Deductions
+    'get_deductions', 'save_deduction', 'delete_deduction',
+    'get_deduction_categories',
+    'get_employee_deductions', 'assign_employee_deduction', 'delete_employee_deduction',
+    'bulk_assign_deduction',
+    
+    // Allowances
+    'get_allowances', 'add_allowance', 'update_allowance', 'delete_allowance',
+    'get_allowance_categories', 'add_allowance_category', 'delete_allowance_category',
+    'get_employee_allowances', 'assign_employee_allowance', 'delete_employee_allowance',
+    'bulk_assign_allowance',
+    
+    // Subject Load Management
+    'get_subjects', 'save_subject', 'delete_subject',
+    'get_subject_loads', 'save_subject_load', 'delete_subject_load',
+    
+    // Leave Management
+    'get_leave_requests', 'apply_leave', 'update_leave_status',
+    'approve_leave', 'reject_leave',
+    'update_leave_balance', 'bulk_update_leave_balance',
+    'get_resignation_requests', 'update_resignation_status', 'decline_resignation',
+    
+    // Loan Management
+    'get_loan_requests', 'apply_loan', 'update_loan_status',
+    
+    // Company & Settings
+    'get_companies', 'add_company', 'update_company', 'get_company_info',
+    'get_settings', 'save_settings',
+    
+    // User Management
+    'get_users', 'add_user', 'update_user', 'delete_user', 'update_role',
+    
+    // Face Recognition
+    'upload_face_encoding', 'get_face_registrations', 'save_face_registration',
+    'get_registered_faces',
+    
+    // Server Utilities
+    'get_server_time',
+    
+    // Audit & Notifications
+    'get_audit_logs', 'get_notifications'
+];
+
+// Get and sanitize action parameter
+$action = getParam('action', '', 'string');
+
+// Validate action against whitelist
+if (!empty($action) && !validateAction($action, $allowedActions)) {
+    apiError('Invalid action requested', [], 400);
+}
 
 // Helper function to process specialized payroll (Faculty/Utility)
 function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $end_date) {
@@ -82,14 +155,23 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
             
             if ($position === 'Faculty') {
                 // Faculty specific calculations
-                // NOTE: Faculty receive basic_pay even with 0 subject loads
-                $basic_pay = (float) $emp['basic_salary'] / 2;
+                // FIXED: Removed hardcoded / 2 divisor - use actual working days
+                // Calculate actual working days in the period
+                $period_days = max(1, (strtotime($end_date) - strtotime($start_date)) / (60 * 60 * 24) + 1);
+                $working_days = max(10, min(22, $period_days)); // Clamp between 10-22 days
+                
+                // Basic pay is prorated based on actual working days in period
+                $basic_pay = (float) $emp['basic_salary'] * ($working_days / 22); // 22 = standard monthly working days
                 $load_pay = 0; // Additional load pay (0 if no subjects assigned)
                 $overtime = 0;
                 $differential = 0;
                 $substitution = 0;
                 $adj_plus = 0;
-                $absences_deduction = $total_absent * (((float) $emp['basic_salary']) / 22);
+                
+                // FIXED: Absence deduction based on actual daily rate
+                $daily_rate = (float) $emp['basic_salary'] / 22;
+                $absences_deduction = $total_absent * $daily_rate;
+                
                 $late_ut = $total_late_min * $deduction_per_min;
                 $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                 $hdmf_loans = 0;
@@ -138,6 +220,13 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 $honorarium = 0;
                 $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances) - $total_deduction;
                 
+                // FIXED: Validate net_pay is not negative
+                if ($net_pay < 0) {
+                    error_log("Warning: Negative net_pay detected for faculty employee {$emp['id']}: {$net_pay}. Setting to 0.");
+                    $net_pay = 0;
+                    $breakdown['negative_net_pay_warning'] = 'Net pay was negative and has been set to 0. Please review deductions.';
+                }
+                
                 $breakdown = [
                     'load_pay' => $load_pay,
                     'overtime' => $overtime,
@@ -164,7 +253,16 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
             } else {
                 // Utility specific calculations
-                $rate_per_day = $emp['basic_salary'] / 22;
+                // FIXED: Added validation for 22-day divisor
+                $working_days_in_month = 22; // Standard working days
+                $rate_per_day = $emp['basic_salary'] / $working_days_in_month;
+                
+                // Validate rate_per_day is positive
+                if ($rate_per_day <= 0) {
+                    error_log("Warning: Invalid rate_per_day for employee {$emp['id']}: {$rate_per_day}");
+                    $rate_per_day = 0;
+                }
+                
                 $earned = $rate_per_day * $days_present;
                 $ot_holiday = 0;
                 $adj_plus = 0;
@@ -215,6 +313,14 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 
                 $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
                 $net_pay = ($earned + $ot_holiday + $adj_plus + $total_allowances) - $total_deduction;
+                
+                // FIXED: Validate net_pay is not negative
+                if ($net_pay < 0) {
+                    error_log("Warning: Negative net_pay detected for utility employee {$emp['id']}: {$net_pay}. Setting to 0.");
+                    $net_pay = 0;
+                    $breakdown['negative_net_pay_warning'] = 'Net pay was negative and has been set to 0. Please review deductions.';
+                }
+                
                 $atm = $net_pay;
                 $non_atm = 0;
                 

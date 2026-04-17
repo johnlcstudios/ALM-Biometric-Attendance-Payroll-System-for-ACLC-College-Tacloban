@@ -165,6 +165,7 @@
             border: 3px dashed rgba(255, 255, 255, 0.5);
             border-radius: 50%;
             animation: pulse 2s ease-in-out infinite;
+            display: none;
         }
 
         .face-guide-circle.perfect {
@@ -647,9 +648,16 @@
             fetch(`backend/api.php?action=get_company_info&company_id=${currentCompanyId}`)
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('company-name').innerText = data.name.toUpperCase();
-                    companyConfig = data;
-                    syncServerTime().then(() => updateCurrentAction());
+                    if (data && data.name) {
+                        document.getElementById('company-name').innerText = data.name.toUpperCase();
+                        companyConfig = data;
+                        syncServerTime().then(() => updateCurrentAction());
+                    } else {
+                        console.error('Failed to load company info:', data);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching company info:', err);
                 });
         }
 

@@ -17,6 +17,7 @@ namespace ALMInstaller
         private CheckBox chkDatabase;
         private CheckBox chkDependencies;
         private CheckBox chkOpenDiagnostic;
+        private CheckBox chkDeployFixes;
 
         public InstallerForm()
         {
@@ -27,7 +28,7 @@ namespace ALMInstaller
         {
             // Professional corporate design - compact single-screen layout
             this.Text = "ALM Biometrics System - Installer";
-            this.Size = new Size(680, 700);
+            this.Size = new Size(680, 785);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -291,6 +292,37 @@ namespace ALMInstaller
             this.Controls.Add(diagPanel);
             yOffset += 85;
 
+            // Deploy fixes checkbox
+            Panel deployPanel = new Panel {
+                Location = new Point(30, yOffset),
+                Size = new Size(620, 70),
+                BackColor = Color.FromArgb(248, 248, 248),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            chkDeployFixes = new CheckBox {
+                Text = "Run deployment fixes after installation",
+                Location = new Point(15, 10),
+                Width = 590,
+                Checked = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(40, 40, 40)
+            };
+
+            Label lblDeployDesc = new Label {
+                Text = "Executes deploy_fixes.bat to apply soft deletes, security fixes, and database updates",
+                Location = new Point(40, 34),
+                Width = 565,
+                AutoSize = false,
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 100, 100)
+            };
+
+            deployPanel.Controls.Add(chkDeployFixes);
+            deployPanel.Controls.Add(lblDeployDesc);
+            this.Controls.Add(deployPanel);
+            yOffset += 85;
+
             // Separator line
             Panel separator2 = new Panel {
                 Location = new Point(30, yOffset),
@@ -356,7 +388,7 @@ namespace ALMInstaller
         
             // Footer
             Panel footerPanel = new Panel {
-                Location = new Point(0, 650),
+                Location = new Point(0, 735),
                 Size = new Size(680, 50),
                 BackColor = Color.FromArgb(245, 245, 245)
             };
@@ -430,6 +462,16 @@ namespace ALMInstaller
                         DownloadDependencies(targetPath);
                     }
 
+                    // Run deploy fixes if checkbox is checked
+                    if (chkDeployFixes.Checked) {
+                        this.Invoke((MethodInvoker)delegate {
+                            lblStatus.Text = "Running deployment fixes...";
+                            lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
+                        });
+                        
+                        RunDeployFixes(targetPath);
+                    }
+
                     // Open diagnostic tool if checkbox is checked
                     if (chkOpenDiagnostic.Checked) {
                         try {
@@ -474,6 +516,9 @@ namespace ALMInstaller
                         }
                         if (chkDependencies.Checked) {
                             msg += "\n\nOffline dependencies (Font Awesome, SweetAlert2, Google Fonts) have been downloaded.";
+                        }
+                        if (chkDeployFixes.Checked) {
+                            msg += "\n\nDeployment fixes (soft deletes, security updates, database migrations) have been applied.";
                         }
                         msg += "\n\nTIP: Run check-models.html to verify face recognition setup.";
                         MessageBox.Show(msg, "Installation Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -685,6 +730,58 @@ namespace ALMInstaller
             }
             catch (Exception ex) {
                 throw new Exception(string.Format("Failed to download {0}: {1}", Path.GetFileName(destination), ex.Message));
+            }
+        }
+
+        private void RunDeployFixes(string targetPath)
+        {
+            try {
+                string deployScript = Path.Combine(targetPath, "deploy_fixes.bat");
+                
+                if (!File.Exists(deployScript)) {
+                    // Script not found - log warning but don't fail
+                    this.Invoke((MethodInvoker)delegate {
+                        lblStatus.Text = "Warning: deploy_fixes.bat not found (skipping)";
+                        lblStatus.ForeColor = Color.FromArgb(255, 193, 7);
+                    });
+                    return;
+                }
+
+                this.Invoke((MethodInvoker)delegate {
+                    lblStatus.Text = "Executing deployment fixes script...";
+                    lblStatus.ForeColor = Color.FromArgb(0, 0, 0);
+                });
+
+                // Run the batch file in the target directory
+                ProcessStartInfo psi = new ProcessStartInfo {
+                    FileName = deployScript,
+                    WorkingDirectory = Path.Combine(targetPath, "AI-ML-Test-Bench"),
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (Process process = Process.Start(psi)) {
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+                    process.WaitForExit(60000); // 60 second timeout
+
+                    // Log output for debugging if needed
+                    if (!string.IsNullOrEmpty(output)) {
+                        System.Diagnostics.Debug.WriteLine("Deploy output: " + output);
+                    }
+                    if (!string.IsNullOrEmpty(error)) {
+                        System.Diagnostics.Debug.WriteLine("Deploy error: " + error);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                // Don't fail installation if deploy script fails
+                this.Invoke((MethodInvoker)delegate {
+                    lblStatus.Text = "Warning: Deploy fixes encountered issues (check manually)";
+                    lblStatus.ForeColor = Color.FromArgb(255, 193, 7);
+                });
             }
         }
 

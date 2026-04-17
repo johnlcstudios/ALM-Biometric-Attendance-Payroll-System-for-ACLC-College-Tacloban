@@ -20,20 +20,35 @@ echo.
 
 REM Check for icon file
 echo [1/4] Checking application icon...
+if not exist "ALM-Icon.png" (
+    echo [ERROR] ALM-Icon.png not found!
+    echo Please ensure ALM-Icon.png exists in the build directory.
+    pause
+    exit /b 1
+)
+
+REM Convert PNG to ICO if needed
 if not exist "ALM-Icon.ico" (
-    echo [WARN] Icon file not found. Attempting to generate...
-    if exist "generate-icon.ps1" (
-        powershell -ExecutionPolicy Bypass -File generate-icon.ps1
-        if exist "ALM-Icon.ico" (
-            echo [SUCCESS] Icon generated successfully.
-        ) else (
-            echo [WARN] Icon generation failed. Continuing without custom icon.
-        )
+    echo [INFO] Converting ALM-Icon.png to ALM-Icon.ico...
+    powershell -ExecutionPolicy Bypass -File convert-png-to-ico.ps1
+    if exist "ALM-Icon.ico" (
+        echo [SUCCESS] Icon converted from PNG.
     ) else (
-        echo [WARN] generate-icon.ps1 not found. Using default icon.
+        echo [ERROR] Failed to convert PNG to ICO. Using fallback icon.
+        cscript //Nologo create-icon.vbs
     )
 ) else (
-    echo [OK] Icon file found.
+    REM Check if PNG is newer than ICO, if so regenerate
+    powershell -Command "$pngTime = (Get-Item 'ALM-Icon.png').LastWriteTime; $icoTime = (Get-Item 'ALM-Icon.ico').LastWriteTime; if ($pngTime -gt $icoTime) { Exit 1 }"
+    if %errorlevel% neq 0 (
+        echo [INFO] PNG updated, reconverting to ICO...
+        powershell -ExecutionPolicy Bypass -File convert-png-to-ico.ps1
+        if exist "ALM-Icon.ico" (
+            echo [SUCCESS] Icon regenerated from updated PNG.
+        )
+    ) else (
+        echo [OK] Icon file is up to date.
+    )
 )
 echo.
 
