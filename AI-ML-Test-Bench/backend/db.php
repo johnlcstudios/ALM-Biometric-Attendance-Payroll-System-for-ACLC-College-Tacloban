@@ -74,6 +74,16 @@ if (file_exists($envFile)) {
             putenv(trim($key) . '=' . trim($value));
         }
     }
+} else {
+    // PORTABILITY: Show helpful message if .env missing
+    if (php_sapi_name() !== 'cli' && !isset($_GET['noenv'])) {
+        echo '<div style="background:#ffeb3b;padding:15px;border-radius:8px;margin:20px;color:#333;">';
+        echo '<strong>🚀 PORTABILITY NOTICE:</strong> Create <code>.env</code> file from <code>.env.example</code><br>';
+        echo 'Copy project anywhere → Update DB credentials → Ready!<br>';
+        echo '<a href="?noenv=1" style="background:#4caf50;color:white;padding:8px 16px;border-radius:4px;text-decoration:none;">Continue Without .env</a>';
+        echo '</div>';
+        exit;
+    }
 }
 
 // Database Configuration - IMPORTANT: Change these in production!
