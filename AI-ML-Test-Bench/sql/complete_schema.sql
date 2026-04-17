@@ -1,6 +1,6 @@
 -- ============================================================================
 -- ALM Biometric Attendance & Payroll System - Complete Database Schema
--- Version: 2.4.0 - Build9
+-- Version: 2.5.0 - 
 -- Includes: Base schema + All migrations (001-004)
 -- ============================================================================
 
@@ -374,7 +374,7 @@ CREATE TABLE IF NOT EXISTS migrations (
 -- 2. Use setup-db.php or secure-setup.php to create initial admin account.
 -- 3. Never use default passwords in production.
 -- 4. This file includes all migrations - no need to run individual migration files.
--- 5. Version: 2.4.0 - Build9
+-- 5. Version: 2.5.0 - 
 --
 -- ============================================================================
 -- COMPLETE TABLE LIST (19 Tables)
@@ -490,6 +490,6 @@ CREATE TABLE IF NOT EXISTS migrations (
 --
 -- ============================================================================
 -- Last Updated: April 15, 2026
--- Schema Version: 2.4.0 - Build9
+-- Schema Version: 2.5.0 - 
 -- Status: ✅ PRODUCTION READY - All system features supported
 -- ============================================================================

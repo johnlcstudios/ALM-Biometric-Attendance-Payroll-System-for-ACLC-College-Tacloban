@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **modals.php**: Updated 7 dropdowns (Gender, Position, Faculty Level, Department, Status, Subject, Payroll Category)
 
 
-## [2.4.0] - *Build9 Experimental*  - 2026-04-14
+## [2.4.0] - * Experimental*  - 2026-04-14
 
 ### Added
 - **Animated Splash Screen**:

@@ -86,7 +86,7 @@ require_once 'backend/notifications.php';
             margin-bottom: 40px;
             opacity: 0.9;
             font-weight: 300;
-        ">ALM Biometric System v2.4.0</p>
+        ">ALM Biometric System v2.5.0</p>
         
         <!-- Credits -->
         <div style="

@@ -36,7 +36,7 @@ namespace ALMLauncher
 
             // Launch the app as an independent standalone window using Edge or Chrome App mode
             string url = "http://localhost/ALM-Biometrics/";
-            string windowTitle = "ALM Biometrics v2.4.0 - BSIT 3A";
+            string windowTitle = "ALM Biometrics v2.5.0 - BSIT 3A";
 
             string edgePath = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
             string chromePath = @"C:\Program Files\Google\Chrome\Application\chrome.exe";

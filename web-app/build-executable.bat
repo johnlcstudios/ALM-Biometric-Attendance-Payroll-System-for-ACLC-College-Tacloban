@@ -1,7 +1,7 @@
 @echo off
 echo =========================================
 echo ALM Biometrics System - Build Script
-echo Version 2.4.0 Build9
+echo Version 2.5.0 
 echo =========================================
 echo.
 
@@ -53,7 +53,7 @@ if not exist "ALM-Icon.ico" (
 echo.
 
 REM Build Installer
-echo [2/4] Building ALM-Installer.exe (v2.4.0)...
+echo [2/4] Building ALM-Installer.exe (v2.5.0)...
 if exist "ALM-Icon.ico" (
     %CSC% -out:"ALM-Installer.exe" -target:winexe -win32icon:ALM-Icon.ico -optimize+ Installer.cs
 ) else (
@@ -74,7 +74,7 @@ if %errorlevel% neq 0 (
 echo.
 
 REM Build Launcher
-echo [3/4] Building ALM-Launcher.exe (v2.4.0)...
+echo [3/4] Building ALM-Launcher.exe (v2.5.0)...
 if exist "ALM-Icon.ico" (
     %CSC% -out:"ALM-Launcher.exe" -target:winexe -win32icon:ALM-Icon.ico -optimize+ Launcher.cs
 ) else (
@@ -118,7 +118,7 @@ echo.
 echo =========================================
 echo BUILD SUMMARY
 echo =========================================
-echo Version: 2.4.0 Build9
+echo Version: 2.5.0 
 echo Files:   ALM-Installer.exe
 echo          ALM-Launcher.exe
 echo.
