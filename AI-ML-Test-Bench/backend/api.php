@@ -647,14 +647,44 @@ try {
                 break;
             }
 
-            // Auto-generate company_code if empty (fallback like secure-setup.php)
+            // BULLETPROOF company_code generation - handles edge cases
+            $company_code = trim($company_code);
+            
+            // 1. Sanitize input if provided
+            if (!empty($company_code)) {
+                $company_code = strtoupper(preg_replace('/[^A-Z0-9-]/', '', $company_code));
+                if (strlen($company_code) > 20) {
+                    $company_code = substr($company_code, 0, 20);
+                }
+            }
+            
+            // 2. Auto-generate if still empty
             if (empty($company_code)) {
                 $base = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', $company_name), 0, 4));
+                if (empty($base)) $base = 'COMP'; // Safeguard
+                
+                $max_attempts = 50; // Prevent infinite loop
+                $attempt = 0;
+                
                 do {
-                    $company_code = $base . '-' . substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 4);
+                    $attempt++;
+                    $random_part = substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 4);
+                    $company_code = $base . '-' . $random_part;
+                    
                     $stmt_check = $pdo->prepare("SELECT id FROM companies WHERE company_code = ?");
                     $stmt_check->execute([$company_code]);
-                } while ($stmt_check->fetch()); // Ensure uniqueness
+                    
+                    if ($attempt >= $max_attempts) {
+                        // Final fallback - use timestamp
+                        $company_code = $base . '-' . date('His');
+                        break;
+                    }
+                } while ($stmt_check->fetch());
+            }
+            
+            // 3. Final validation - should never be empty now
+            if (empty($company_code) || strlen($company_code) < 3) {
+                throw new Exception('Failed to generate valid company code');
             }
 
             $pdo->beginTransaction();
