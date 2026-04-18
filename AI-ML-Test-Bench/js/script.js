@@ -384,7 +384,10 @@ async function printPayrollHistory() {
     printWindow.document.close();
 
     printWindow.onload = () => {
-        printWindow.print();
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 100);
     };
 
     showToast('Print preview opened. Use browser print dialog to print/save PDF.', 'success');
@@ -450,18 +453,14 @@ async function exportPayrollHistory() {
 }// --- Reports & Export ---
 async function exportFacultyPayroll() {
     const { jsPDF } = window.jspdf;
-
-    // P0 Fix: Always explicitly fetch fresh data before reading the table
-    await loadFacultyPayroll('latest');
-
-    let tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
+    const tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
         return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3'); // Using A3 for 17 columns
-    const period = document.getElementById('faculty-payroll-period').innerText;
+    const period = document.getElementById('faculty-payroll-period')?.innerText || '---';
 
     doc.setFontSize(18);
     doc.text("FACULTY PAYROLL REPORT", 14, 15);
@@ -472,7 +471,7 @@ async function exportFacultyPayroll() {
     tableRows.forEach(tr => {
         const row = [];
         tr.querySelectorAll("td").forEach(td => {
-            row.push(td.innerText.replace('₱', '').trim());
+            row.push(td.innerText.replace(/₱/g, '').trim());
         });
         rows.push(row);
     });
@@ -481,8 +480,11 @@ async function exportFacultyPayroll() {
         head: [['No.', 'Name', 'Basic Pay', 'Earned for the Period', 'Load', 'Over Time', 'Differential', 'Substitution', 'Adj. (+)', 'Absences', 'Latest/UT', 'HDMF Cont.', 'HDMF Loans', 'HDMF MP2', 'Total Deduction', 'Honorarium', 'Net Pay']],
         body: rows,
         startY: 30,
-        styles: { fontSize: 7, cellPadding: 1 },
-        headStyles: { fillColor: [30, 1, 120] }
+        styles: { fontSize: 7, cellPadding: 1, halign: 'center' },
+        headStyles: { fillColor: [30, 1, 120], textColor: 255, fontStyle: 'bold' },
+        columnStyles: { 1: { halign: 'left' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' }, 9: { halign: 'right' }, 10: { halign: 'right' }, 11: { halign: 'right' }, 12: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' }, 16: { halign: 'right' } },
+        theme: 'striped',
+        margin: { top: 30 }
     });
 
     doc.save(`Faculty_Payroll_${period.replace(/ /g, '_')}.pdf`);
@@ -490,18 +492,14 @@ async function exportFacultyPayroll() {
 
 async function exportUtilityPayroll() {
     const { jsPDF } = window.jspdf;
-
-    // P0 Fix: Always explicitly fetch fresh data before reading the table
-    await loadUtilityPayroll('latest');
-
-    let tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
+    const tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
         return showToast("No payroll data available to export.", 'error');
     }
 
     const doc = new jsPDF('l', 'mm', 'a3');
-    const period = document.getElementById('utility-payroll-period').innerText;
+    const period = document.getElementById('utility-payroll-period')?.innerText || '---';
 
     doc.setFontSize(18);
     doc.text("UTILITY PAYROLL REPORT", 14, 15);
@@ -512,7 +510,7 @@ async function exportUtilityPayroll() {
     tableRows.forEach(tr => {
         const row = [];
         tr.querySelectorAll("td").forEach(td => {
-            row.push(td.innerText.replace('₱', '').trim());
+            row.push(td.innerText.replace(/₱/g, '').trim());
         });
         rows.push(row);
     });
@@ -521,8 +519,11 @@ async function exportUtilityPayroll() {
         head: [['No.', 'Name', 'Rate per Day', 'Earned for the Period', 'OT/ Holiday Pay', 'Adj.(+)', 'Latest/UT', 'Adj. (-)', 'HDMF Cont.', 'HDMF Loans', 'Cash Advance', 'Total Deduction', 'Net Pay', 'ATM', 'Non ATM']],
         body: rows,
         startY: 30,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [30, 1, 120] }
+        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+        headStyles: { fillColor: [30, 1, 120], textColor: 255, fontStyle: 'bold' },
+        columnStyles: { 1: { halign: 'left' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' }, 9: { halign: 'right' }, 10: { halign: 'right' }, 11: { halign: 'right' }, 12: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+        theme: 'striped',
+        margin: { top: 30 }
     });
 
     doc.save(`Utility_Payroll_${period.replace(/ /g, '_')}.pdf`);
@@ -533,11 +534,9 @@ async function printSpecializedPayroll(tableId, title) {
     const periodId = isFaculty ? 'faculty-payroll-period' : 'utility-payroll-period';
     const tbodyId = isFaculty ? 'facultyPayrollTableBody' : 'utilityPayrollTableBody';
 
-    // Check if table is empty, if so, load latest
-    let tableRows = document.querySelectorAll(`#${tbodyId} tr`);
+    const tableRows = document.querySelectorAll(`#${tbodyId} tr`);
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll") || tableRows[0].innerText.includes("No utility payroll")) {
-        if (isFaculty) await loadFacultyPayroll('latest');
-        else await loadUtilityPayroll('latest');
+        return showToast("No payroll data available to print.", 'error');
     }
 
     const period = document.getElementById(periodId).innerText;
@@ -574,8 +573,11 @@ async function printSpecializedPayroll(tableId, title) {
 
     // Wait for content to load before printing
     printWindow.onload = function () {
-        printWindow.print();
-        // Optional: printWindow.close();
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            // Optional: printWindow.close();
+        }, 100);
     };
 }
 

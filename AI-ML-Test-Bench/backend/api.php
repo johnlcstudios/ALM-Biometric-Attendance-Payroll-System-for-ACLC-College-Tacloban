@@ -166,7 +166,7 @@ try {
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
-            echo json_encode(['period' => $period, 'data' => $results]);
+            apiData(['period' => $period, 'data' => array_values($results)]);
             break;
 
         case 'get_utility_payroll':
@@ -187,7 +187,7 @@ try {
                                  AND p.period = ?");
             $stmt->execute([$_SESSION['company_id'], $period]);
             $results = $stmt->fetchAll();
-            echo json_encode(['period' => $period, 'data' => $results]);
+            apiData(['period' => $period, 'data' => array_values($results)]);
             break;
 
         case 'run_specialized_payroll':
@@ -1175,10 +1175,10 @@ softDelete($pdo, 'employees', $id);
 
         case 'get_payroll':
             if (!isset($_SESSION['company_id']))
-                exit(json_encode([]));
+                apiData(['data' => []]);
             $stmt = $pdo->prepare("SELECT p.*, e.full_name FROM payroll p JOIN employees e ON p.employee_id = e.id WHERE p.company_id = ? ORDER BY p.created_at DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            apiData(['data' => $stmt->fetchAll()]);
             break;
 
         case 'get_payslip':
