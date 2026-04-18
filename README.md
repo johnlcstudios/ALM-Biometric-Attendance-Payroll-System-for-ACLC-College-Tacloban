@@ -146,7 +146,7 @@ cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
 ```
 ### Important Note:
 * After Cloning rename ```.env.example``` files to ```.env```
-* and download the models From [Releases](https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/releases/download/Alpha/models.zip) then extract it to ```AI-ML-Test-Bench``` Folder.
+* and download the models From [Releases](https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/releases/download/Alpha/models.zip) then extract, then copy models folder to ```AI-ML-Test-Bench``` Folder.
 * USE ```Complete_schema.sql``` for the database.
 
 ### **2️⃣ Switch to Your Team Branch**
