@@ -18,6 +18,25 @@ class FaceManager {
         this.isProcessing = false;
         this.stabilityCounter = 0;
         this.lastBox = null;
+        
+        // Liveness properties
+        this.livenessCanvas = null;
+        this.livenessCtx = null;
+        this.lastFrameData = null;
+        this.staticFrameCount = 0;
+        
+        // Active Liveness state
+        this.livenessAction = 'none'; // 'blink', 'smile', 'none'
+        this.livenessActionCompleted = false;
+        this.blinkCount = 0;
+        this.isEyesClosed = false;
+    }
+
+    setLivenessAction(action) {
+        this.livenessAction = action;
+        this.livenessActionCompleted = false;
+        this.blinkCount = 0;
+        this.isEyesClosed = false;
     }
 
     async loadModels() {
@@ -154,6 +173,66 @@ class FaceManager {
         }
     }
 
+    /**
+     * Checks if the video stream is a live camera feed or a static image
+     * Returns true if motion is detected, false if static (frozen image)
+     */
+    checkLiveness(videoElement) {
+        if (!this.livenessCanvas) {
+            this.livenessCanvas = document.createElement('canvas');
+            // Use low resolution for fast processing
+            this.livenessCanvas.width = 64;
+            this.livenessCanvas.height = 48;
+            this.livenessCtx = this.livenessCanvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        try {
+            this.livenessCtx.drawImage(videoElement, 0, 0, 64, 48);
+            const imageData = this.livenessCtx.getImageData(0, 0, 64, 48);
+            const currentFrame = imageData.data;
+            
+            let isLive = true;
+
+            if (this.lastFrameData) {
+                let diff = 0;
+                let samples = 0;
+                
+                // Sample pixels (RGBA) to calculate average difference
+                for (let i = 0; i < currentFrame.length; i += 16) {
+                    diff += Math.abs(currentFrame[i] - this.lastFrameData[i]); // R
+                    diff += Math.abs(currentFrame[i+1] - this.lastFrameData[i+1]); // G
+                    diff += Math.abs(currentFrame[i+2] - this.lastFrameData[i+2]); // B
+                    samples += 3;
+                }
+                
+                // Average difference per color channel per sampled pixel
+                const avgDiff = diff / samples;
+                
+                // If avgDiff is extremely low (< 1), it's likely a static image
+                if (avgDiff < 1.0) {
+                    this.staticFrameCount++;
+                } else {
+                    this.staticFrameCount = 0;
+                }
+
+                // If static for 15 consecutive frames, consider it not live (frozen image)
+                if (this.staticFrameCount > 15) {
+                    isLive = false;
+                }
+            } else {
+                this.staticFrameCount = 0;
+            }
+
+            // Copy current frame to last frame for next comparison
+            this.lastFrameData = new Uint8ClampedArray(currentFrame);
+            
+            return isLive;
+        } catch (e) {
+            console.error("Liveness check error:", e);
+            return true; // Default to true if canvas drawing fails
+        }
+    }
+
     checkStability(box) {
         if (!this.lastBox) {
             this.lastBox = box;
@@ -177,6 +256,90 @@ class FaceManager {
 
         this.lastBox = box;
         return this.stabilityCounter >= this.config.stabilityRequired;
+    }
+
+    /**
+     * Calculates Euclidean distance between two points
+     */
+    _getDistance(p1, p2) {
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    }
+
+    /**
+     * Calculates Eye Aspect Ratio (EAR) for blink detection
+     * Based on 6 landmarks per eye
+     */
+    _calculateEAR(eyePoints) {
+        // Vertical distances
+        const v1 = this._getDistance(eyePoints[1], eyePoints[5]);
+        const v2 = this._getDistance(eyePoints[2], eyePoints[4]);
+        // Horizontal distance
+        const h = this._getDistance(eyePoints[0], eyePoints[3]);
+        
+        return (v1 + v2) / (2.0 * h);
+    }
+
+    /**
+     * Checks if the user has performed the requested active liveness action (blink twice or smile)
+     */
+    checkActiveLiveness(landmarks) {
+        if (!landmarks || this.livenessAction === 'none' || this.livenessActionCompleted) {
+            return this.livenessActionCompleted;
+        }
+
+        const points = landmarks.positions;
+
+        if (this.livenessAction === 'blink') {
+            // Left eye: 36-41, Right eye: 42-47
+            const leftEye = points.slice(36, 42);
+            const rightEye = points.slice(42, 48);
+
+            const leftEAR = this._calculateEAR(leftEye);
+            const rightEAR = this._calculateEAR(rightEye);
+            const avgEAR = (leftEAR + rightEAR) / 2.0;
+
+            const EAR_THRESHOLD = 0.22; // Typical threshold for closed eyes
+
+            if (avgEAR < EAR_THRESHOLD) {
+                if (!this.isEyesClosed) {
+                    this.isEyesClosed = true;
+                }
+            } else {
+                if (this.isEyesClosed) {
+                    this.isEyesClosed = false;
+                    this.blinkCount++;
+                    if (this.blinkCount >= 2) {
+                        this.livenessActionCompleted = true;
+                    }
+                }
+            }
+        } else if (this.livenessAction === 'smile') {
+            // Mouth points: 48 to 67. Corners: 48 and 54. Top/bottom: 51 and 57
+            const mouthLeft = points[48];
+            const mouthRight = points[54];
+            const mouthTop = points[51];
+            const mouthBottom = points[57];
+
+            // Face width from jawline points 0 to 16
+            const faceLeft = points[0];
+            const faceRight = points[16];
+            
+            const mouthWidth = this._getDistance(mouthLeft, mouthRight);
+            const mouthHeight = this._getDistance(mouthTop, mouthBottom);
+            const faceWidth = this._getDistance(faceLeft, faceRight);
+
+            // Calculate Mouth Aspect Ratio (MAR) and Mouth-to-Face Width ratio
+            const mouthRatio = mouthWidth / faceWidth;
+            const mar = mouthHeight / mouthWidth;
+
+            // Smile usually means wide mouth and low height/width ratio (if closed) or just very wide
+            // A typical smile stretches the mouth width significantly relative to face width
+            if (mouthRatio > 0.40 || (mouthRatio > 0.35 && mar > 0.15 && mar < 0.5)) {
+                this.livenessActionCompleted = true;
+            }
+        }
+
+        return this.livenessActionCompleted;
     }
 
     /**
