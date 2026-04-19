@@ -578,6 +578,30 @@
     </div>
 
     <script>
+        // Prevent file drag and drop to bypass camera
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Action Blocked',
+                text: 'Only live camera feed is accepted – please use the built-in camera.',
+                confirmButtonColor: '#1e0178'
+            });
+        });
+        
+        // Prevent any file picker dialogs
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'file') {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Blocked',
+                    text: 'Only live camera feed is accepted – please use the built-in camera.',
+                    confirmButtonColor: '#1e0178'
+                });
+            }
+        }, true);
         
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
@@ -809,10 +833,41 @@
                     const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
                     const isFrontal = frontalCheck.isFrontal;
 
+                    // Check if the stream is a live camera feed (not a static image)
+                    const isLive = faceManager.checkLiveness(video);
+
+                    // Active Liveness action handling
+                    if (isFrontal && isLive && faceManager.livenessAction === 'none') {
+                        // Assign a random liveness task when face is frontal
+                        const tasks = ['blink', 'smile'];
+                        const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+                        faceManager.setLivenessAction(randomTask);
+                    }
+                    
+                    const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
+
                     // Determine status message and color
                     let status, color, hint;
                     
-                    if (!isFrontal) {
+                    if (!isLive) {
+                        status = "STATIC IMAGE DETECTED";
+                        hint = "Only live camera feed is accepted – please use the built-in camera.";
+                        color = "#db261f"; // Red error
+                        guideCircle.className = 'face-guide-circle border-danger';
+                        
+                        // Show error message
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Action Blocked',
+                            text: 'Only live camera feed is accepted – please use the built-in camera.',
+                            confirmButtonColor: '#1e0178'
+                        });
+                        
+                        // Stop processing temporarily to let user read the message
+                        faceManager.isProcessing = true;
+                        setTimeout(() => { faceManager.isProcessing = false; }, 3000);
+                        
+                    } else if (!isFrontal) {
                         // Face not looking straight
                         if (!frontalCheck.details.yawOk) {
                             status = "TURN FACE TO CAMERA";
@@ -834,8 +889,14 @@
                         hint = "✓ Good! Hold still...";
                         color = "#f39c12"; // Orange
                         guideCircle.className = 'face-guide-circle warning';
+                    } else if (!isActiveLivenessPassed) {
+                        // Waiting for liveness action
+                        status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
+                        hint = faceManager.livenessAction === 'blink' ? "Blink twice to verify liveness" : "Smile to verify liveness";
+                        color = "#3498db"; // Blue action
+                        guideCircle.className = 'face-guide-circle border-primary';
                     } else {
-                        // Both frontal and stable - ready to scan!
+                        // Frontal, stable, and liveness verified - ready to scan!
                         status = "✓ PERFECT! SCANNING...";
                         hint = "✓ Perfect! Scanning now...";
                         color = "#27ae60"; // Green
@@ -845,14 +906,15 @@
                     positionHint.textContent = hint;
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    // Only scan if face is both frontal AND stable
-                    if (isFrontal && isStable) {
+                    // Only scan if face is frontal, stable, AND active liveness verified
+                    if (isFrontal && isStable && isActiveLivenessPassed) {
                         faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
                         processScan();
                     }
                 } else {
                     faceManager.stabilityCounter = 0;
+                    faceManager.setLivenessAction('none'); // Reset active liveness
                     cameraCircle.classList.remove('scanning');
                     faceGuide.classList.remove('active');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
