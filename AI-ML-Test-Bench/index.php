@@ -338,6 +338,16 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <?php endif; ?>
             </nav>
             <div class="sidebar-footer">
+                <div class="user-profile-section">
+                    <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&size=40&background=random" alt="Profile" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name"><?php echo htmlspecialchars($full_name); ?></span>
+                        <span class="user-role"><?php echo htmlspecialchars($role); ?></span>
+                    </div>
+                    <button class="profile-link-btn" onclick="window.location.href='index.php?page=profile'" title="My Profile">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                </div>
                 <button class="nav-btn logout" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
                 </button>
@@ -351,14 +361,6 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <div class="page-title">
                     <h2 id="current-page-title">Dashboard</h2>
                     <p class="company-tag"><?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></p>
-                </div>
-                <div class="user-profile">
-                    <div class="profile-info">
-                        <div class="profile-text">
-                            <span class="name"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></span>
-                            <span class="role"><?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?> Admin</span>
-                        </div>
-                    </div>
                 </div>
             </header>
 

@@ -1,7 +1,17 @@
 <?php
+if (!isset($_SESSION['company_id'])) {
+    echo "<p>Error: Company ID not found in session.</p>";
+    exit;
+}
+
 $stmt_company = $pdo->prepare("SELECT * FROM companies WHERE id = ?");
 $stmt_company->execute([$_SESSION['company_id']]);
-$company = $stmt_company->fetch();
+$company = $stmt_company->fetch(PDO::FETCH_ASSOC);
+
+if (!$company) {
+    echo "<p>Error: Company not found.</p>";
+    exit;
+}
 ?>
 <section id="settings" class="page">
     <div class="settings-container">

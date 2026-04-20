@@ -357,7 +357,14 @@
                 </div>
                 <div class="form-group">
                     <label>New Password</label>
-                    <input type="password" id="newPass" required>
+                    <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                    <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
+                        <div id="req-length" class="req-item">At least 8 characters</div>
+                        <div id="req-uppercase" class="req-item">One uppercase letter</div>
+                        <div id="req-lowercase" class="req-item">One lowercase letter</div>
+                        <div id="req-number" class="req-item">One number</div>
+                        <div id="req-special" class="req-item">One special character</div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Confirm New Password</label>
@@ -371,6 +378,15 @@
         </div>
     </div>
 </div>
+
+<style>
+.req-item {
+    color: #dc3545;
+}
+.req-item.valid {
+    color: #28a745;
+}
+</style>
 
 <!-- View Faculty Loads Modal -->
 <div id="viewLoadsModal" class="modal">

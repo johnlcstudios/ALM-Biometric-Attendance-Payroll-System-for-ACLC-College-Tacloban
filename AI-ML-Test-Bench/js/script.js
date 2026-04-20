@@ -3792,6 +3792,20 @@ async function changePassword() {
         return;
     }
 
+    // Check if all requirements are met
+    const reqs = document.querySelectorAll('.req-item');
+    let allValid = true;
+    reqs.forEach(req => {
+        if (!req.classList.contains('valid')) {
+            allValid = false;
+        }
+    });
+
+    if (!allValid) {
+        showToast("Password does not meet requirements!", 'error');
+        return;
+    }
+
     const response = await fetch('backend/api.php?action=change_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3811,6 +3825,28 @@ async function changePassword() {
     } else {
         showToast(result.message, 'error');
     }
+}
+
+function checkPasswordStrength() {
+    const password = document.getElementById('newPass').value;
+    const reqs = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+
+    Object.keys(reqs).forEach(req => {
+        const el = document.getElementById('req-' + req);
+        if (el) {
+            if (reqs[req]) {
+                el.classList.add('valid');
+            } else {
+                el.classList.remove('valid');
+            }
+        }
+    });
 }
 
 // --- Reports ---

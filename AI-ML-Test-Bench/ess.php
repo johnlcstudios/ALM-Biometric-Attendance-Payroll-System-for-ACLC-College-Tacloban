@@ -83,6 +83,13 @@ $position = $emp['position'] ?? 'Staff';
         .status-paid { background: #d4edda; color: #155724; }
         .status-completed { background: #cce5ff; color: #004085; }
         
+        .req-item {
+            color: #dc3545;
+        }
+        .req-item.valid {
+            color: #28a745;
+        }
+        
         /* Modal for Payslip */
         #payslipModal .modal-content { max-width: 800px; padding: 3rem; }
         .payslip-header { text-align: center; margin-bottom: 2rem; border-bottom: 2px solid var(--primary-color); padding-bottom: 1rem; }
@@ -450,49 +457,50 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                         
                         <div id="profile-info" class="profile-tab-section active">
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>Employee ID</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                            <form id="employeeProfileForm">
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Employee ID</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Company Code</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+                                    </div>
                                 </div>
-                                <div class="form-group-custom">
-                                    <label>Company Code</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Email Address</label>
+                                        <input type="email" name="email" value="<?php echo htmlspecialchars($emp['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Date of Birth</label>
+                                        <input type="date" name="dob" value="<?php echo htmlspecialchars($emp['dob'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>Email Address</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>SSS No.</label>
+                                        <input type="text" name="sss" value="<?php echo htmlspecialchars($emp['sss'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>PhilHealth No.</label>
+                                        <input type="text" name="philhealth" value="<?php echo htmlspecialchars($emp['philhealth'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                                <div class="form-group-custom">
-                                    <label>Date of Birth</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['dob'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>TIN</label>
+                                        <input type="text" name="tin" value="<?php echo htmlspecialchars($emp['tin'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Pag-IBIG No.</label>
+                                        <input type="text" name="pagibig" value="<?php echo htmlspecialchars($emp['pagibig'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>SSS No.</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['sss'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
-                                </div>
-                                <div class="form-group-custom">
-                                    <label>PhilHealth No.</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['philhealth'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
-                                </div>
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>TIN</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['tin'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
-                                </div>
-                                <div class="form-group-custom">
-                                    <label>Pag-IBIG No.</label>
-                                    <input type="text" value="<?php echo htmlspecialchars($emp['pagibig'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
-                                </div>
-                            </div>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
-                                <i class="fas fa-info-circle"></i> To update your personal information, please contact the HR Department.
-                            </p>
+                                <div id="profile-msg" style="margin-bottom: 15px; display: none;"></div>
+                                <button type="button" class="btn btn-primary" id="saveEmployeeProfileBtn" onclick="saveEmployeeProfile()">Save Personal Information</button>
+                            </form>
                         </div>
                         
                         <div id="profile-security" class="profile-tab-section" style="display: none;">
@@ -503,7 +511,14 @@ $position = $emp['position'] ?? 'Staff';
                                 </div>
                                 <div class="form-group-custom">
                                     <label>New Password</label>
-                                    <input type="password" name="new_password" class="form-control-large-gray" required>
+                                    <input type="password" name="new_password" class="form-control-large-gray" required oninput="checkPasswordStrength()">
+                                    <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
+                                        <div id="req-length" class="req-item">At least 8 characters</div>
+                                        <div id="req-uppercase" class="req-item">One uppercase letter</div>
+                                        <div id="req-lowercase" class="req-item">One lowercase letter</div>
+                                        <div id="req-number" class="req-item">One number</div>
+                                        <div id="req-special" class="req-item">One special character</div>
+                                    </div>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Confirm New Password</label>
@@ -751,6 +766,19 @@ $position = $emp['position'] ?? 'Staff';
             
             if (data.new_password !== data.confirm_password) {
                 return showToast("Passwords do not match!", "error");
+            }
+
+            // Check if all requirements are met
+            const reqs = document.querySelectorAll('.req-item');
+            let allValid = true;
+            reqs.forEach(req => {
+                if (!req.classList.contains('valid')) {
+                    allValid = false;
+                }
+            });
+
+            if (!allValid) {
+                return showToast("Password does not meet requirements!", "error");
             }
 
             try {
@@ -1032,6 +1060,56 @@ $position = $emp['position'] ?? 'Staff';
             window.open(dtrUrl, '_blank');
             
             showToast('DTR generated! Check the new window to print.', 'success');
+        }
+
+        async function saveEmployeeProfile() {
+            const form = document.getElementById('employeeProfileForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            const btn = document.getElementById('saveEmployeeProfileBtn');
+
+            btn.disabled = true;
+            btn.innerHTML = 'Saving...';
+
+            try {
+                const response = await fetch('backend/api.php?action=update_employee_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Profile updated successfully!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('Error: ' + result.message, 'error');
+                }
+            } catch (err) {
+                showToast('An error occurred', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Save Personal Information';
+            }
+        }
+
+        function checkPasswordStrength() {
+            const password = document.querySelector('input[name="new_password"]').value;
+            const reqs = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /\d/.test(password),
+                special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+            };
+
+            Object.keys(reqs).forEach(req => {
+                const el = document.getElementById('req-' + req);
+                if (reqs[req]) {
+                    el.classList.add('valid');
+                } else {
+                    el.classList.remove('valid');
+                }
+            });
         }
 
         loadESS();
