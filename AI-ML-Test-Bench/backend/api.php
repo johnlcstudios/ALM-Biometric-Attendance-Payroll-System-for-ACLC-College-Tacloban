@@ -2541,6 +2541,7 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $username = trim($data['username'] ?? '');
             $email = trim($data['email'] ?? '');
+            $phone = trim($data['phone'] ?? '');
 
             if (empty($username) || empty($email)) {
                 echo json_encode(['success' => false, 'message' => 'Username and email are required']);
@@ -2568,8 +2569,8 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
-            $success = $stmt->execute([$username, $email, $_SESSION['user_id']]);
+            $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ?, phone = ? WHERE id = ?");
+            $success = $stmt->execute([$username, $email, $phone, $_SESSION['user_id']]);
 
             if ($success) {
                 $_SESSION['full_name'] = $username;
@@ -2579,14 +2580,90 @@ try {
             }
             break;
 
+        case 'upload_profile_picture':
+            if (!isset($_FILES['profile_picture'])) {
+                echo json_encode(['success' => false, 'message' => 'No file uploaded']);
+                break;
+            }
+
+            $file = $_FILES['profile_picture'];
+            
+            // Validate file type
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!in_array($file['type'], $allowed_types)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed']);
+                break;
+            }
+
+            // Validate file size (max 5MB)
+            if ($file['size'] > 5 * 1024 * 1024) {
+                echo json_encode(['success' => false, 'message' => 'File size must be less than 5MB']);
+                break;
+            }
+
+            // Create upload directory if it doesn't exist
+            $upload_dir = 'uploads/profiles/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            // Generate unique filename
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . $_SESSION['user_id'] . '_' . time() . '.' . $extension;
+            $filepath = $upload_dir . $filename;
+
+            // Delete old profile picture if exists
+            $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $old_picture = $stmt->fetchColumn();
+            if ($old_picture && file_exists($old_picture)) {
+                unlink($old_picture);
+            }
+
+            // Move uploaded file
+            if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                // Update database
+                $stmt = $pdo->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
+                $success = $stmt->execute([$filepath, $_SESSION['user_id']]);
+
+                if ($success) {
+                    echo json_encode([
+                        'success' => true,
+                        'picture_url' => $filepath
+                    ]);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to update database']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to upload file']);
+            }
+            break;
+
         case 'update_employee_profile':
             $data = json_decode(file_get_contents('php://input'), true);
+            
+            // Validate and sanitize input
+            $full_name = trim($data['full_name'] ?? '');
             $email = trim($data['email'] ?? '');
-            $dob = trim($data['dob'] ?? '');
-            $sss = trim($data['sss'] ?? '');
-            $philhealth = trim($data['philhealth'] ?? '');
-            $tin = trim($data['tin'] ?? '');
-            $pagibig = trim($data['pagibig'] ?? '');
+            $dob = trim($data['dob'] ?? '') ?: null;
+            $gender = trim($data['gender'] ?? '') ?: null;
+            $contact_no = trim($data['contact_no'] ?? '') ?: null;
+            $position = trim($data['position'] ?? '') ?: null;
+            $department = trim($data['department'] ?? '') ?: null;
+            $hire_date = trim($data['hire_date'] ?? '') ?: null;
+            $faculty_level = trim($data['faculty_level'] ?? '') ?: null;
+            $status = trim($data['status'] ?? 'active');
+            
+            // Keep backward compatibility with old fields
+            $sss = trim($data['sss'] ?? '') ?: null;
+            $philhealth = trim($data['philhealth'] ?? '') ?: null;
+            $tin = trim($data['tin'] ?? '') ?: null;
+            $pagibig = trim($data['pagibig'] ?? '') ?: null;
+
+            if (!$full_name) {
+                echo json_encode(['success' => false, 'message' => 'Full name is required']);
+                break;
+            }
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid email format']);
@@ -2602,8 +2679,8 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("UPDATE employees SET email = ?, dob = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE id = ?");
-            $success = $stmt->execute([$email, $dob, $sss, $philhealth, $tin, $pagibig, $emp['id']]);
+            $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, email = ?, dob = ?, gender = ?, contact_no = ?, position = ?, department = ?, hire_date = ?, faculty_level = ?, status = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE user_id = ?");
+            $success = $stmt->execute([$full_name, $email, $dob, $gender, $contact_no, $position, $department, $hire_date, $faculty_level, $status, $sss, $philhealth, $tin, $pagibig, $_SESSION['user_id']]);
 
             if ($success) {
                 echo json_encode(['success' => true]);

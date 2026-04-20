@@ -41,7 +41,8 @@ $allowed_pages = [
     'loans',
     'resignations',
     'reports',
-    'settings'
+    'settings',
+    'profile'
 ];
 $page = $_GET['page'] ?? 'dashboard';
 if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
@@ -124,6 +125,9 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 </button>
                 <button class="nav-btn <?php echo $page === 'settings' ? 'active' : ''; ?>" data-page="settings" onclick="window.location.href='Payroll-Officer.php?page=settings'">
                     <i class="fas fa-cog"></i> <span>Settings</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'profile' ? 'active' : ''; ?>" data-page="profile" onclick="window.location.href='Payroll-Officer.php?page=profile'">
+                    <i class="fas fa-user"></i> <span>My Profile</span>
                 </button>
             </nav>
             <div class="sidebar-footer">
