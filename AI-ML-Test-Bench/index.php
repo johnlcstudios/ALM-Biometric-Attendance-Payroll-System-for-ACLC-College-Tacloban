@@ -50,7 +50,8 @@ $allowed_pages = [
     'resignations',
     'reports',
     'assign_payroll',
-    'settings'
+    'settings',
+    'profile'
 ];
 $page = $_GET['page'] ?? 'dashboard';
 // Sanitize page input to prevent LFI (remove directory traversal characters)
