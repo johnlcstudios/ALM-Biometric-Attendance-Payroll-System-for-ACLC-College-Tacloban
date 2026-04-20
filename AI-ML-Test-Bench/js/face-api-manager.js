@@ -30,6 +30,10 @@ class FaceManager {
         this.livenessActionCompleted = false;
         this.blinkCount = 0;
         this.isEyesClosed = false;
+        
+        // Anti-spoofing micro-motion tracking
+        this.eyeDistanceHistory = [];
+        this.isSpoofDetected = false;
     }
 
     setLivenessAction(action) {
@@ -37,6 +41,16 @@ class FaceManager {
         this.livenessActionCompleted = false;
         this.blinkCount = 0;
         this.isEyesClosed = false;
+        
+        // Differential tracking variables
+        this.baselineEAR = null;
+        this.baselineMouthRatio = null;
+        this.framesProcessed = 0;
+        this.actionFrames = 0;
+        
+        // Reset anti-spoofing when a new action starts
+        this.eyeDistanceHistory = [];
+        this.isSpoofDetected = false;
     }
 
     async loadModels() {
@@ -280,62 +294,183 @@ class FaceManager {
     }
 
     /**
-     * Checks if the user has performed the requested active liveness action (blink twice or smile)
+     * Passive Anti-Spoofing: Rigidity Analysis
+     * A printed photo or displayed image on a phone is a perfectly flat 2D plane.
+     * When it moves, the distances between landmarks scale perfectly proportionally.
+     * A real 3D human face has micro-variations (jitter) in muscle tension and perspective.
+     * This tracks the normalized distance between the eyes over multiple frames.
+     * If the standard deviation is extremely low (too perfect), it's a rigid 2D spoof.
+     */
+    checkSpoofing(landmarks, boundingBox) {
+        if (!landmarks || !boundingBox) return true;
+
+        if (!this.eyeDistanceHistory) {
+            this.eyeDistanceHistory = [];
+        }
+
+        const leftEye = landmarks.positions[36];
+        const rightEye = landmarks.positions[45];
+        
+        // Distance between eyes
+        const eyeDist = this._getDistance(leftEye, rightEye);
+        
+        // Normalize by bounding box width to account for moving closer/further from camera
+        const normalizedDist = eyeDist / boundingBox.width;
+
+        this.eyeDistanceHistory.push(normalizedDist);
+        if (this.eyeDistanceHistory.length > 20) {
+            this.eyeDistanceHistory.shift(); // Keep last 20 frames
+        }
+
+        // Need at least 10 frames to analyze variance
+        if (this.eyeDistanceHistory.length >= 10) {
+            // Calculate Standard Deviation
+            const mean = this.eyeDistanceHistory.reduce((a, b) => a + b) / this.eyeDistanceHistory.length;
+            const variance = this.eyeDistanceHistory.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / this.eyeDistanceHistory.length;
+            const stdDev = Math.sqrt(variance);
+
+            // A standard deviation below 0.0008 is abnormally rigid (a static photo being moved around)
+            // Real faces typically have a stdDev of 0.002 to 0.010 due to 3D micro-movements and neural net jitter
+            if (stdDev < 0.0008) {
+                this.isSpoofDetected = true;
+                return false; // Spoof detected!
+            } else {
+                this.isSpoofDetected = false;
+            }
+        }
+        
+        return !this.isSpoofDetected;
+    }
+
+    /**
+     * Checks if the user has performed the requested active liveness action (blink twice, smile, or turn head)
      */
     checkActiveLiveness(landmarks) {
         if (!landmarks || this.livenessAction === 'none' || this.livenessActionCompleted) {
             return this.livenessActionCompleted;
         }
 
+        this.framesProcessed = (this.framesProcessed || 0) + 1;
+        
+        // If they take too long (e.g. 150 frames = ~5 seconds), they might be stuck in a bad baseline
+        // Reset the baseline so they have another chance to start from a neutral face
+        if (this.framesProcessed > 150) {
+            this.baselineEAR = null;
+            this.baselineMouthRatio = null;
+            this.baselineYaw = null;
+            this.framesProcessed = 0;
+            this.actionFrames = 0;
+            this.blinkCount = 0;
+            this.isEyesClosed = false;
+            return false;
+        }
+
         const points = landmarks.positions;
 
+        // Calculate Eye Aspect Ratio
+        const leftEye = points.slice(36, 42);
+        const rightEye = points.slice(42, 48);
+        const avgEAR = (this._calculateEAR(leftEye) + this._calculateEAR(rightEye)) / 2.0;
+
+        // Calculate Mouth Aspect Ratio
+        const mouthLeft = points[48];
+        const mouthRight = points[54];
+        const mouthTop = points[51];
+        const mouthBottom = points[57];
+        
+        const faceLeft = points[0];
+        const faceRight = points[16];
+        
+        const mouthWidth = this._getDistance(mouthLeft, mouthRight);
+        const mouthHeight = this._getDistance(mouthTop, mouthBottom);
+        const faceWidth = this._getDistance(faceLeft, faceRight);
+
+        const mouthRatio = mouthWidth / faceWidth;
+        const mar = mouthHeight / mouthWidth;
+
+        // Calculate Yaw
+        const noseTip = points[30];
+        const leftEyeCenter = points[36];
+        const rightEyeCenter = points[45];
+        const faceCenterX = (leftEyeCenter.x + rightEyeCenter.x) / 2;
+        const eyeDistance = Math.abs(rightEyeCenter.x - leftEyeCenter.x);
+        const noseOffset = noseTip.x - faceCenterX; // Positive is right turn, Negative is left turn
+        const yawRatio = noseOffset / eyeDistance;
+
+        // Phase 1: Establish a solid baseline (first 15 frames)
+        if (this.framesProcessed <= 15) {
+            if (this.baselineEAR === null) this.baselineEAR = avgEAR;
+            else this.baselineEAR = this.baselineEAR * 0.8 + avgEAR * 0.2;
+            
+            if (this.baselineMouthRatio === null) this.baselineMouthRatio = mouthRatio;
+            else this.baselineMouthRatio = this.baselineMouthRatio * 0.8 + mouthRatio * 0.2;
+            
+            if (this.baselineYaw === null) this.baselineYaw = yawRatio;
+            else this.baselineYaw = this.baselineYaw * 0.8 + yawRatio * 0.2;
+            
+            return false;
+        }
+
+        // Phase 2: Check for a significant, dynamic change from their personal baseline
         if (this.livenessAction === 'blink') {
-            // Left eye: 36-41, Right eye: 42-47
-            const leftEye = points.slice(36, 42);
-            const rightEye = points.slice(42, 48);
+            // A real blink drops the EAR significantly from the open-eye baseline
+            const isClosed = avgEAR < (this.baselineEAR - 0.05) && avgEAR < 0.22;
+            const isOpen = avgEAR > (this.baselineEAR - 0.02);
 
-            const leftEAR = this._calculateEAR(leftEye);
-            const rightEAR = this._calculateEAR(rightEye);
-            const avgEAR = (leftEAR + rightEAR) / 2.0;
-
-            const EAR_THRESHOLD = 0.22; // Typical threshold for closed eyes
-
-            if (avgEAR < EAR_THRESHOLD) {
-                if (!this.isEyesClosed) {
-                    this.isEyesClosed = true;
-                }
-            } else {
-                if (this.isEyesClosed) {
-                    this.isEyesClosed = false;
+            if (isClosed) {
+                this.isEyesClosed = true;
+                this.actionFrames++;
+            } else if (isOpen && this.isEyesClosed) {
+                // Must have been closed for at least 1 frame to be a real blink
+                if (this.actionFrames >= 1) {
                     this.blinkCount++;
+                    // Require 2 blinks to prove it's intentional and not a random camera jitter
                     if (this.blinkCount >= 2) {
                         this.livenessActionCompleted = true;
                     }
                 }
+                this.isEyesClosed = false;
+                this.actionFrames = 0;
+            } else if (!isClosed && !isOpen) {
+                // Intermediate state, do nothing
+            } else {
+                this.actionFrames = 0;
             }
+
         } else if (this.livenessAction === 'smile') {
-            // Mouth points: 48 to 67. Corners: 48 and 54. Top/bottom: 51 and 57
-            const mouthLeft = points[48];
-            const mouthRight = points[54];
-            const mouthTop = points[51];
-            const mouthBottom = points[57];
+            // A real smile widens the mouth significantly from the neutral baseline
+            const isSmiling = mouthRatio > (this.baselineMouthRatio + 0.04) && mar > 0.12;
 
-            // Face width from jawline points 0 to 16
-            const faceLeft = points[0];
-            const faceRight = points[16];
+            if (isSmiling) {
+                this.actionFrames++;
+                // Must hold the smile for at least 4 consecutive frames to prove it's not jitter
+                if (this.actionFrames >= 4) {
+                    this.livenessActionCompleted = true;
+                }
+            } else {
+                this.actionFrames = 0;
+            }
+        } else if (this.livenessAction === 'turn_left' || this.livenessAction === 'turn_right') {
+            // A real head turn involves significant 3D yaw change.
+            // 2D photos rotated might change yaw slightly, but not to the degree of a real 3D head turn.
+            const yawDelta = yawRatio - this.baselineYaw;
             
-            const mouthWidth = this._getDistance(mouthLeft, mouthRight);
-            const mouthHeight = this._getDistance(mouthTop, mouthBottom);
-            const faceWidth = this._getDistance(faceLeft, faceRight);
+            let hasTurned = false;
+            if (this.livenessAction === 'turn_left') {
+                // Nose points left (negative delta)
+                hasTurned = yawDelta < -0.25;
+            } else {
+                // Nose points right (positive delta)
+                hasTurned = yawDelta > 0.25;
+            }
 
-            // Calculate Mouth Aspect Ratio (MAR) and Mouth-to-Face Width ratio
-            const mouthRatio = mouthWidth / faceWidth;
-            const mar = mouthHeight / mouthWidth;
-
-            // Smile usually means wide mouth and low height/width ratio (if closed) or just very wide
-            // A typical smile stretches the mouth width significantly relative to face width
-            if (mouthRatio > 0.40 || (mouthRatio > 0.35 && mar > 0.15 && mar < 0.5)) {
-                this.livenessActionCompleted = true;
+            if (hasTurned) {
+                this.actionFrames++;
+                if (this.actionFrames >= 4) {
+                    this.livenessActionCompleted = true;
+                }
+            } else {
+                this.actionFrames = 0;
             }
         }
 
