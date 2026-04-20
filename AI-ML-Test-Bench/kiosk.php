@@ -8,7 +8,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/face-api.min.js"></script>
-    <script src="js/face-api-manager.js"></script>
+    <script src="js/face-api-manager.js?v=2.0"></script>
+    
+    <!-- Custom Context Menu Styles -->
+    <link rel="stylesheet" href="css/style.css">
     <style>
         :root {
             --primary-blue: #1e0178;
@@ -134,6 +137,70 @@
         .camera-placeholder i {
             font-size: 5rem;
             margin-bottom: 1rem;
+        }
+
+        /* Face Position Guide Overlay */
+        .face-guide-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+
+        .face-guide-overlay.active {
+            display: block;
+        }
+
+        .face-guide-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 350px;
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+            display: none;
+        }
+
+        .face-guide-circle.perfect {
+            border-color: #27ae60;
+            border-style: solid;
+            box-shadow: 0 0 20px rgba(39, 174, 96, 0.5);
+        }
+
+        .face-guide-circle.warning {
+            border-color: #f39c12;
+            border-style: dashed;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.02);
+            }
+        }
+
+        .position-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 6;
         }
 
         /* Right Side: Info Panel */
@@ -395,6 +462,33 @@
                 font-size: 6vmin;
             }
         }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; color: #fff !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
+        
+        .glass-toast-popup {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            z-index: 100001 !important;
+            position: relative !important;
+        }
+        .glass-toast-title { color: #ffffff !important; font-weight: 600 !important; }
+        .glass-toast-progress { height: 3px !important; background: linear-gradient(90deg, rgba(79, 172, 254, 0.4), rgba(79, 172, 254, 0.8)) !important; }
     </style>
 </head>
 
@@ -424,6 +518,12 @@
                 </div>
                 <video id="video" autoplay muted></video>
                 <canvas id="overlay"></canvas>
+                
+                <!-- Face Position Guide -->
+                <div class="face-guide-overlay" id="faceGuide">
+                    <div class="face-guide-circle" id="guideCircle"></div>
+                    <div class="position-hint" id="positionHint">Position your face in the circle</div>
+                </div>
             </div>
         </div>
 
@@ -478,6 +578,43 @@
     </div>
 
     <script>
+        // Prevent file drag and drop to bypass camera
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Action Blocked',
+                text: 'Only live camera feed is accepted – please use the built-in camera.',
+                confirmButtonColor: '#1e0178'
+            });
+        });
+        
+        // Prevent pasting images
+        document.addEventListener('paste', (e) => {
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Blocked',
+                    text: 'Pasting images is not allowed. Only live camera feed is accepted.',
+                    confirmButtonColor: '#1e0178'
+                });
+            }
+        });
+        
+        // Prevent any file picker dialogs
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'file') {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Blocked',
+                    text: 'Only live camera feed is accepted – please use the built-in camera.',
+                    confirmButtonColor: '#1e0178'
+                });
+            }
+        }, true);
         
         const video = document.getElementById('video');
         const canvas = document.getElementById('overlay');
@@ -548,9 +685,16 @@
             fetch(`backend/api.php?action=get_company_info&company_id=${currentCompanyId}`)
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('company-name').innerText = data.name.toUpperCase();
-                    companyConfig = data;
-                    syncServerTime().then(() => updateCurrentAction());
+                    if (data && data.name) {
+                        document.getElementById('company-name').innerText = data.name.toUpperCase();
+                        companyConfig = data;
+                        syncServerTime().then(() => updateCurrentAction());
+                    } else {
+                        console.error('Failed to load company info:', data);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching company info:', err);
                 });
         }
 
@@ -617,17 +761,79 @@
             const statusLabel = document.getElementById('loading-status');
             try {
                 statusLabel.innerText = "Loading AI Models...";
+                statusLabel.style.color = "#f39c12";
+                
                 await faceManager.loadModels();
-
-                statusLabel.innerText = "Starting Camera...";
-                await faceManager.startCamera(video);
-
-                document.getElementById('placeholder').style.display = 'none';
-                detectLoop();
+                
+                statusLabel.innerText = "AI Models Loaded ✓";
+                statusLabel.style.color = "#27ae60";
+                
+                setTimeout(async () => {
+                    statusLabel.innerText = "Starting Camera...";
+                    statusLabel.style.color = "#f39c12";
+                    
+                    try {
+                        await faceManager.startCamera(video);
+                        document.getElementById('placeholder').style.display = 'none';
+                        statusLabel.innerText = "System Ready";
+                        statusLabel.style.color = "#27ae60";
+                        detectLoop();
+                    } catch (cameraErr) {
+                        console.error('Camera Error:', cameraErr);
+                        statusLabel.innerHTML = `<p class="text-danger">Camera Error: ${cameraErr.message}</p>`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Camera Access Failed',
+                            html: `<p>${cameraErr.message}</p>
+                                   <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+                                   Please ensure:<br>
+                                   • Camera is not being used by another application<br>
+                                   • Browser has camera permissions<br>
+                                   • You're using HTTPS or localhost</p>`,
+                            confirmButtonText: 'Try Again'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    }
+                }, 500);
+                
             } catch (err) {
-                console.error(err);
-                statusEl.innerHTML = `<p class="text-danger">${err.message}</p>`;
+                console.error('Model Loading Error:', err);
+                statusLabel.innerHTML = `<p class="text-danger">Failed to load AI models</p>`;
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'AI Models Failed to Load',
+                    html: `<p style="text-align: left; font-size: 0.9em;">
+                           <strong>Possible causes:</strong><br>
+                           • Model files are missing from <code>models/</code> folder<br>
+                           • Web server is not configured correctly<br>
+                           • Browser cannot access the model files<br><br>
+                           <strong>Check browser console (F12) for detailed errors.</strong></p>`,
+                    footer: `<a href="javascript:location.reload()" style="color: #667eea;">Click here to retry</a>`
+                });
             }
+        }
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz beep
+            
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.3);
         }
 
         async function detectLoop() {
@@ -639,25 +845,148 @@
                     return;
                 }
 
-                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                // Detect face with landmarks for frontal check
+                const detection = await faceapi.detectSingleFace(video, detectorOptions)
+                    .withFaceLandmarks();
+                
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                if (detection) {
-                    const isStable = faceManager.checkStability(detection.detection.box);
-                    const status = isStable ? "VERIFIED! SCANNING..." : "HOLD STILL...";
-                    const color = isStable ? "#27ae60" : "#f39c12";
+                const faceGuide = document.getElementById('faceGuide');
+                const guideCircle = document.getElementById('guideCircle');
+                const positionHint = document.getElementById('positionHint');
 
+                if (detection) {
+                    faceManager.lostFaceCount = 0;
+                    
+                    // Show face guide
+                    faceGuide.classList.add('active');
+
+                    // Check if face is stable
+                    const isStable = faceManager.checkStability(detection.detection.box);
+                    
+                    // Check if face is looking straight at camera
+                    const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
+                    const isFrontal = frontalCheck.isFrontal;
+
+                    // Verify that the detected face shows natural facial motion across frames
+                    const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
+                    
+                    // Passive Anti-Spoofing: Rigidity Analysis
+                    const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
+
+                    // Active Liveness action handling
+                    if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
+                        // Assign a random liveness task when face is frontal
+                        const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
+                        const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+                        faceManager.setLivenessAction(randomTask);
+                    }
+                    
+                    const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
+
+                    // Determine status message and color
+                    let status, color, hint;
+                    
+                    if (!isLive || !isRealFace) {
+                        status = "NO PHOTO/IMAGE ACCEPTED";
+                        hint = "Live face required. Please step back and try again.";
+                        color = "#db261f"; // Red error
+                        guideCircle.className = 'face-guide-circle border-danger';
+                        
+                        // Play audible beep
+                        playBeep();
+                        
+                        // Show error message
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Presentation Attack Detected',
+                            text: 'Photos and pictures are not accepted. Please present your live face directly to the camera.',
+                            confirmButtonColor: '#1e0178'
+                        });
+                        
+                        // Log spoof attempt
+                        fetch('backend/api.php?action=log_spoof_attempt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                company_id: currentCompanyId,
+                                timestamp: getNow().toISOString(),
+                                reason: 'Photo/spoof detected – access denied'
+                            })
+                        }).catch(e => console.error("Logging spoof failed:", e));
+                        
+                        // Stop processing temporarily to let user read the message
+                        faceManager.isProcessing = true;
+                        setTimeout(() => { faceManager.isProcessing = false; }, 3000);
+                        
+                    } else if (!isFrontal) {
+                        // Face not looking straight
+                        if (!frontalCheck.details.yawOk) {
+                            status = "TURN FACE TO CAMERA";
+                            hint = "← Turn your face to center →";
+                        } else if (!frontalCheck.details.pitchOk) {
+                            status = "LOOK STRAIGHT AT CAMERA";
+                            hint = frontalCheck.pitch < 0.3 ? "↑ Look up slightly" : "↓ Look down slightly";
+                        } else if (!frontalCheck.details.rollOk) {
+                            status = "KEEP HEAD LEVEL";
+                            hint = "↔ Straighten your head";
+                        } else {
+                            status = "FACE CAMERA DIRECTLY";
+                            hint = "Position face in center";
+                        }
+                        color = "#f39c12"; // Orange warning
+                        guideCircle.className = 'face-guide-circle warning';
+                    } else if (!isStable) {
+                        status = "HOLD STILL...";
+                        hint = "✓ Good! Hold still...";
+                        color = "#f39c12"; // Orange
+                        guideCircle.className = 'face-guide-circle warning';
+                    } else if (!isActiveLivenessPassed) {
+                        // Waiting for liveness action
+                        if (faceManager.framesProcessed <= 15) {
+                            status = "HOLD STILL FOR BASELINE...";
+                            hint = "Analyzing your neutral face structure...";
+                        } else {
+                            if (faceManager.livenessAction === 'turn_left') {
+                                status = "TURN HEAD LEFT";
+                                hint = "Slightly turn your head to the left";
+                            } else if (faceManager.livenessAction === 'turn_right') {
+                                status = "TURN HEAD RIGHT";
+                                hint = "Slightly turn your head to the right";
+                            } else {
+                                status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
+                                hint = faceManager.livenessAction === 'blink' ? `Blinks detected: ${faceManager.blinkCount}/2` : "Smile widely to verify";
+                            }
+                        }
+                        color = "#3498db"; // Blue action
+                        guideCircle.className = 'face-guide-circle border-primary';
+                    } else {
+                        // Frontal, stable, and liveness verified - ready to scan!
+                        status = "✓ PERFECT! SCANNING...";
+                        hint = "✓ Perfect! Scanning now...";
+                        color = "#27ae60"; // Green
+                        guideCircle.className = 'face-guide-circle perfect';
+                    }
+
+                    positionHint.textContent = hint;
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    if (isStable) {
+                    // Only scan if face is frontal, stable, AND active liveness verified
+                    if (isFrontal && isStable && isActiveLivenessPassed) {
                         faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
                         processScan();
                     }
                 } else {
                     faceManager.stabilityCounter = 0;
+                    faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
+                    if (faceManager.lostFaceCount > 15) {
+                        faceManager.setLivenessAction('none'); // Reset active liveness
+                    }
                     cameraCircle.classList.remove('scanning');
+                    faceGuide.classList.remove('active');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
                 requestAnimationFrame(loop);
             };
@@ -717,6 +1046,9 @@
         init();
 
     </script>
+    
+    <!-- Custom Context Menu -->
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 
 </html>

@@ -2,11 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace ALMLauncher
 {
-    class Program
+    static class Program
     {
+        [STAThread]
         static void Main(string[] args)
         {
             // The launcher is expected to be in xampp\htdocs\ALM-Biometrics
@@ -33,6 +36,7 @@ namespace ALMLauncher
 
             // Launch the app as an independent standalone window using Edge or Chrome App mode
             string url = "http://localhost/ALM-Biometrics/";
+            string windowTitle = "ALM Biometrics v2.4.0 - BSIT 3A";
 
             string edgePath = @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe";
             string chromePath = @"C:\Program Files\Google\Chrome\Application\chrome.exe";

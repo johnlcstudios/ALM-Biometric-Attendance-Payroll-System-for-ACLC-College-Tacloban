@@ -25,7 +25,7 @@ if ($is_management) {
 
 // Fetch employee profile on server-side for initial load
 $user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email, c.name as company_name 
+$stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email, c.name as company_name, c.company_code 
                      FROM employees e 
                      JOIN users u ON e.user_id = u.id 
                      JOIN companies c ON e.company_id = c.id 
@@ -36,6 +36,7 @@ $emp = $stmt->fetch();
 $full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
 $emp_id = $emp['employee_id'] ?? '---';
 $company_name = $emp['company_name'] ?? $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+$company_code = $emp['company_code'] ?? $_SESSION['company_code'] ?? 'N/A';
 $position = $emp['position'] ?? 'Staff';
 ?>
 <!DOCTYPE html>
@@ -43,7 +44,7 @@ $position = $emp['position'] ?? 'Staff';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Portal - <?php echo $company_name; ?></title>
+    <title>Employee Portal - <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></title>
     
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -82,12 +83,35 @@ $position = $emp['position'] ?? 'Staff';
         .status-paid { background: #d4edda; color: #155724; }
         .status-completed { background: #cce5ff; color: #004085; }
         
+        .req-item {
+            color: #dc3545;
+        }
+        .req-item.valid {
+            color: #28a745;
+        }
+        
         /* Modal for Payslip */
         #payslipModal .modal-content { max-width: 800px; padding: 3rem; }
         .payslip-header { text-align: center; margin-bottom: 2rem; border-bottom: 2px solid var(--primary-color); padding-bottom: 1rem; }
         .payslip-body { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
         .payslip-section h4 { border-bottom: 1px solid #eee; padding-bottom: 0.5rem; margin-bottom: 1rem; color: var(--primary-color); }
         .payslip-footer { margin-top: 2rem; text-align: center; font-style: italic; color: var(--text-muted); font-size: 0.8rem; }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-input { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
     </style>
 </head>
 <body>
@@ -135,8 +159,8 @@ $position = $emp['position'] ?? 'Staff';
                     <div class="profile-info">
                         <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&background=random" alt="User">
                         <div class="profile-text">
-                            <span class="name"><?php echo $full_name; ?></span>
-                            <span class="role"><?php echo $position; ?></span>
+                            <span class="name"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="role"><?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
                     </div>
                 </div>
@@ -146,10 +170,24 @@ $position = $emp['position'] ?? 'Staff';
             <section id="dashboard" class="page active">
                 <div class="stats-grid">
                     <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-building"></i></div>
+                        <div class="stat-info">
+                            <h3>Company Code</h3>
+                            <div class="stat-value" style="font-size: 1.2rem;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-icon blue"><i class="fas fa-user-clock"></i></div>
                         <div class="stat-info">
                             <h3>Days Present</h3>
                             <div class="stat-value" id="stat-present">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red"><i class="fas fa-calendar-times"></i></div>
+                        <div class="stat-info">
+                            <h3>Days Absent</h3>
+                            <div class="stat-value" id="stat-absent" style="color: #dc3545;">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -221,6 +259,9 @@ $position = $emp['position'] ?? 'Staff';
                             <label><i class="fas fa-calendar"></i> To</label>
                             <input type="date" id="att-to" onchange="filterAttendance()">
                         </div>
+                        <button class="btn btn-primary" onclick="generateDTR()" style="margin-left: 10px;">
+                            <i class="fas fa-file-pdf"></i> Generate DTR
+                        </button>
                     </div>
                 </div>
                 <div class="modern-table-wrapper">
@@ -387,13 +428,26 @@ $position = $emp['position'] ?? 'Staff';
             <section id="profile" class="page">
                 <div class="profile-grid">
                     <div class="profile-card">
-                        <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($full_name); ?>&size=150&background=random" alt="Avatar" style="width:120px; border-radius:50%; margin-bottom:1rem; border: 4px solid #eee;">
-                        <h2 style="margin-bottom:0.2rem;"><?php echo $full_name; ?></h2>
-                        <p class="text-muted" style="margin-bottom:1.5rem;"><?php echo $position; ?></p>
+                        <div id="profile-picture-container" style="position: relative; display: inline-block; margin-bottom: 1rem;">
+                            <img id="profile-picture" 
+                                 src="<?php echo !empty($emp['profile_picture']) ? htmlspecialchars($emp['profile_picture'], ENT_QUOTES, 'UTF-8') : 'https://ui-avatars.com/api/?name=' . urlencode($full_name) . '&size=150&background=random'; ?>" 
+                                 alt="Profile Picture" 
+                                 style="width:150px; height:150px; border-radius:50%; object-fit: cover; border: 4px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            <label for="profile-picture-upload" 
+                                   style="position: absolute; bottom: 5px; right: 5px; background: var(--primary-color); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease;" 
+                                   onmouseover="this.style.background='#2a02a8'; this.style.transform='scale(1.1)'" 
+                                   onmouseout="this.style.background='var(--primary-color)'; this.style.transform='scale(1)'">
+                                <i class="fas fa-camera" style="font-size: 14px;"></i>
+                            </label>
+                            <input type="file" id="profile-picture-upload" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
+                        </div>
+                        <h2 style="margin-bottom:0.2rem;"><?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></h2>
+                        <p class="text-muted" style="margin-bottom:1.5rem;"><?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?></p>
                         
-                        <div class="info-row"><span class="info-label">Employee ID</span> <span class="info-value"><?php echo $emp_id; ?></span></div>
-                        <div class="info-row"><span class="info-label">Department</span> <span class="info-value"><?php echo $emp['department']; ?></span></div>
-                        <div class="info-row"><span class="info-label">Status</span> <span class="status-tag status-approved"><?php echo $emp['status']; ?></span></div>
+                        <div class="info-row"><span class="info-label">Employee ID</span> <span class="info-value"><?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Company Code</span> <span class="info-value" style="color: var(--primary-color); font-weight: 700;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Department</span> <span class="info-value"><?php echo htmlspecialchars($emp['department'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Status</span> <span class="status-tag status-approved"><?php echo htmlspecialchars($emp['status'] ?? 'Active', ENT_QUOTES, 'UTF-8'); ?></span></div>
                     </div>
                     
                     <div class="profile-details-card">
@@ -403,39 +457,50 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                         
                         <div id="profile-info" class="profile-tab-section active">
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>Email Address</label>
-                                    <input type="text" value="<?php echo $emp['email']; ?>" class="form-control-large-gray" readonly>
+                            <form id="employeeProfileForm">
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Employee ID</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Company Code</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+                                    </div>
                                 </div>
-                                <div class="form-group-custom">
-                                    <label>Date of Birth</label>
-                                    <input type="text" value="<?php echo $emp['dob'] ?? 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Email Address</label>
+                                        <input type="email" name="email" value="<?php echo htmlspecialchars($emp['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Date of Birth</label>
+                                        <input type="date" name="dob" value="<?php echo htmlspecialchars($emp['dob'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>SSS No.</label>
-                                    <input type="text" value="<?php echo $emp['sss'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>SSS No.</label>
+                                        <input type="text" name="sss" value="<?php echo htmlspecialchars($emp['sss'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>PhilHealth No.</label>
+                                        <input type="text" name="philhealth" value="<?php echo htmlspecialchars($emp['philhealth'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                                <div class="form-group-custom">
-                                    <label>PhilHealth No.</label>
-                                    <input type="text" value="<?php echo $emp['philhealth'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>TIN</label>
+                                        <input type="text" name="tin" value="<?php echo htmlspecialchars($emp['tin'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Pag-IBIG No.</label>
+                                        <input type="text" name="pagibig" value="<?php echo htmlspecialchars($emp['pagibig'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="form-row-custom">
-                                <div class="form-group-custom">
-                                    <label>TIN</label>
-                                    <input type="text" value="<?php echo $emp['tin'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
-                                </div>
-                                <div class="form-group-custom">
-                                    <label>Pag-IBIG No.</label>
-                                    <input type="text" value="<?php echo $emp['pagibig'] ?: 'N/A'; ?>" class="form-control-large-gray" readonly>
-                                </div>
-                            </div>
-                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
-                                <i class="fas fa-info-circle"></i> To update your personal information, please contact the HR Department.
-                            </p>
+                                <div id="profile-msg" style="margin-bottom: 15px; display: none;"></div>
+                                <button type="button" class="btn btn-primary" id="saveEmployeeProfileBtn" onclick="saveEmployeeProfile()">Save Personal Information</button>
+                            </form>
                         </div>
                         
                         <div id="profile-security" class="profile-tab-section" style="display: none;">
@@ -446,7 +511,14 @@ $position = $emp['position'] ?? 'Staff';
                                 </div>
                                 <div class="form-group-custom">
                                     <label>New Password</label>
-                                    <input type="password" name="new_password" class="form-control-large-gray" required>
+                                    <input type="password" name="new_password" class="form-control-large-gray" required oninput="checkPasswordStrength()">
+                                    <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
+                                        <div id="req-length" class="req-item">At least 8 characters</div>
+                                        <div id="req-uppercase" class="req-item">One uppercase letter</div>
+                                        <div id="req-lowercase" class="req-item">One lowercase letter</div>
+                                        <div id="req-number" class="req-item">One number</div>
+                                        <div id="req-special" class="req-item">One special character</div>
+                                    </div>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Confirm New Password</label>
@@ -462,7 +534,7 @@ $position = $emp['position'] ?? 'Staff';
     </div>
 
     <!-- Modals -->
-    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 100001; pointer-events: none;"></div>
 
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
@@ -477,11 +549,16 @@ $position = $emp['position'] ?? 'Staff';
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             
-            document.getElementById(pageId).classList.add('active');
-            btn.classList.add('active');
+            const pageElement = document.getElementById(pageId);
+            if (pageElement) {
+                pageElement.classList.add('active');
+            }
             
-            const title = btn.innerText.trim();
-            document.getElementById('current-page-title').innerText = title;
+            if (btn) {
+                btn.classList.add('active');
+                const title = btn.innerText.trim();
+                document.getElementById('current-page-title').innerText = title;
+            }
         }
 
         function switchRequestTab(type, btn) {
@@ -525,6 +602,7 @@ $position = $emp['position'] ?? 'Staff';
 
             // Stats
             document.getElementById('stat-present').innerText = att.filter(a => a.check_in).length;
+            document.getElementById('stat-absent').innerText = essData.absent_days || 0;
             document.getElementById('stat-leave-balance').innerText = profile.leave_balance || 0;
             document.getElementById('stat-late').innerText = att.reduce((acc, curr) => acc + (parseInt(curr.late_minutes) || 0), 0);
             
@@ -555,17 +633,20 @@ $position = $emp['position'] ?? 'Staff';
 
         function renderAttendance() {
             const att = essData.attendance || [];
-            document.getElementById('attendance-history-body').innerHTML = att.map(a => `
-                <tr>
+            document.getElementById('attendance-history-body').innerHTML = att.map(a => {
+                const isAbsent = a.status === 'Absent';
+                return `
+                <tr style="${isAbsent ? 'background: rgba(220, 53, 69, 0.05);' : ''}">
                     <td>${a.log_date}</td>
-                    <td>${a.check_in || '---'}</td>
-                    <td>${a.lunch_out || '---'}</td>
-                    <td>${a.lunch_in || '---'}</td>
-                    <td>${a.check_out || '---'}</td>
-                    <td><span class="late-tag ${a.status === 'Late' ? 'text-danger' : 'text-success'}">${a.status}</span></td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.check_in || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.lunch_out || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.lunch_in || '---')}</td>
+                    <td>${isAbsent ? '<span class="text-muted">—</span>' : (a.check_out || '---')}</td>
+                    <td><span class="late-tag ${a.status === 'Late' ? 'text-danger' : (a.status === 'Absent' ? 'status-tag status-rejected' : 'text-success')}">${a.status}</span></td>
                     <td>${a.late_minutes || 0}</td>
                 </tr>
-            `).join('') || '<tr><td colspan="7" class="text-center">No logs found</td></tr>';
+                `;
+            }).join('') || '<tr><td colspan="7" class="text-center">No logs found</td></tr>';
         }
 
         function filterAttendance() {
@@ -687,6 +768,19 @@ $position = $emp['position'] ?? 'Staff';
                 return showToast("Passwords do not match!", "error");
             }
 
+            // Check if all requirements are met
+            const reqs = document.querySelectorAll('.req-item');
+            let allValid = true;
+            reqs.forEach(req => {
+                if (!req.classList.contains('valid')) {
+                    allValid = false;
+                }
+            });
+
+            if (!allValid) {
+                return showToast("Password does not meet requirements!", "error");
+            }
+
             try {
                 const response = await fetch('backend/api.php?action=change_password', {
                     method: 'POST',
@@ -710,6 +804,61 @@ $position = $emp['position'] ?? 'Staff';
             }
         }
 
+        async function uploadProfilePicture(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                showToast('Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.', 'error');
+                return;
+            }
+
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('File size exceeds 5MB limit.', 'error');
+                return;
+            }
+
+            // Show loading
+            showToast('Uploading profile picture...', 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('profile_picture', file);
+
+                const response = await fetch('backend/api.php?action=upload_profile_picture', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update the profile picture on the page
+                    const profileImg = document.getElementById('profile-picture');
+                    if (profileImg) {
+                        // Add timestamp to prevent caching
+                        profileImg.src = result.picture_url + '?t=' + new Date().getTime();
+                    }
+                    
+                    // Update header image too
+                    const headerImg = document.querySelector('.user-profile img');
+                    if (headerImg) {
+                        headerImg.src = result.picture_url + '?t=' + new Date().getTime();
+                    }
+                    
+                    showToast('Profile picture updated successfully!', 'success');
+                } else {
+                    showToast(result.message || 'Failed to upload profile picture.', 'error');
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                showToast('Failed to connect to the server.', 'error');
+            }
+        }
+
         async function exportPayslip(id) {
             const response = await fetch(`backend/api.php?action=get_payslip&id=${id}`);
             const p = await response.json();
@@ -725,7 +874,8 @@ $position = $emp['position'] ?? 'Staff';
             doc.setFontSize(22);
             doc.text('OFFICIAL PAYSLIP', 105, 20, { align: 'center' });
             doc.setFontSize(10);
-            doc.text(essData.profile.company_name, 105, 30, { align: 'center' });
+            const companyName = (essData && essData.profile && essData.profile.company_name) || 'Company';
+            doc.text(companyName, 105, 30, { align: 'center' });
 
             // Employee Info
             doc.setTextColor(0);
@@ -734,23 +884,142 @@ $position = $emp['position'] ?? 'Staff';
             doc.line(20, 57, 190, 57);
             
             doc.setFontSize(10);
-            doc.text(`Name: ${p.full_name}`, 20, 65);
-            doc.text(`ID: ${p.emp_code}`, 20, 72);
-            doc.text(`Position: ${p.position}`, 20, 79);
-            doc.text(`Period: ${p.period}`, 130, 65);
-            doc.text(`Date: ${new Date(p.created_at).toLocaleDateString()}`, 130, 72);
+            const fullName = p.full_name || 'N/A';
+            const empCode = p.emp_code || 'N/A';
+            const position = p.position || 'N/A';
+            const period = p.period || 'N/A';
+            const createdAt = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A';
+            
+            doc.text(`Name: ${fullName}`, 20, 65);
+            doc.text(`ID: ${empCode}`, 20, 72);
+            doc.text(`Position: ${position}`, 20, 79);
+            doc.text(`Period: ${period}`, 130, 65);
+            doc.text(`Date: ${createdAt}`, 130, 72);
+
+            // Parse breakdown data
+            let breakdown = {};
+            try {
+                breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+            } catch (e) {
+                console.error('Error parsing breakdown:', e);
+            }
 
             // Financials
+            const basicPay = parseFloat(p.basic_pay) || 0;
+            const deductions = parseFloat(p.deductions) || 0;
+            const netPay = parseFloat(p.net_pay) || 0;
+            
+            // Build earnings and deductions arrays
+            const earnings = [];
+            const deductionsList = [];
+            
+            // Add basic pay
+            earnings.push(['Basic Pay', `PHP ${basicPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            
+            // Add allowances if present
+            if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+                earnings.push(['Total Allowances', `PHP ${parseFloat(breakdown.total_allowances).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add faculty-specific earnings
+            if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+                earnings.push(['Load Pay', `PHP ${parseFloat(breakdown.load_pay).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+                earnings.push(['Overtime', `PHP ${parseFloat(breakdown.overtime).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+                earnings.push(['Differential', `PHP ${parseFloat(breakdown.differential).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+                earnings.push(['Substitution', `PHP ${parseFloat(breakdown.substitution).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+                earnings.push(['Adjustments (+)', `PHP ${parseFloat(breakdown.adj_plus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+                earnings.push(['OT/Holiday Pay', `PHP ${parseFloat(breakdown.ot_holiday).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+                earnings.push(['Honorarium', `PHP ${parseFloat(breakdown.honorarium).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add utility-specific earnings
+            if (breakdown.earned && parseFloat(breakdown.earned) > 0 && breakdown.rate_per_day) {
+                earnings.push(['Earned for the Period', `PHP ${parseFloat(breakdown.earned).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add deductions
+            if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+                deductionsList.push(['Absences', `- PHP ${parseFloat(breakdown.absences).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+                deductionsList.push(['Late/Undertime', `- PHP ${parseFloat(breakdown.late_ut).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+                deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+                deductionsList.push(['Cash Advance', `- PHP ${parseFloat(breakdown.cash_advance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+                deductionsList.push(['Employee-Specific Deductions', `- PHP ${parseFloat(breakdown.employee_deductions).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+                deductionsList.push(['Adjustments (-)', `- PHP ${parseFloat(breakdown.adj_minus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Add total deductions if not already itemized
+            if (deductionsList.length === 0) {
+                deductionsList.push(['Total Deductions', `- PHP ${deductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            
+            // Calculate totals for display
+            const totalEarnings = earnings.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+            
+            const totalDeductions = deductionsList.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('- PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+            
+            // Create table with earnings and deductions side by side
+            const maxRows = Math.max(earnings.length, deductionsList.length);
+            const tableBody = [];
+            
+            for (let i = 0; i < maxRows; i++) {
+                const earning = earnings[i] || ['', ''];
+                const deduction = deductionsList[i] || ['', ''];
+                tableBody.push([earning[0], earning[1], deduction[0], deduction[1]]);
+            }
+            
+            // Add totals row
+            tableBody.push([
+                'TOTAL EARNINGS', 
+                `PHP ${totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                'TOTAL DEDUCTIONS', 
+                `- PHP ${totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            ]);
+            
             doc.autoTable({
                 startY: 90,
                 head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
-                body: [
-                    ['Basic Pay', `PHP ${parseFloat(p.basic_pay).toLocaleString()}`, 'Total Deductions', `PHP ${parseFloat(p.deductions).toLocaleString()}`],
-                    ['', '', '', ''],
-                    ['TOTAL EARNINGS', `PHP ${parseFloat(p.basic_pay).toLocaleString()}`, 'TOTAL DEDUCTIONS', `PHP ${parseFloat(p.deductions).toLocaleString()}`]
-                ],
+                body: tableBody,
                 theme: 'striped',
-                headStyles: { fillColor: [30, 1, 120] }
+                headStyles: { fillColor: [30, 1, 120] },
+                styles: { fontSize: 9 },
+                columnStyles: {
+                    0: { fontStyle: 'bold' },
+                    2: { fontStyle: 'bold' }
+                }
             });
 
             const netY = doc.lastAutoTable.finalY + 20;
@@ -759,9 +1028,10 @@ $position = $emp['position'] ?? 'Staff';
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text('NET PAY:', 30, netY + 3);
-            doc.text(`PHP ${parseFloat(p.net_pay).toLocaleString()}`, 180, netY + 3, { align: 'right' });
+            doc.text(`PHP ${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 180, netY + 3, { align: 'right' });
 
-            doc.save(`Payslip_${p.emp_code}_${p.period.replace(/[\/\s]/g, '_')}.pdf`);
+            const safePeriod = period.replace(/[^a-zA-Z0-9]/g, '_');
+            doc.save(`Payslip_${empCode}_${safePeriod}.pdf`);
         }
 
         async function logout() {
@@ -769,7 +1039,81 @@ $position = $emp['position'] ?? 'Staff';
             window.location.href = 'login.php';
         }
 
+        function generateDTR() {
+            // Get the selected date range or use current month
+            const fromDate = document.getElementById('att-from').value;
+            const toDate = document.getElementById('att-to').value;
+            
+            let monthParam;
+            
+            if (fromDate && toDate) {
+                // Use the from date's month
+                monthParam = fromDate.substring(0, 7); // YYYY-MM
+            } else {
+                // Use current month
+                const now = new Date();
+                monthParam = now.toISOString().substring(0, 7);
+            }
+            
+            // Open DTR in new window for printing
+            const dtrUrl = `pages/shared/generate_dtr.php?month=${monthParam}`;
+            window.open(dtrUrl, '_blank');
+            
+            showToast('DTR generated! Check the new window to print.', 'success');
+        }
+
+        async function saveEmployeeProfile() {
+            const form = document.getElementById('employeeProfileForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            const btn = document.getElementById('saveEmployeeProfileBtn');
+
+            btn.disabled = true;
+            btn.innerHTML = 'Saving...';
+
+            try {
+                const response = await fetch('backend/api.php?action=update_employee_profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToast('Profile updated successfully!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('Error: ' + result.message, 'error');
+                }
+            } catch (err) {
+                showToast('An error occurred', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Save Personal Information';
+            }
+        }
+
+        function checkPasswordStrength() {
+            const password = document.querySelector('input[name="new_password"]').value;
+            const reqs = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /\d/.test(password),
+                special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+            };
+
+            Object.keys(reqs).forEach(req => {
+                const el = document.getElementById('req-' + req);
+                if (reqs[req]) {
+                    el.classList.add('valid');
+                } else {
+                    el.classList.remove('valid');
+                }
+            });
+        }
+
         loadESS();
     </script>
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>

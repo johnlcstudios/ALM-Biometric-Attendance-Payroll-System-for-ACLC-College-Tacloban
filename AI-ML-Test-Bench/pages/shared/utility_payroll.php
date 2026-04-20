@@ -14,9 +14,9 @@
             <button class="btn btn-success" onclick="exportUtilityPayroll()">
                 <i class="fas fa-file-excel"></i> Export
             </button>
-            <button class="btn-process-payroll" onclick="showRunUtilityPayroll()">
+            <!-- <button class="btn-process-payroll" onclick="showRunUtilityPayroll()">
                 Run Utility Payroll
-            </button>
+            </button> -->
         </div>
     </div>
 
@@ -39,6 +39,7 @@
                     <th>Net Pay</th>
                     <th>ATM</th>
                     <th>Non ATM</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="utilityPayrollTableBody">

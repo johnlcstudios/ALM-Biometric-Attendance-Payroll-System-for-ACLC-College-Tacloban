@@ -5,6 +5,167 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - **Thursday Release** - 2024-10-20
+
+### Added
+- **Unified Responsive CSS Framework** (`css/responsive-payroll.css`):
+  - Standardized button dimensions (42px height) across entire system
+  - Kiosk/ESS/Mobile/Desktop full responsiveness
+  - Touch-optimized for large kiosk screens
+  - Landscape kiosk support + high-DPI retina displays
+  - iOS Safari zoom prevention
+
+### Changed
+- **Button Uniformity**:
+  - All buttons now 42px height, 10px/16px padding, 14px font
+  - Consistent hover/transform animations
+  - Gradient backgrounds + enhanced shadows
+- **Dropdown Standardization**:
+  - All system dropdowns now use "Select a..." as default option (17+ dropdowns updated)
+
+### Fixed
+- **Payroll Page Inline Styles**: Removed conflicting header-right flex
+- **Calendar Page btn-sm**: Standardized small button sizing
+- **modals.php**: Updated 7 dropdowns (Gender, Position, Faculty Level, Department, Status, Subject, Payroll Category)
+
+
+## [2.4.0] - *Build9 Experimental*  - 2026-04-14
+
+### Added
+- **Animated Splash Screen**:
+    - Beautiful gradient splash screen with BSIT 3A credits
+    - Shows "Built with STRESS from BSIT 3A (A.Y. 2025-2026) Batch 2027"
+    - Appears ONLY on initial login (startup) and installation pages
+    - Does NOT appear when navigating between pages within the system
+    - Reappears after logout and next login
+    - Smooth animations: fade-in, slide-in, pulse, and heartbeat effects
+    - 3-second display with elegant fade-out transition
+    - Loading spinner with contextual messages
+    - Session-based tracking to prevent repeated display on page navigation
+    
+- **Separate Name Fields for Employee Registration**:
+    - First Name, Last Name, and Middle Initial are now separate input fields
+    - Full Name is auto-generated in format: "FirstName M. LastName"
+    - Middle Initial is optional and automatically formatted with period
+    - Auto-generation updates in real-time as user types
+    - Edit mode properly parses existing full names back into separate fields
+
+### Improved
+- **Face Enrollment System**:
+    - Centered "Camera is Currently Inactive" text and icons on camera preview
+    - Added pulsing animation to camera icon for better UX
+    - Improved cross-device compatibility with adaptive camera constraints
+    - Added retry logic for model loading (3 attempts)
+    - Enhanced error handling with specific messages for different failure types
+    - Added video readiness verification before starting detection
+    - Improved detection stability with higher input size (320px)
+    - Added helpful warnings when no face is detected for extended periods
+    - Better error recovery without breaking the detection loop
+    - Mobile-friendly camera settings with front camera preference
+    - Graceful fallback for devices with different camera capabilities
+
+### Fixed
+- **Employee Directory Table UI**:
+    - Removed duplicate renderEmployeeTable function that caused conflicts
+    - Added professional styling with gradient headers and hover effects
+    - Improved employee avatar display with hover animations
+    - Added colored badges for position, faculty level, and status
+    - Better responsive design for mobile and tablet devices
+    - Enhanced action buttons with tooltips and hover effects
+    - Improved empty state messaging
+    
+- **Form Validation Errors**:
+    - Fixed invalid regex pattern `[0-9-]*` in government ID fields
+    - Updated to `[0-9\\-]*` for proper escaping
+    - Added helpful title attributes with format examples
+    - Resolved console errors: "Invalid regular expression" on employee form
+    
+- **Save Employee 422 Error**:
+    - Fixed validation issues causing Unprocessable Entity errors
+    - Improved error messages for better debugging
+    
+- **Faculty Level Selection**:
+    - Added faculty level designation (SHS, College, Both) during faculty registration
+    - Database column `faculty_level` added to employees table
+    - Visible in employee table and edit modal
+    
+- **Hire Date Tracking**:
+    - Added `hire_date` field to employee registration form
+    - Prevents payroll processing for periods before employee hire date
+    - Automatically defaults to current date on new employees
+    
+- **Resignation Management**:
+    - Added ability to decline resignation requests with optional reason
+    - New `decline_resignation` API endpoint
+    - Tracks who declined and when (declined_by, decline_reason, declined_at)
+    - Visual indicator for declined resignations
+    
+- **Employee Reinstatement**:
+    - Added ability to reinstate resigned employees
+    - New `reinstate_employee` API endpoint
+    - Automatically reactivates employee status and user account
+    - Tracks reinstatement timestamp and user
+    
+- **Enhanced Form Validation**:
+    - Client-side validation for email, phone (Philippine format), salary ranges
+    - Government ID format validation (SSS, TIN, PhilHealth, Pag-IBIG)
+    - Server-side validation matching all client-side rules
+    - Inline error messages with auto-focus on first error
+    - Required field validation for hire_date and faculty_level
+
+### Changed
+- **Payroll Processing Logic**:
+    - Updated `run_payroll` to check hire_date before processing
+    - Updated `processSpecializedPayroll` to check hire_date
+    - Calculates effective_start_date = max(start_date, hire_date)
+    - Skips employees not yet hired during payroll period
+    
+- **Employee Form**:
+    - Added hire_date field (Step 2 - Employment Details)
+    - Enhanced validation for all form fields
+    - Improved error messaging and user feedback
+
+- **Employee Table**:
+    - Added Faculty Level column
+    - Added Hire Date column
+    - Shows reinstate button for resigned employees instead of delete
+
+### Database Migrations
+- **004_alm_features_v2.4.sql**:
+    - Added `faculty_level` ENUM column to employees table
+    - Added `hire_date` DATE column with index to employees table
+    - Added `declined_by`, `decline_reason`, `declined_at` to resignations table
+    - Added `reinstated_at`, `reinstated_by` to employees table
+    - Updated resignations status ENUM to include 'Declined'
+
+### Security
+- Enhanced server-side validation prevents invalid data entry
+- SQL injection prevention maintained through prepared statements
+- Transaction-safe operations for all critical updates
+
+### Documentation
+- Updated FEATURES_IMPLEMENTATION_GUIDE.md with completion status
+- Updated README.md with installation and migration instructions
+- Created comprehensive migration guide
+
+## [1.4.9] **Saturday Release**  - 2026-04-12
+
+### Merge
+- Merged `Frontend` branch into `main` branch.
+
+### Added
+- **Modernized Notification System**:
+    - Replaced all legacy PHP `echo` alerts and native JavaScript `alert`, `confirm`, and `prompt` dialogs with a modern GUI-based notification system powered by **SweetAlert2**.
+    - Implemented `backend/notifications.php` helper to handle server-side triggered alerts and toasts.
+    - Standardized success, error, warning, and info messages with consistent icons and auto-dismissing toasts for non-critical feedback.
+- **Frontend Integration**:
+    - Merged the latest enhancements and bug fixes from the `Frontend` branch into the core system.
+
+### Changed
+- **System Initialization**:
+    - Refactored `js/script.js` to integrate SweetAlert2 modals for critical user interactions, ensuring a smoother and more professional user experience.
+    - Updated `setup-db.php`, `backend/db.php`, and `backend/update_db.php` to use GUI-based progress reporting.
+
 ## [1.4.5] - 2026-04-09
 
 ### Added
@@ -201,60 +362,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Last Update: 04/09/26 01:57PM ***New Updated Tasks***
 
 ### Biometrics — Task Backlog (Priority-Ordered)
-**P0** Fix face enrollment UI redundancy: remove duplicate text, clarify instructions, rename to “Face Registration”.
-
-**P0** Ensure enrollment flow stability: prevent broken states during face capture and submission.
-
-**P1** Improve enrollment UX: clearer feedback for successful/failed enrollment.
-
+<<Pending>>
 --- 
 
 ### Backend — Task Backlog (Priority-Ordered)
-**P0** Fix dashboard data mismatch: ensure attendance logs and dashboard graphs use same data source and queries.
-
-**P0** Fix empty report exports: ensure data is fetched before generating downloadable files.
-
-**P0** Fix data not loading on initial page load (Payroll, Deduction, Allowance, Faculty pages): enforce automatic data fetch on endpoint call.
-
-**P0** Fix export/print/PDF generation: ensure backend handlers return correct file output with valid data.
-
-**P0** Fix delayed data rendering issue: eliminate dependency on trigger actions (Export/Print) before data appears.
-
-**P1** Add pagination support: implement LIMIT/OFFSET for Employees, Payroll, Attendance, and Tables.
-
-**P1** Standardize API responses: consistent JSON format for all modules.
-
-**P1** Add error handling: return proper status codes and debug messages.
-
-**P2** Optimize queries: improve performance for large datasets.
-
+<<Pending>>
 --- 
 
 ### Frontend — Task Backlog (Priority-Ordered)
-**P0** Fix all non-functional buttons:
-    - Attendance Logs (Action buttons)
-    - Payroll (Export/Print)
-    - PDF actions
-
-**P0** Fix data rendering issues: ensure tables load data on page initialization.
-
-**P0** Fix search functionality (Attendance Logs): restrict search to Name/ID only (exclude STATUS).
-
-**P0** Fix async handling: ensure proper fetch/await logic and prevent race conditions.
-
-**P0** Prevent double-trigger bugs: disable buttons during API calls.
-
-**P1** Implement pagination UI across all tables.
-
-**P1** Add table limits and consistent layouts.
-
-**P1** Remove redundant text across pages.
-
-**P1** Improve UI consistency (buttons, tables, labels).
-
-**P2** Improve loading states (spinners, skeletons).
-
-**P2** Enhance responsiveness for large tables.
+<<Pending>>
 
 --- 
 

@@ -158,6 +158,7 @@ payroll (3 types + JSON breakdown)
 leave_requests/loans/resignations (status workflows)
 deductions/allowance_categories + employee assignments
 subjects/subject_loads (faculty scheduling)
+emailing brevo: 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
 ```
 
 The system represents a production-ready HRM solution with enterprise-grade features like biometric security, multi-tenancy, specialized payroll formats, and comprehensive employee self-service – all delivered through a modern, responsive web interface deployable on standard XAMPP environments.

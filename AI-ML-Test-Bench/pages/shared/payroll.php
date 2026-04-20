@@ -4,7 +4,8 @@
             <h2>Payroll History</h2>
             <p>View and manage past payroll disbursements and processing runs.</p>
         </div>
-<div class="header-right" style="display: flex; gap: 10px;">
+<div class="header-right">
+
             <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" onclick="printPayrollHistory(); return false;">
                     <i class="fas fa-print"></i> Print Payroll History
@@ -15,13 +16,38 @@
                     <i class="fas fa-download"></i> Export Payroll History
                 </button>
             </div>
+            
+            <!-- NEW BULK OPERATIONS BUTTONS -->
+            <div class="bulk-actions">
+                <button class="btn btn-warning" onclick="bulkSalaryAdjustment(1.05)" title="+5% Salary Boost">
+                    <i class="fas fa-percentage"></i> +5% All
+                </button>
+                <button class="btn btn-info" onclick="bulkSalaryAdjustment(0.95)" title="-5% Salary Cut">
+                    <i class="fas fa-minus"></i> -5% All
+                </button>
+                <button class="btn btn-primary" onclick="selectAllPayrollRows()">
+                    <i class="fas fa-check-square"></i> Select All
+                </button>
+                <button class="btn btn-secondary" onclick="bulkUpdateSelected()">
+                    <i class="fas fa-sync"></i> Apply Bulk
+                </button>
+            </div>
+            
             <button class="btn-process-payroll" onclick="showPayrollModal()">
                 + Process New Payroll
             </button>
-        </div>
+        <link rel="stylesheet" href="../css/responsive-payroll.css">
     </div>
+</section>
 
-    <div class="payroll-stats">
+<style>
+/* Local overrides for payroll page */
+.bulk-actions { margin: 12px 0 !important; display: flex; gap: 12px !important; flex-wrap: wrap !important; }
+.payroll-stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px !important; }
+</style>
+
+<div class="payroll-stats">
+
         <div class="payroll-stat-card">
             <label>TOTAL BATCHES</label>
             <div class="value" id="stat-total-batches">0</div>

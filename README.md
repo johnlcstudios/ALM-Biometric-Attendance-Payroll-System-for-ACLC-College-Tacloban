@@ -1,347 +1,189 @@
-# ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
+# ALM Biometric Attendance & Payroll System
 
-# System Files Only
+**ACLC College Tacloban**
 
-The Biometric Attendance Payroll System is a collaborative class project undertaken by the BSIT-3A students of ACLC College Tacloban under the course Application Lifecycle Management (ALM). This project serves as the primary academic requirement for the semester, demonstrating the students' ability to apply software development methodologies to solve real-world problems.
+## Overview
 
-The project partners with ACLC College Tacloban, specifically its Payroll Office, to develop a system that automates the integration of biometric attendance data with payroll computation. By addressing the actual needs of a functioning institution, the project provides students with invaluable hands-on experience in requirements gathering, system design, development, testing, and deployment.
+The Biometric Attendance Payroll System is a collaborative class project developed by BSIT-3A students at ACLC College Tacloban as part of the Application Lifecycle Management (ALM) course. This system automates the integration of biometric attendance data with payroll computation.
 
-### System Description
+Developed in partnership with ACLC College Tacloban's Payroll Office, the system streamlines attendance tracking and payroll processing, reducing manual data entry and improving accuracy.
 
-* See [SystemDescription.md](SystemDescription.md) for a full description of the system.
+**Submission Date:** April 30, 2026
 
-### System Requirements
+## Documentation
 
-* See [SystemRequirements.md](SystemRequirements.md) for a full description of the system.
+- [System Description](SystemDescription.md) - Comprehensive system overview
+- [System Requirements](SystemRequirements.md) - Functional and non-functional requirements
+- [System Architecture](SystemArchitecture.md) - Technical architecture and design patterns
+- [System Design](SystemDesign.md) - Detailed design specifications
+- [System Testing](SystemTesting.md) - Test plans and test cases
+- [System Deployment](SystemDeployment.md) - Deployment procedures
+- [System Maintenance](SystemMaintenance.md) - Maintenance guidelines
+- [Features Implementation Guide](FEATURES_IMPLEMENTATION_GUIDE.md) - Feature implementation details
+- [Changelog](Changelog.md) - Version history and updates
 
-### System Architecture
+## Quick Start
 
-* See [SystemArchitecture.md](SystemArchitecture.md) for a full description of the system.
+### Prerequisites
 
-### System Design
+**Git Installation**
 
-* See [SystemDesign.md](SystemDesign.md) for a full description of the system.
-
-### System Testing
-
-* See [SystemTesting.md](SystemTesting.md) for a full description of the system.
-
-### System Deployment
-
-* See [SystemDeployment.md](SystemDeployment.md) for a full description of the system.
-
-### System Maintenance
-
-* See [SystemMaintenance.md](SystemMaintenance.md) for a full description of the system.
-
----
-
-### Date of Submission
-
-# April 30, 2026
-
----
-
-# DO NOT TOUCH 'main' BRANCH
-
-## ALWAYS EDIT FILES ON 'AI-ML-Test-Bench' FOLDER
-
-## See the [Changelog](Changelog.md) for a full list of recent updates
-
----
-
-## �📋 **Current Branches**
-
-- **`main`** – Production/stable code (protected, only merged via pull requests)
-* **`Frontend`** – All frontend development (React, HTML, CSS, JS)
-* **`Backend`** – All backend development (Node.js/Python, APIs, database)
-* **`Biometric`** – All biometric-related code (face-api.js, models, database schema)
-
----
-
-# How to start/run the System
-
-- Open XAMPP Controll Panel and start Apache and MySQL
-* Open Browser and navigate to `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban` to view the system.
-* Create Account by filling in the required fields in the Login Page.
-* Login to the system using the created account.
-
----
-
-## 🔑 **Prereqisites**
-
-Make sure Git is installed
-
-to check if git is installed open terminal and run the following commands:
-
+Verify Git is installed:
 ```bash
 git --version
 ```
 
-if git is not installed run the following commands ONE BY ONE:
-
+If not installed, run:
 ```bash
 winget install --id Git.Git -e --source winget 
 $env:Path += ";C:\Program Files\Git\cmd"
 git --version
 ```
 
-Before you start, configure your Git identity so your commits are properly attributed:
+**Git Configuration**
 
+Configure your Git identity for proper commit attribution:
 ```bash
 git config --global user.name "Your Full Name"
 git config --global user.email "your.email@example.com"
 ```
 
-Example:
-
-```bash
-git config --global user.name "JohnLC Studios"
-git config --global user.email "example@gmail.com"
-```
-
-Verify the settings:
-
+Verify your configuration:
 ```bash
 git config --global --list
 ```
 
----
+### Initial Setup
 
-## **📌 Summary of Steps: Push & Pull Workflow**
+1. Start XAMPP: Open the Control Panel and start Apache and MySQL services
+2. Navigate to: `http://localhost/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/AI-ML-Test-Bench/`
+3. Run database setup: Navigate to `setup-db.php`
+   - This will create the database and apply all migrations automatically
+4. Complete secure setup: Navigate to `secure-setup.php`
+   - Create your company and administrator account
+5. Log in with your created credentials
 
-### **1️⃣ Clone (FIRST TIME ONLY)**
+### Updating Existing Installation
 
-```bash
-git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
-cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
-```
+For updates from a previous version:
 
-### **2️⃣ Switch to Your Team Branch**
+1. Pull the latest code: `git pull origin main`
+2. Log in as Administrator
+3. Navigate to: `run-migrations.php`
+   - The system automatically detects and applies pending migrations
+4. New features are now available
 
-```bash
-git checkout Frontend   # or Backend or Biometric
-```
 
-### **3️⃣ Pull Latest Changes (Before You Start)**
+## Repository Structure
 
-```bash
-git stash
-```
+### Branch Management
 
-```bash
-git pull origin Frontend   # or Backend
-```
+| Branch | Purpose |
+|--------|---------|
+| `main` | Production/stable code (protected, merge via pull request only) |
+| `Frontend` | Frontend development (React, HTML, CSS, JavaScript) |
+| `Backend` | Backend development (Node.js/Python, APIs, database) |
+| `Biometric` | Biometric-related code (face-api.js, models, database schema) |
 
-```bash
-git stash pop
-```
+**Note:** The `main` branch is protected. All changes must be made through pull requests. Do not commit directly to `main`.
 
-### **4️⃣ Add/Modify Files**
+## Git Workflow
 
-Place files in correct folders, then stage:
-
-```bash
-git add .   # or specific files like git add src/
-```
-
-### **5️⃣ Commit Changes**
-
-```bash
-git commit -m "feat: descriptive message"
-```
-
-### **6️⃣ Push to Remote**
-
-```bash
-git push origin Frontend   # or Backend
-```
-
-### **7️⃣ Pull Again (If Needed)**
-
-If others pushed while you were working, pull before you push:
-
-```bash
-git pull origin Frontend
-```
-
-Resolve any conflicts by entering rebase ```bash git rebase``` and check files to accept current and incomming changes, then push again.
-
-### **8️⃣ Create Pull Request (When Ready to Merge to `main`)**
-
-1. Go to GitHub → **Pull requests** → **New pull request**
-2. Base: `main`, compare: your branch
-3. Add description → **Create pull request**
-4. After review and approval → **Merge**
-
----
-
-**✅ Keep your branch updated and commit often!**
-
----
-
-## 🔄 **Step-by-Step: Pushing & Pulling (Workflow) [Detailed]**
-
-### **1. Clone the Repository (First Time Only)**
+### Clone Repository (First Time Only)
 
 ```bash
 git clone https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban.git
 cd ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban
 ```
 
-### **2. Switch to Your Team’s Branch**
+**Post-Clone Steps:**
+- Rename all `.env.example` files to `.env`
+- Download model files from [Releases](https://github.com/johnlcstudios/ALM-Biometric-Attendance-Payroll-System-for-ACLC-College-Tacloban/releases/download/Alpha/models.zip) and extract
+- Use `complete_schema.sql` for database initialization
 
-- **Frontend Team:**
-
-  ```bash
-  git checkout Frontend
-  ```
-
-- **Backend Team:**
-
-  ```bash
-  git checkout Backend
-  ```
-
-### **3. Pull the Latest Changes (Always Do This Before Working)**
-
-Always start by pulling the latest changes from the remote branch to avoid conflicts:
+### Switch to Your Team Branch
 
 ```bash
-git pull origin Frontend   # or Backend
+git checkout Frontend    # or Backend or Biometric
 ```
 
-### **4. Add Your Files**
+### Before Starting Work
 
-Place your files in the appropriate folders (see folder structure below). Then stage them:
+Always fetch the latest changes:
 
 ```bash
-git add .                  # Stages all new and modified files
+git stash                          # Temporarily save local changes
+git pull origin Frontend           # Fetch latest from remote
+git stash pop                      # Restore your changes
 ```
 
-You can also stage specific files:
+### Make Changes and Commit
+
+1. **Stage your changes:**
+   ```bash
+   git add .                       # or git add src/ for specific files
+   ```
+
+2. **Commit with a descriptive message:**
+   ```bash
+   git commit -m "feat: add login page and dashboard"
+   ```
+
+   **Commit Message Conventions:**
+   - `feat:` – new feature
+   - `fix:` – bug fix
+   - `docs:` – documentation updates
+   - `style:` – formatting, no code change
+   - `refactor:` – code refactoring
+
+### Push Changes
 
 ```bash
-git add src/components/Login.js
+git push origin Frontend          # or Backend/Biometric
 ```
 
-### **5. Commit Your Changes**
-
-Write a clear, descriptive commit message:
-
-```bash
-git commit -m "feat: add login page and dashboard components"
-```
-
-Commit message conventions:
-* `feat:` – new feature
-* `fix:` – bug fix
-* `docs:` – documentation updates
-* `style:` – formatting, no code change
-* `refactor:` – code refactoring
-
-### **6. Push Your Changes to the Remote Branch**
-
-```bash
-git push origin Frontend   # or Backend
-```
-
-If this is your first push and you created a new branch locally, use:
-
+For the first push to a new branch:
 ```bash
 git push -u origin Frontend
 ```
 
-(Then later you can just use `git push`)
+### Handle Merge Conflicts
 
-### **7. Verify on GitHub**
-
-Go to the repository on GitHub and confirm your branch contains the latest commit.
-
----
-
-## 🔁 **Working with Others – Pulling Updates**
-
-If your teammates have pushed new changes while you were working, you need to pull them before you push:
+If others have pushed while you were working:
 
 ```bash
-git pull origin Frontend   # or Backend
-```
-
-If there are **merge conflicts**, Git will notify you. Resolve them manually in your code editor, then:
-
-```bash
+git pull origin Frontend          # Attempt to merge remote changes
+# Resolve any conflicts in your editor
 git add .
-git commit -m "resolve merge conflicts"
+git commit -m "resolve: merge conflicts"
 git push origin Frontend
 ```
 
----
+### Create a Pull Request
 
-## 🚀 **Creating a Pull Request to Merge into `main`**
+When your feature is complete and tested:
 
-Once your feature is complete and tested on your branch, create a pull request (PR) to merge into `main`:
+1. Go to the repository on GitHub
+2. Click **Pull requests** → **New pull request**
+3. Set base branch to `main` and compare branch to your working branch
+4. Add a clear description of your changes
+5. Request a review from a team member
+6. After approval, merge the pull request
 
-1. Go to the repository on GitHub.
-2. Click **“Pull requests”** → **“New pull request”**.
-3. Set **base** = `main` and **compare** = `Frontend` (or `Backend`).
-4. Add a description of the changes.
-5. Request a review from a team member.
-6. After approval, click **“Merge pull request”**.
+**Do not commit directly to `main`.** All changes must be reviewed and merged via pull request.
 
-**Note:** Only merge into `main` after thorough testing and approval. Never commit directly to `main`.
+## Best Practices
 
----
+- Work exclusively on your team's branch—never directly on `main`
+- Pull before you push to avoid conflicts
+- Write meaningful commit messages that describe what and why
+- Keep commits atomic—one logical change per commit
+- Test your code before pushing
+- Create pull requests for all changes to `main`
+- Review team members' pull requests before merging
+- Update documentation when setup instructions change
 
-# 📁 **Recommended Folder Structure**
-
-### **Frontend Branch:**
-
-```
-├── src/
-│   ├── components/      # Reusable UI components
-│   ├── pages/           # Page-level components
-│   ├── assets/          # Images, fonts, etc.
-│   ├── styles/          # CSS/SCSS files
-│   ├── services/        # API calls
-│   └── config/          # Configuration files
-├── public/
-├── package.json
-└── README.md
-```
-
-### **Backend Branch:**
-
-```
-├── src/
-│   ├── controllers/     # Request handlers
-│   ├── models/          # Database models
-│   ├── routes/          # API routes
-│   ├── middleware/      # Auth, logging, etc.
-│   ├── config/          # Environment config
-│   └── utils/           # Helper functions
-├── tests/
-├── requirements.txt     # Python dependencies
-├── package.json         # Node.js dependencies
-└── README.md
-```
-
----
-
-## ✅ **Best Practices**
-
-- ✅ **Always work on your team’s branch** – never directly on `main`
-* ✅ **Pull before you push** – avoid conflicts by staying up to date
-* ✅ **Write meaningful commit messages** – describe what and why
-* ✅ **Keep commits atomic** – one logical change per commit
-* ✅ **Test your code** before pushing
-* ✅ **Use pull requests** for merging into `main`
-* ✅ **Update the README** when setup instructions change
-* ✅ **Review team members’ code** before merging
-
----
-
-## ❓ **Common Git Commands Cheat Sheet**
+## Common Git Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -350,18 +192,21 @@ Once your feature is complete and tested on your branch, create a pull request (
 | `git branch` | List local branches |
 | `git checkout -b new-branch` | Create and switch to a new branch |
 | `git fetch` | Download remote changes without merging |
-| `git diff` | See unstaged changes |
+| `git diff` | View unstaged changes |
 | `git reset --soft HEAD~1` | Undo last commit but keep changes |
 
----
+## Troubleshooting
 
-## 🆘 **Troubleshooting**
+| Issue | Solution |
+|-------|----------|
+| "fatal: not a git repository" | Ensure you are inside the cloned folder |
+| "Permission denied" | Check your SSH/GitHub authentication settings |
+| "Merge conflict" | Open conflicted files, locate `<<<<<<<` markers, resolve differences, then commit |
+| "Updates were rejected" | Run `git pull` before pushing |
 
-- **“fatal: not a git repository”** – make sure you're inside the cloned folder.
-* **“Permission denied”** – check your SSH/GitHub authentication.
-* **“Merge conflict”** – open the conflicted files, look for `<<<<<<<`, fix the code, then commit.
-* **“Updates were rejected”** – you forgot to pull; do `git pull` then push again.
+## Support
 
----
-
-**Your branches are ready! Start collaborating using the steps above!** 🎉
+For issues or additional information, refer to:
+- `INSTALLATION_GUIDE.md` – Detailed installation steps
+- `SystemArchitecture.md` – Technical specifications
+- `Changelog.md` – Version history and updates

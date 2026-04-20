@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
@@ -15,6 +17,9 @@ if (isset($_SESSION['user_id'])) {
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Custom Context Menu Styles -->
+<link rel="stylesheet" href="css/style.css">
 
     <style>
         * {
@@ -136,6 +141,22 @@ if (isset($_SESSION['user_id'])) {
             text-decoration: none;
             font-weight: bold;
         }
+        
+        /* Glass Morphism Swal2 Styles */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+        }
+        .swal2-popup.glass-modal .swal2-title { color: #ffffff !important; }
+        .swal2-popup.glass-modal .swal2-html-container, .swal2-popup.glass-modal .swal2-text { color: rgba(255, 255, 255, 0.9) !important; }
+        .swal2-popup.glass-modal .swal2-confirm { background: linear-gradient(135deg, #4facfe, #00f2fe) !important; border-radius: 20px !important; color: #fff !important; }
+        .swal2-popup.glass-modal .swal2-cancel { background: rgba(255, 255, 255, 0.15) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-popup.glass-modal .swal2-input { background: rgba(255, 255, 255, 0.2) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #ffffff !important; border-radius: 20px !important; }
+        .swal2-container.glass-backdrop { background: rgba(0, 0, 0, 0.5) !important; backdrop-filter: blur(4px) !important; }
     </style>
 
 </head>
@@ -153,9 +174,19 @@ if (isset($_SESSION['user_id'])) {
             <form id="signupForm">
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="text" name="company_name" placeholder="Company Name" required>
+                        <input type="text" name="company_name" id="company_name" placeholder="Company Name" required>
                         <i class="fas fa-building"></i>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <input type="text" name="company_code" id="company_code" placeholder="Company Code (auto-generated)" maxlength="20">
+                        <i class="fas fa-hashtag"></i>
+                    </div>
+                    <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                        Leave empty for auto-generation (e.g., ABCD-XY12) or enter custom code
+                    </small>
                 </div>
 
                 <div class="form-group">
@@ -197,6 +228,15 @@ if (isset($_SESSION['user_id'])) {
     </div>
 
     <script>
+        // Auto-generate company code suggestion
+        document.getElementById('company_name').addEventListener('input', function() {
+            const companyName = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
+            if (companyName.length >= 2) {
+                const randomCode = Math.random().toString(36).substr(2,4).toUpperCase();
+                document.getElementById('company_code').placeholder = companyName + '-' + randomCode;
+            }
+        });
+
         document.getElementById('signupForm').onsubmit = async (e) => {
             e.preventDefault();
 
@@ -207,7 +247,12 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Oops...',
-                    text: 'Passwords do not match!'
+                    text: 'Passwords do not match!',
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 });
                 return;
             }
@@ -224,19 +269,30 @@ if (isset($_SESSION['user_id'])) {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: 'Registration successful! You can now login.'
-                }).then(() => {
-                    window.location.href = 'login.php';
+                    html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br>You can now <a href="login.php">login</a>.`,
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 });
             } else {
                 Swal.fire({
                     icon: 'error',
                     title: 'Registration Failed',
-                    text: result.message || "Registration failed."
+                    text: result.message || "Registration failed.",
+                    customClass: {
+                        popup: 'glass-modal',
+                        container: 'glass-backdrop'
+                    },
+                    background: 'transparent'
                 });
             }
         };
     </script>
+
+<!-- Custom Context Menu -->
+<script src="js/context-menu.js?v=1.0"></script>
 
 </body>
 

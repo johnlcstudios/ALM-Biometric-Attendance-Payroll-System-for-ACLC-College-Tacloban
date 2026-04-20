@@ -1,5 +1,5 @@
 <!-- Modals -->
-<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000;"></div>
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 100001; pointer-events: none;"></div>
 
 <div id="employeeModal" class="modal">
     <div class="modal-content large-modal">
@@ -36,10 +36,23 @@
                         <h4>Personal Information</h4>
                     </div>
                     <div class="form-grid">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> First Name <span class="required text-danger">*</span></label>
+                            <input type="text" name="firstName" placeholder="Enter first name" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">First name is required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Last Name <span class="required text-danger">*</span></label>
+                            <input type="text" name="lastName" placeholder="Enter last name" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Last name is required.</div>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Middle Initial</label>
+                            <input type="text" name="middleInitial" placeholder="e.g. A" maxlength="1">
+                        </div>
                         <div class="form-group full-width">
-                            <label><i class="fas fa-user"></i> Full Name <span class="required text-danger">*</span></label>
-                            <input type="text" name="fullName" placeholder="Enter full name" required>
-                            <div class="error-msg text-danger small mt-1" style="display:none;">Please enter a valid full name.</div>
+                            <label><i class="fas fa-user-tag"></i> Full Name (Auto-generated)</label>
+                            <input type="text" name="fullName" id="fullNameDisplay" readonly style="background: rgba(0,0,0,0.2); cursor: not-allowed;">
                         </div>
                         <div class="form-group">
                             <label><i class="fas fa-calendar-alt"></i> Date of Birth <span class="required text-danger">*</span></label>
@@ -58,7 +71,9 @@
                         <div class="form-group">
                             <label><i class="fas fa-venus-mars"></i> Gender</label>
                             <select name="gender">
+                                <option value="">Select a Gender</option>
                                 <option value="Male">Male</option>
+
                                 <option value="Female">Female</option>
                                 <option value="Other">Other</option>
                             </select>
@@ -76,16 +91,30 @@
                         <div class="form-group">
                             <label><i class="fas fa-id-badge"></i> Position <span class="required text-danger">*</span></label>
                             <select name="position" onchange="toggleSubjectStep()" required>
+                                <option value="">Select a Posiion</option>
                                 <option value="Faculty">Full-Time Faculty</option>
+
                                 <option value="Staff">Regular Staff</option>
                                 <option value="Utility">Utility Staff</option>
                                 <option value="Payroll Officer">Payroll Officer</option>
                             </select>
                         </div>
+                        <div class="form-group" id="facultyLevelGroup" style="display:none;">
+                            <label><i class="fas fa-graduation-cap"></i> Faculty Level <span class="required text-danger">*</span></label>
+                            <select name="faculty_level">
+                                <option value="">Select a Faculty Level</option>
+
+                                <option value="SHS">Senior High School (SHS)</option>
+                                <option value="College">College</option>
+                                <option value="Both">Both SHS & College</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label><i class="fas fa-building"></i> Department <span class="required text-danger">*</span></label>
                             <select name="department" required>
+                                <option value="">Select a Department</option>
                                 <option value="IT">Information Technology</option>
+
                                 <option value="Education">Education</option>
                                 <option value="Admin">Administration</option>
                                 <option value="Utility">General Services</option>
@@ -102,10 +131,17 @@
                         <div class="form-group">
                             <label><i class="fas fa-user-tag"></i> Employment Status</label>
                             <select name="status">
+                                <option value="">Select a...</option>
                                 <option value="Active">Active</option>
+
                                 <option value="Probationary">Probationary</option>
                                 <option value="Contractual">Contractual</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar-check"></i> Hire Date <span class="required text-danger">*</span></label>
+                            <input type="date" name="hire_date" value="<?php echo date('Y-m-d'); ?>" required>
+                            <div class="error-msg text-danger small mt-1" style="display:none;">Hire date is required.</div>
                         </div>
                     </div>
                 </div>
@@ -119,19 +155,19 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>SSS Number</label>
-                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9-]*">
+                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9\\-]*" title="SSS number format: 99-9999999-9">
                         </div>
                         <div class="form-group">
                             <label>PhilHealth ID</label>
-                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9-]*">
+                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9\\-]*" title="PhilHealth format: 99-999999999-9">
                         </div>
                         <div class="form-group">
                             <label>TIN Number</label>
-                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9-]*">
+                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9\\-]*" title="TIN format: 999-999-999-999">
                         </div>
                         <div class="form-group">
                             <label>Pag-IBIG MID</label>
-                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9-]*">
+                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9\\-]*" title="Pag-IBIG format: 9999-9999-9999">
                         </div>
                     </div>
                 </div>
@@ -196,7 +232,8 @@
                 <div class="form-group">
                     <label>Select Subject</label>
                     <select id="loadSubjectSelect" class="form-control" onchange="onLoadSubjectChange(this.value)">
-                        <option value="">-- Choose Subject --</option>
+                        <option value="">Select a...</option>
+
                         <!-- Dynamic Content -->
                     </select>
                 </div>
@@ -286,7 +323,9 @@
                 <div class="form-group">
                     <label>Filter by Category/Position</label>
                     <select id="payrollCategorySelect" class="form-control">
+                        <option value="">Select a...</option>
                         <option value="all">All Employees</option>
+
                         <option value="Faculty">Full-Time Faculty</option>
                         <option value="Staff">Regular Staff</option>
                         <option value="Utility">Utility Staff</option>
@@ -318,7 +357,14 @@
                 </div>
                 <div class="form-group">
                     <label>New Password</label>
-                    <input type="password" id="newPass" required>
+                    <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                    <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
+                        <div id="req-length" class="req-item">At least 8 characters</div>
+                        <div id="req-uppercase" class="req-item">One uppercase letter</div>
+                        <div id="req-lowercase" class="req-item">One lowercase letter</div>
+                        <div id="req-number" class="req-item">One number</div>
+                        <div id="req-special" class="req-item">One special character</div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Confirm New Password</label>
@@ -332,6 +378,15 @@
         </div>
     </div>
 </div>
+
+<style>
+.req-item {
+    color: #dc3545;
+}
+.req-item.valid {
+    color: #28a745;
+}
+</style>
 
 <!-- View Faculty Loads Modal -->
 <div id="viewLoadsModal" class="modal">

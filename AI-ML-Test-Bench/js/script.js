@@ -31,6 +31,44 @@ function escapeHTML(str) {
     });
 }
 
+// --- Validation Functions ---
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePhone(phone) {
+    if (!phone || phone.trim() === '') return true; // Optional field
+    const re = /^(09|\+639)\d{9}$/; // Philippine format
+    return re.test(phone.replace(/\s|-/g, ''));
+}
+
+function validateSalary(salary) {
+    const num = parseFloat(salary);
+    return !isNaN(num) && num >= 0 && num < 10000000;
+}
+
+function validateDate(date) {
+    if (!date) return false;
+    const d = new Date(date);
+    return d instanceof Date && !isNaN(d);
+}
+
+function validateRequired(value) {
+    return value && typeof value === 'string' && value.trim() !== '';
+}
+
+function validateGovernmentID(id, type) {
+    if (!id || id.trim() === '') return true; // Optional
+    // Basic format validation for Philippine government IDs
+    const cleaned = id.replace(/\s|-/g, '');
+    if (type === 'sss' && !/^\d{10,11}$/.test(cleaned)) return false;
+    if (type === 'tin' && !/^\d{9,12}$/.test(cleaned)) return false;
+    if (type === 'philhealth' && !/^\d{11,12}$/.test(cleaned)) return false;
+    if (type === 'pagibig' && !/^\d{12}$/.test(cleaned)) return false;
+    return true;
+}
+
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'block';
@@ -55,9 +93,17 @@ function showToast(message, type = 'info') {
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
+        customClass: {
+            popup: 'glass-toast-popup',
+            title: 'glass-toast-title',
+            timerProgressBar: 'glass-toast-progress',
+            container: 'swal2-toast-container'
+        },
         didOpen: (toast) => {
             toast.addEventListener('mouseenter', Swal.stopTimer)
             toast.addEventListener('mouseleave', Swal.resumeTimer)
+            // Ensure toast doesn't block interactions with elements behind it when closed
+            toast.style.pointerEvents = 'auto';
         }
     });
 
@@ -67,6 +113,362 @@ function showToast(message, type = 'info') {
     });
 }
 
+// ==========================================
+// TABLE PAGINATION, SEARCH & FILTER SYSTEM
+// ==========================================
+
+// Global table state management
+const TableState = {
+    employees: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    attendance: {
+        currentPage: 1,
+        rowsPerPage: 15,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    payroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    facultyPayroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    },
+    utilityPayroll: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
+    }
+};
+
+// Initialize table with pagination, search, and filters
+function initializeTable(tableName, options = {}) {
+    const state = TableState[tableName];
+    if (!state) return;
+    
+    state.rowsPerPage = options.rowsPerPage || state.rowsPerPage;
+    
+    // Create controls container if it doesn't exist
+    const tableSection = document.getElementById(tableName === 'employees' ? 'employees' : 
+                                                  tableName === 'attendance' ? 'attendance' : 
+                                                  tableName === 'payroll' ? 'payroll' :
+                                                  tableName === 'facultyPayroll' ? 'faculty_payroll' : 'utility_payroll');
+    
+    if (!tableSection) return;
+    
+    // Add controls before table
+    let controlsContainer = tableSection.querySelector('.table-controls');
+    if (!controlsContainer) {
+        controlsContainer = document.createElement('div');
+        controlsContainer.className = 'table-controls';
+        controlsContainer.innerHTML = generateTableControlsHTML(tableName, options);
+        
+        const tableWrapper = tableSection.querySelector('.table-container') || 
+                            tableSection.querySelector('.payroll-table-container') ||
+                            tableSection.querySelector('.modern-table-wrapper') ||
+                            tableSection.querySelector('table');
+        
+        if (tableWrapper) {
+            tableWrapper.parentNode.insertBefore(controlsContainer, tableWrapper);
+        }
+    }
+    
+    // Add pagination after table
+    let paginationContainer = tableSection.querySelector('.table-pagination');
+    if (!paginationContainer) {
+        paginationContainer = document.createElement('div');
+        paginationContainer.className = 'table-pagination';
+        paginationContainer.id = `${tableName}-pagination`;
+        
+        const tableWrapper = tableSection.querySelector('.table-container') || 
+                            tableSection.querySelector('.payroll-table-container') ||
+                            tableSection.querySelector('.modern-table-wrapper') ||
+                            tableSection.querySelector('table');
+        
+        if (tableWrapper) {
+            tableWrapper.parentNode.insertBefore(paginationContainer, tableWrapper.nextSibling);
+        }
+    }
+    
+    // Attach event listeners
+    attachTableEventListeners(tableName, options);
+}
+
+// Generate HTML for table controls
+function generateTableControlsHTML(tableName, options) {
+    const showSearch = options.showSearch !== false;
+    const showFilters = options.showFilters !== false;
+    const showRowsPerPage = options.showRowsPerPage !== false;
+    
+    let html = '<div class="table-controls-left">';
+    
+    // Search box
+    if (showSearch) {
+        html += `
+            <div class="table-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="${tableName}-search" placeholder="Search by name or employee ID..." oninput="handleTableSearch('${tableName}', this.value)">
+            </div>
+        `;
+    }
+    
+    // Filters
+    if (showFilters && options.filters) {
+        html += '<div class="table-filters">';
+        options.filters.forEach(filter => {
+            html += generateFilterHTML(tableName, filter);
+        });
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    
+    // Right side - Rows per page
+    if (showRowsPerPage) {
+        html += `
+            <div class="table-controls-right">
+                <div class="rows-per-page">
+                    <label>Rows per page:</label>
+                    <select id="${tableName}-rows" onchange="handleRowsPerPageChange('${tableName}', this.value)">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
+// Generate individual filter HTML
+function generateFilterHTML(tableName, filter) {
+    switch(filter.type) {
+        case 'select':
+            return `
+                <div class="table-filter-item">
+                    <label>${filter.label}</label>
+                    <select id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                        <option value="">All</option>
+                        ${filter.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        case 'date':
+            return `
+                <div class="table-filter-item">
+                    <label>${filter.label}</label>
+                    <input type="date" id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                </div>
+            `;
+        default:
+            return '';
+    }
+}
+
+// Attach event listeners to table controls
+function attachTableEventListeners(tableName, options) {
+    // Set initial rows per page value
+    const rowsSelect = document.getElementById(`${tableName}-rows`);
+    if (rowsSelect) {
+        rowsSelect.value = TableState[tableName].rowsPerPage;
+    }
+}
+
+// Handle search input
+function handleTableSearch(tableName, searchTerm) {
+    TableState[tableName].searchTerm = searchTerm.toLowerCase();
+    TableState[tableName].currentPage = 1; // Reset to first page on search
+    refreshTable(tableName);
+}
+
+// Handle filter change
+function handleTableFilter(tableName, filterId, value) {
+    TableState[tableName].filters[filterId] = value;
+    TableState[tableName].currentPage = 1; // Reset to first page on filter change
+    refreshTable(tableName);
+}
+
+// Handle rows per page change
+function handleRowsPerPageChange(tableName, value) {
+    TableState[tableName].rowsPerPage = parseInt(value);
+    TableState[tableName].currentPage = 1; // Reset to first page
+    refreshTable(tableName);
+}
+
+// Apply search and filters to data
+function applyTableFilters(tableName, data, searchFields = ['full_name', 'employee_id', 'emp_code']) {
+    const state = TableState[tableName];
+    let filtered = data;
+    
+    // Apply search
+    if (state.searchTerm) {
+        filtered = filtered.filter(item => {
+            return searchFields.some(field => {
+                const value = item[field];
+                return value && value.toString().toLowerCase().includes(state.searchTerm);
+            });
+        });
+    }
+    
+    // Apply filters
+    Object.keys(state.filters).forEach(filterId => {
+        const filterValue = state.filters[filterId];
+        if (filterValue) {
+            filtered = filtered.filter(item => {
+                if (filterId === 'position') return item.position === filterValue;
+                if (filterId === 'department') return item.department === filterValue;
+                if (filterId === 'status') return item.status === filterValue;
+                if (filterId === 'date') return item.log_date === filterValue;
+                if (filterId === 'dateFrom') return item.log_date >= filterValue;
+                if (filterId === 'dateTo') return item.log_date <= filterValue;
+                if (filterId === 'period') return item.period === filterValue;
+                // Add more filter logic as needed
+                return true;
+            });
+        }
+    });
+    
+    state.filteredData = filtered;
+    return filtered;
+}
+
+// Get paginated data
+function getPaginatedData(tableName, filteredData) {
+    const state = TableState[tableName];
+    const start = (state.currentPage - 1) * state.rowsPerPage;
+    const end = start + state.rowsPerPage;
+    return filteredData.slice(start, end);
+}
+
+// Render pagination controls
+function renderPagination(tableName, totalItems) {
+    const state = TableState[tableName];
+    const totalPages = Math.ceil(totalItems / state.rowsPerPage);
+    const paginationContainer = document.getElementById(`${tableName}-pagination`);
+    
+    if (!paginationContainer) return;
+    
+    const startItem = totalItems === 0 ? 0 : (state.currentPage - 1) * state.rowsPerPage + 1;
+    const endItem = Math.min(state.currentPage * state.rowsPerPage, totalItems);
+    
+    let html = `
+        <div class="pagination-info">
+            Showing <strong>${startItem}-${endItem}</strong> of <strong>${totalItems}</strong> records
+        </div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" onclick="changePage('${tableName}', 1)" ${state.currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-angle-double-left"></i> First
+            </button>
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>
+                <i class="fas fa-angle-left"></i> Prev
+            </button>
+    `;
+    
+    // Page numbers
+    html += '<div class="pagination-numbers">';
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, state.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="page-number ${i === state.currentPage ? 'active' : ''}" onclick="changePage('${tableName}', ${i})">${i}</button>`;
+    }
+    html += '</div>';
+    
+    html += `
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage + 1})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
+                Next <i class="fas fa-angle-right"></i>
+            </button>
+            <button class="pagination-btn" onclick="changePage('${tableName}', ${totalPages})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
+                Last <i class="fas fa-angle-double-right"></i>
+            </button>
+        </div>
+    `;
+    
+    paginationContainer.innerHTML = html;
+}
+
+// Change page
+function changePage(tableName, page) {
+    const state = TableState[tableName];
+    const filteredData = state.filteredData;
+    const totalPages = Math.ceil(filteredData.length / state.rowsPerPage);
+    
+    if (page < 1 || page > totalPages) return;
+    
+    state.currentPage = page;
+    refreshTable(tableName);
+}
+
+// Refresh table display
+function refreshTable(tableName) {
+    switch(tableName) {
+        case 'employees':
+            renderEmployeeTable();
+            break;
+        case 'attendance':
+            renderAttendanceTable();
+            break;
+        case 'payroll':
+            renderPayrollTable();
+            break;
+        case 'facultyPayroll':
+            loadFacultyPayroll('latest');
+            break;
+        case 'utilityPayroll':
+            loadUtilityPayroll('latest');
+            break;
+    }
+}
+
+// ==========================================
+// END TABLE PAGINATION SYSTEM
+// ==========================================
+
+// Helper function for glass morphism modal dialogs
+function showGlassModal(options = {}) {
+    const defaultOptions = {
+        customClass: {
+            popup: 'glass-modal',
+            container: 'glass-backdrop',
+            backdrop: 'swal2-backdrop'
+        },
+        background: 'transparent',
+        backdrop: 'rgba(0,0,0,0.6)',
+        showClass: {
+            popup: 'swal2-show'
+        },
+        hideClass: {
+            popup: 'swal2-hide'
+        }
+    };
+    
+    const mergedOptions = { ...defaultOptions, ...options };
+    return Swal.fire(mergedOptions);
+}
+
 // Add keyframes for animations if not in CSS
 if (!document.getElementById('toast-styles')) {
     const style = document.createElement('style');
@@ -74,6 +476,250 @@ if (!document.getElementById('toast-styles')) {
     style.innerHTML = `
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        
+        /* Glass Morphism Toast Notifications */
+        .glass-toast-popup {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            padding: 16px 20px !important;
+            min-width: 320px !important;
+            max-width: 400px !important;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            z-index: 100001 !important;
+            position: relative !important;
+        }
+        
+        /* Toast container - highest z-index */
+        .swal2-container.swal2-top-end,
+        .swal2-container.swal2-top-right {
+            z-index: 100001 !important;
+            pointer-events: none !important;
+        }
+        
+        .swal2-container.swal2-top-end > .swal2-popup,
+        .swal2-container.swal2-top-right > .swal2-popup {
+            pointer-events: auto !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-success {
+            background: rgba(39, 174, 96, 0.15) !important;
+            border: 1px solid rgba(39, 174, 96, 0.3) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-error,
+        .glass-toast-popup.swal2-icon-warning {
+            background: rgba(219, 38, 31, 0.15) !important;
+            border: 1px solid rgba(219, 38, 31, 0.3) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-info {
+            background: rgba(30, 1, 120, 0.15) !important;
+            border: 1px solid rgba(30, 1, 120, 0.3) !important;
+        }
+        
+        .glass-toast-title {
+            color: #ffffff !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.3px !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+            padding: 0 8px !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon {
+            margin: 0 !important;
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 18px !important;
+            border-width: 2px !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-success {
+            border-color: rgba(39, 174, 96, 0.8) !important;
+            color: #27ae60 !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-error {
+            border-color: rgba(219, 38, 31, 0.8) !important;
+            color: #db261f !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-warning {
+            border-color: rgba(243, 156, 18, 0.8) !important;
+            color: #f39c12 !important;
+        }
+        
+        .swal2-glass-toast .swal2-icon.swal2-info {
+            border-color: rgba(30, 1, 120, 0.8) !important;
+            color: #1e0178 !important;
+        }
+        
+        .glass-toast-progress {
+            height: 3px !important;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.6)) !important;
+            border-radius: 2px !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-success .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(39, 174, 96, 0.4), rgba(39, 174, 96, 0.8)) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-error .glass-toast-progress,
+        .glass-toast-popup.swal2-icon-warning .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(219, 38, 31, 0.4), rgba(219, 38, 31, 0.8)) !important;
+        }
+        
+        .glass-toast-popup.swal2-icon-info .glass-toast-progress {
+            background: linear-gradient(90deg, rgba(30, 1, 120, 0.4), rgba(30, 1, 120, 0.8)) !important;
+        }
+        
+        /* Remove default SweetAlert2 background */
+        .swal2-container.swal2-top-end {
+            background: transparent !important;
+        }
+        
+        .swal2-glass-toast {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        
+        /* Glass Morphism Modal Popups */
+        .swal2-popup.glass-modal {
+            background: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(25px) saturate(180%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.4) !important;
+            padding: 30px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-title {
+            color: #ffffff !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 24px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-html-container,
+        .swal2-popup.glass-modal .swal2-text {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-size: 15px !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon {
+            border-width: 3px !important;
+            margin: 0 auto 20px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-success {
+            border-color: rgba(39, 174, 96, 0.8) !important;
+            color: #27ae60 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-error {
+            border-color: rgba(219, 38, 31, 0.8) !important;
+            color: #db261f !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-warning {
+            border-color: rgba(243, 156, 18, 0.8) !important;
+            color: #f39c12 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-info {
+            border-color: rgba(30, 1, 120, 0.8) !important;
+            color: #1e0178 !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-icon.swal2-question {
+            border-color: rgba(108, 117, 125, 0.8) !important;
+            color: #6c757d !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm,
+        .swal2-popup.glass-modal .swal2-cancel {
+            border-radius: 20px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            letter-spacing: 0.3px !important;
+            transition: all 0.3s ease !important;
+            border: none !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm {
+            background: linear-gradient(135deg, #4facfe, #00f2fe) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-confirm:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-cancel {
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            color: #ffffff !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-cancel:hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input,
+        .swal2-popup.glass-modal .swal2-textarea,
+        .swal2-popup.glass-modal .swal2-select {
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 20px !important;
+            color: #ffffff !important;
+            backdrop-filter: blur(10px) !important;
+            padding: 12px 15px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input:focus,
+        .swal2-popup.glass-modal .swal2-textarea:focus,
+        .swal2-popup.glass-modal .swal2-select:focus {
+            border: 1px solid rgba(255, 255, 255, 0.6) !important;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4) !important;
+            outline: none !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-input::placeholder,
+        .swal2-popup.glass-modal .swal2-textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-validation-message {
+            background: rgba(219, 38, 31, 0.15) !important;
+            border: 1px solid rgba(219, 38, 31, 0.3) !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+        
+        .swal2-popup.glass-modal .swal2-loader {
+            border-color: rgba(30, 1, 120, 0.3) !important;
+            border-top-color: #1e0178 !important;
+        }
+        
+        /* Glass modal backdrop */
+        .swal2-container.glass-backdrop {
+            background: rgba(0, 0, 0, 0.5) !important;
+            backdrop-filter: blur(4px) !important;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -109,8 +755,7 @@ async function fetchData(specificPage = null) {
     if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
     const urlParams = new URLSearchParams(window.location.search);
-    const activePageId = document.querySelector('.page.active')?.id;
-    const page = specificPage || urlParams.get('page') || activePageId || 'dashboard';
+    const page = specificPage || urlParams.get('page') || 'dashboard';
 
     try {
         const getArray = (data) => Array.isArray(data) ? data : [];
@@ -122,6 +767,7 @@ async function fetchData(specificPage = null) {
 
         // Conditional fetching based on page
         if (page === 'dashboard') {
+            // Fetch all data needed for dashboard with real attendance logs
             const dashboardStats = await fetchJSON('backend/api.php?action=get_dashboard_stats');
             if (dashboardStats) {
                 const totalEl = document.getElementById('stat-total-emp');
@@ -136,6 +782,12 @@ async function fetchData(specificPage = null) {
                 leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
                 if (leaveEl) leaveEl.innerText = leaveRequests.filter(r => r.status === 'Pending').length;
             }
+            
+            // Fetch attendance logs for charts (last 30 days for better data)
+            attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
+            
+            // Fetch payroll history for payroll chart
+            payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
         } else if (page === 'attendance') {
             attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
         } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
@@ -153,7 +805,7 @@ async function fetchData(specificPage = null) {
             // Already handled by their respective render functions called in showPage
         }
 
-        await showPage(page);
+        showPage(page);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -213,7 +865,7 @@ function stopRegistrationCamera() {
     }
 }
 
-async function showPage(pageId) {
+function showPage(pageId) {
     if (currentPage === 'biometrics' && pageId !== 'biometrics') {
         stopRegistrationCamera();
     }
@@ -252,10 +904,10 @@ async function showPage(pageId) {
     if (pageId === 'employees') renderEmployeeTable();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
-    if (pageId === 'faculty_payroll') await loadFacultyPayroll('latest');
-    if (pageId === 'utility_payroll') await loadUtilityPayroll('latest');
-    if (pageId === 'allowances') await renderAllowances();
-    if (pageId === 'deductions') await renderDeductions();
+    if (pageId === 'faculty_payroll') loadFacultyPayroll('latest');
+    if (pageId === 'utility_payroll') loadUtilityPayroll('latest');
+    if (pageId === 'allowances') renderAllowances();
+    if (pageId === 'deductions') renderDeductions();
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
@@ -277,43 +929,111 @@ function renderEmployeeTable() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = employees.map(emp => {
+    // Initialize table with pagination and search
+    if (!document.getElementById('employees-search')) {
+        initializeTable('employees', {
+            rowsPerPage: 10,
+            showSearch: true,
+            showFilters: true,
+            filters: [
+                {
+                    id: 'position',
+                    label: 'Position',
+                    type: 'select',
+                    options: [
+                        { value: 'Faculty', label: 'Faculty' },
+                        { value: 'Staff', label: 'Staff' },
+                        { value: 'Utility', label: 'Utility' },
+                        { value: 'Payroll Officer', label: 'Payroll Officer' }
+                    ]
+                },
+                {
+                    id: 'department',
+                    label: 'Department',
+                    type: 'select',
+                    options: [
+                        { value: 'IT', label: 'Information Technology' },
+                        { value: 'Education', label: 'Education' },
+                        { value: 'Admin', label: 'Administration' },
+                        { value: 'Utility', label: 'General Services' }
+                    ]
+                },
+                {
+                    id: 'status',
+                    label: 'Status',
+                    type: 'select',
+                    options: [
+                        { value: 'Active', label: 'Active' },
+                        { value: 'Probationary', label: 'Probationary' },
+                        { value: 'Contractual', label: 'Contractual' },
+                        { value: 'Resigned', label: 'Resigned' }
+                    ]
+                }
+            ]
+        });
+    }
+
+    // Apply filters and search
+    const filteredEmployees = applyTableFilters('employees', employees, ['full_name', 'employee_id', 'emp_code']);
+    
+    // Get paginated data
+    const paginatedEmployees = getPaginatedData('employees', filteredEmployees);
+    
+    // Render table rows
+    tbody.innerHTML = paginatedEmployees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
         const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
+        const facultyLevel = (isFaculty && emp.faculty_level) ? emp.faculty_level : '---';
+        const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '---';
+        const isResigned = (emp.status || 'Active') === 'Resigned';
+        const statusLabel = emp.status || 'Active';
+        const statusClass = statusLabel.toLowerCase().replace(/\s+/g, '-');
 
         const actionHtml = isFaculty ? `
-            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')">
-                <i class="fas fa-book"></i> View (${loadCount})
+            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')" title="View Subject Loads">
+                <i class="fas fa-book"></i> <span class="badge">${loadCount}</span>
             </button>
-            <button class="btn btn-primary btn-sm" onclick="addSubjectLoadModal('${emp.id}')">
-                <i class="fas fa-plus"></i> Add Load
-            </button>
-        ` : '---';
+        ` : '<span class="text-muted">---</span>';
+
+        const buttonsHtml = isResigned ? `
+            <div class="action-buttons">
+                <button class="btn-icon text-success" title="Reinstate Employee" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
+                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+            </div>
+        ` : `
+            <div class="action-buttons">
+                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button class="btn-icon text-danger" title="Delete Employee" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
 
         return `
             <tr>
                 <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
                 <td>
                     <div class="user-info">
+                        <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
+                             alt="${escapeHTML(emp.full_name)}" 
+                             class="employee-avatar">
                         <div class="user-details">
                             <span class="name">${escapeHTML(emp.full_name)}</span>
-                            <span class="email">${escapeHTML(emp.email)}</span>
+                            <span class="email">${escapeHTML(emp.email || 'No email')}</span>
                         </div>
                     </div>
                 </td>
-                <td>${escapeHTML(emp.position)}</td>
-                <td>${escapeHTML(emp.department)}</td>
+                <td><span class="position-badge">${escapeHTML(emp.position)}</span></td>
+                <td>${escapeHTML(emp.department || '---')}</td>
+                <td>${isFaculty ? `<span class="faculty-badge faculty-${facultyLevel.toLowerCase()}">${escapeHTML(facultyLevel)}</span>` : '<span class="text-muted">---</span>'}</td>
+                <td><span class="hire-date">${hireDate}</span></td>
                 <td>${actionHtml}</td>
-                <td><span class="badge badge-${(emp.status || 'Active').toLowerCase()}">${escapeHTML(emp.status || 'Active')}</span></td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon" title="Edit" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                        <button class="btn-icon text-danger" title="Delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                </td>
+                <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
+                <td>${buttonsHtml}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="7" class="text-center">No employees found.</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="text-center text-muted">No employees found.</td></tr>';
+    
+    // Render pagination
+    renderPagination('employees', filteredEmployees.length);
 }
 
 function renderMasterSubjects() {
@@ -453,7 +1173,17 @@ async function exportPayrollHistory() {
 }// --- Reports & Export ---
 async function exportFacultyPayroll() {
     const { jsPDF } = window.jspdf;
+<<<<<<< HEAD
     const tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
+=======
+
+    // Check if table is empty, if so, load latest
+    let tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
+    if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
+        await loadFacultyPayroll('latest');
+        tableRows = document.querySelectorAll("#facultyPayrollTableBody tr");
+    }
+>>>>>>> 54125dddd1f9b3bb29321a9a8fb506da43bdc66e
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No faculty payroll")) {
         return showToast("No payroll data available to export.", 'error');
@@ -492,7 +1222,17 @@ async function exportFacultyPayroll() {
 
 async function exportUtilityPayroll() {
     const { jsPDF } = window.jspdf;
+<<<<<<< HEAD
     const tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
+=======
+
+    // Check if table is empty, if so, load latest
+    let tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
+    if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
+        await loadUtilityPayroll('latest');
+        tableRows = document.querySelectorAll("#utilityPayrollTableBody tr");
+    }
+>>>>>>> 54125dddd1f9b3bb29321a9a8fb506da43bdc66e
 
     if (tableRows.length === 0 || tableRows[0].innerText.includes("No utility payroll")) {
         return showToast("No payroll data available to export.", 'error');
@@ -582,42 +1322,6 @@ async function printSpecializedPayroll(tableId, title) {
 }
 
 // --- Employee Management ---
-function renderEmployeeTable() {
-    const tbody = document.getElementById('employeeTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = employees.map(emp => {
-        const isFaculty = (emp.position || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'faculty' || (emp.department || '').toLowerCase() === 'education';
-        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
-        const statusLabel = (typeof emp.status === 'string' && emp.status.trim() !== '') ? emp.status.trim() : 'Active';
-        const statusClass = statusLabel.toLowerCase().replace(' ', '-');
-
-        return `
-        <tr id="row-${emp.id}">
-            <td>${escapeHTML(emp.employee_id)}</td>
-            <td>
-                <div><strong>${escapeHTML(emp.full_name)}</strong></div>
-                <div class="text-muted" style="font-size: 0.8rem;">Username: ${escapeHTML(emp.username || 'N/A')}</div>
-            </td>
-            <td>${escapeHTML(emp.position)}</td>
-            <td>${escapeHTML(emp.department)}</td>
-            <td>
-                ${isFaculty ? `
-                    <span class="badge badge-info" style="cursor: pointer; padding: 5px 10px; border-radius: 4px; background: #3498db; color: white;" onclick="viewFacultyLoads('${emp.id}')">
-                        ${loadCount} Loads
-                    </span>
-                ` : '<span class="text-muted">---</span>'}
-            </td>
-            <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
-            <td>
-                <button class="btn btn-secondary btn-sm" onclick="editEmployee('${emp.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${emp.id}')" title="Delete"><i class="fas fa-trash"></i></button>
-                <button class="btn btn-warning btn-sm" onclick="resetPassword('${emp.user_id}')" title="Reset Password"><i class="fas fa-key"></i></button>
-                ${isFaculty ? `<button class="btn btn-primary btn-sm" onclick="openAddLoadModal('${emp.id}')" title="Add Subject Load"><i class="fas fa-book-medical"></i></button>` : ''}
-            </td>
-        </tr>
-    `;
-    }).join('');
-}
 
 function openAddLoadModal(empId) {
     const emp = employees.find(e => e.id == empId);
@@ -657,7 +1361,7 @@ async function resetPassword(userId) {
     
     const confirmResult = await Swal.fire({
         title: 'Reset Password?',
-        text: "Are you sure you want to reset this employee's password to 'welcome123'?",
+        text: "Are you sure you want to reset this employee's password? A new secure password will be generated.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#1e0178',
@@ -669,7 +1373,13 @@ async function resetPassword(userId) {
         const response = await fetch(`backend/api.php?action=reset_password&user_id=${userId}`);
         const result = await response.json();
         if (result.success) {
-            showToast(result.message || 'Password reset successful!', 'success');
+            // Show the new password in a secure alert
+            Swal.fire({
+                icon: 'success',
+                title: 'Password Reset Successful',
+                html: `<p>${result.message}</p><p class="mt-2"><strong>Please share this password securely with the employee.</strong></p>`,
+                confirmButtonColor: '#1e0178'
+            });
         } else {
             showToast('Error: ' + (result.message || 'Failed to reset password.'), 'error');
         }
@@ -686,16 +1396,57 @@ function editEmployee(id) {
     openModal('employeeModal');
 
     const form = document.getElementById('employeeForm');
-    form.fullName.value = emp.full_name;
+    
+    // Parse full_name into firstName, lastName, and middleInitial
+    const fullName = emp.full_name || '';
+    const nameParts = fullName.split(' ');
+    let firstName = '';
+    let lastName = '';
+    let middleInitial = '';
+    
+    if (nameParts.length >= 3) {
+        // Format: "FirstName M. LastName"
+        firstName = nameParts[0];
+        middleInitial = nameParts[1].replace('.', ''); // Remove the period
+        lastName = nameParts.slice(2).join(' ');
+    } else if (nameParts.length === 2) {
+        // Format: "FirstName LastName"
+        firstName = nameParts[0];
+        lastName = nameParts[1];
+    } else {
+        // Fallback
+        firstName = nameParts[0] || '';
+        lastName = '';
+    }
+    
+    form.firstName.value = firstName;
+    form.lastName.value = lastName;
+    form.middleInitial.value = middleInitial;
+    form.fullName.value = fullName; // Display in readonly field
+    
     form.dob.value = emp.dob || '';
     form.email.value = emp.email || '';
     form.position.value = emp.position;
     form.department.value = emp.department;
+    
+    // Set faculty level if exists
+    if (form.faculty_level) {
+        form.faculty_level.value = emp.faculty_level || '';
+    }
+    
+    // Set hire date if exists
+    if (form.hire_date) {
+        form.hire_date.value = emp.hire_date || '';
+    }
+    
     form.basicSalary.value = emp.basic_salary;
     form.sss.value = emp.sss || '';
     form.philhealth.value = emp.philhealth || '';
     form.tin.value = emp.tin || '';
     form.pagibig.value = emp.pagibig || '';
+
+    // Toggle faculty level visibility
+    toggleSubjectStep();
 
     document.querySelector('#employeeModal h3').innerText = 'Edit Employee';
     document.getElementById('saveBtn').innerText = 'Update Employee';
@@ -720,6 +1471,34 @@ async function deleteEmployee(id) {
             fetchData();
         } else {
             showToast(result.message || 'Failed to delete employee.', 'error');
+        }
+    }
+}
+
+async function reinstateEmployee(id, name) {
+    const confirmResult = await Swal.fire({
+        title: 'Reinstate Employee?',
+        html: `<p>Are you sure you want to reinstate <strong>${name}</strong>?</p><p class="text-muted small">This will change their status back to Active.</p>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reinstate',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d'
+    });
+
+    if (confirmResult.isConfirmed) {
+        const response = await fetch('backend/api.php?action=reinstate_employee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Employee reinstated successfully', 'success');
+            fetchData();
+        } else {
+            showToast(result.message || 'Failed to reinstate employee', 'error');
         }
     }
 }
@@ -750,6 +1529,16 @@ async function saveEmployee() {
     const form = document.getElementById('employeeForm');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData);
+
+    // Validate firstName and lastName are provided
+    if (!data.firstName || data.firstName.trim() === '') {
+        showToast('First Name is required', 'error');
+        return;
+    }
+    if (!data.lastName || data.lastName.trim() === '') {
+        showToast('Last Name is required', 'error');
+        return;
+    }
 
     // Add editing ID if exists
     if (editingEmployeeId) data.id = editingEmployeeId;
@@ -801,12 +1590,16 @@ const totalSteps = 4;
 function toggleSubjectStep() {
     const position = document.querySelector('select[name="position"]').value;
     const step4Indicator = document.getElementById('step4-indicator');
+    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
+    
     if (position === 'Faculty') {
         step4Indicator.style.opacity = '1';
         step4Indicator.style.pointerEvents = 'auto';
+        facultyLevelGroup.style.display = 'block';
     } else {
         step4Indicator.style.opacity = '0.3';
         step4Indicator.style.pointerEvents = 'none';
+        facultyLevelGroup.style.display = 'none';
     }
 }
 
@@ -852,33 +1645,98 @@ function validateCurrentStep() {
     const currentStepEl = document.getElementById(`step${currentStep}`);
     const inputs = currentStepEl.querySelectorAll('input[required], select[required]');
     let isValid = true;
+    let firstErrorInput = null;
 
     inputs.forEach(input => {
         const errorMsg = input.parentElement.querySelector('.error-msg');
+        let fieldError = null;
 
         // Check HTML5 validity
         if (!input.checkValidity()) {
+            fieldError = input.validationMessage;
+        }
+        
+        // Specific Email Check
+        if (!fieldError && input.type === 'email' && input.value) {
+            if (!validateEmail(input.value)) {
+                fieldError = "Invalid email format. Example: user@example.com";
+            }
+        }
+        
+        // Phone number validation
+        if (!fieldError && input.name === 'contactNo' && input.value) {
+            if (!validatePhone(input.value)) {
+                fieldError = "Invalid phone format. Use: 09XXXXXXXXX or +639XXXXXXXXX";
+            }
+        }
+        
+        // Salary validation
+        if (!fieldError && input.name === 'basicSalary' && input.value) {
+            if (!validateSalary(input.value)) {
+                fieldError = "Salary must be between 0 and 10,000,000";
+            }
+        }
+        
+        // Date validation
+        if (!fieldError && input.type === 'date' && input.value) {
+            if (!validateDate(input.value)) {
+                fieldError = "Invalid date format";
+            }
+        }
+        
+        // Government ID validation (optional fields)
+        if (!fieldError && input.value) {
+            if (input.name === 'sss' && !validateGovernmentID(input.value, 'sss')) {
+                fieldError = "Invalid SSS format. Use: XX-XXXXXXX-X (10-11 digits)";
+            }
+            if (input.name === 'tin' && !validateGovernmentID(input.value, 'tin')) {
+                fieldError = "Invalid TIN format. Use: XXX-XXX-XXX-XXX (9-12 digits)";
+            }
+            if (input.name === 'philhealth' && !validateGovernmentID(input.value, 'philhealth')) {
+                fieldError = "Invalid PhilHealth format (11-12 digits)";
+            }
+            if (input.name === 'pagibig' && !validateGovernmentID(input.value, 'pagibig')) {
+                fieldError = "Invalid Pag-IBIG format (12 digits)";
+            }
+        }
+
+        // Apply error styling
+        if (fieldError) {
             input.classList.add('border-danger');
-            if (errorMsg) errorMsg.style.display = 'block';
+            if (errorMsg) {
+                errorMsg.innerText = fieldError;
+                errorMsg.style.display = 'block';
+            }
             isValid = false;
+            if (!firstErrorInput) firstErrorInput = input;
         } else {
             input.classList.remove('border-danger');
             if (errorMsg) errorMsg.style.display = 'none';
         }
-
-        // Specific Email Check
-        if (input.type === 'email' && input.value) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(input.value)) {
-                input.classList.add('border-danger');
+    });
+    
+    // Faculty level validation for Faculty position
+    if (currentStep === 2) {
+        const position = document.querySelector('select[name="position"]');
+        if (position && position.value === 'Faculty') {
+            const facultyLevel = document.querySelector('select[name="faculty_level"]');
+            if (facultyLevel && !facultyLevel.value) {
+                const errorMsg = facultyLevel.parentElement.querySelector('.error-msg');
+                facultyLevel.classList.add('border-danger');
                 if (errorMsg) {
-                    errorMsg.innerText = "Invalid email format.";
+                    errorMsg.innerText = "Faculty level is required for Faculty position";
                     errorMsg.style.display = 'block';
                 }
                 isValid = false;
+                if (!firstErrorInput) firstErrorInput = facultyLevel;
             }
         }
-    });
+    }
+    
+    // Focus on first error field
+    if (firstErrorInput) {
+        firstErrorInput.focus();
+    }
 
     return isValid;
 }
@@ -897,6 +1755,13 @@ function resetEmpModal() {
     document.getElementById('nextBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').style.display = 'none';
     document.getElementById('employeeModalTitle').innerText = 'Add New Employee';
+    
+    // Clear the fullName display field
+    const fullNameDisplay = document.getElementById('fullNameDisplay');
+    if (fullNameDisplay) {
+        fullNameDisplay.value = '';
+    }
+    
     toggleSubjectStep();
 }
 
@@ -904,18 +1769,39 @@ function resetEmpModal() {
 function renderAttendanceTable() {
     const tbody = document.getElementById('attendanceTableBody');
     if (!tbody) return;
-    const dateFilter = document.getElementById('attendanceDateFilter').value;
-
-    let filteredLogs = attendanceLogs;
-    if (dateFilter) {
-        filteredLogs = attendanceLogs.filter(log => log.log_date === dateFilter);
+    
+    // Initialize table with pagination and search
+    if (!document.getElementById('attendance-search')) {
+        initializeTable('attendance', {
+            rowsPerPage: 15,
+            showSearch: true,
+            showFilters: true,
+            filters: [
+                {
+                    id: 'dateFrom',
+                    label: 'From Date',
+                    type: 'date'
+                },
+                {
+                    id: 'dateTo',
+                    label: 'To Date',
+                    type: 'date'
+                }
+            ]
+        });
     }
 
+    // Apply filters and search (name and employee ID only)
+    const filteredAttendance = applyTableFilters('attendance', attendanceLogs, ['full_name', 'emp_code']);
+    
+    // Get paginated data
+    const paginatedAttendance = getPaginatedData('attendance', filteredAttendance);
+    
     // Update Summary Stats
-    const totalLogs = filteredLogs.length;
-    const ontimeCount = filteredLogs.filter(l => l.status === 'On-Time').length;
-    const lateCount = filteredLogs.filter(l => l.status === 'Late').length;
-    const absentCount = filteredLogs.filter(l => l.status === 'Absent').length;
+    const totalLogs = filteredAttendance.length;
+    const ontimeCount = filteredAttendance.filter(l => l.status === 'On-Time').length;
+    const lateCount = filteredAttendance.filter(l => l.status === 'Late').length;
+    const absentCount = filteredAttendance.filter(l => l.status === 'Absent').length;
 
     if (document.getElementById('att-total-logs')) {
         document.getElementById('att-total-logs').innerText = totalLogs;
@@ -924,7 +1810,7 @@ function renderAttendanceTable() {
         document.getElementById('att-absent-count').innerText = absentCount;
     }
 
-    tbody.innerHTML = filteredLogs.map(log => {
+    tbody.innerHTML = paginatedAttendance.map(log => {
         const status = log.status || '---';
         const statusClass = status.toLowerCase().replace(' ', '-');
 
@@ -961,7 +1847,10 @@ function renderAttendanceTable() {
             </td>
         </tr>
     `;
-    }).join('');
+    }).join('') || '<tr><td colspan="8" class="text-center text-muted">No attendance records found.</td></tr>';
+    
+    // Render pagination
+    renderPagination('attendance', filteredAttendance.length);
 }
 
 function viewAttendanceDetails(id) {
@@ -1116,27 +2005,65 @@ async function loadFacultyPayroll(period = 'latest') {
     const periodDisplay = document.getElementById('faculty-payroll-period');
     if (periodDisplay) periodDisplay.innerText = actualPeriod;
 
-    tbody.innerHTML = data.map((p, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
-            <td>₱${parseFloat(p.basic_salary).toLocaleString()}</td>
-            <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
-            <td>₱5,000.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>(₱0.00)</td>
-            <td>(₱${parseFloat(p.deductions).toLocaleString()})</td>
-            <td>₱100.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱${parseFloat(p.deductions + 100).toLocaleString()}</td>
-            <td>₱0.00</td>
-            <td class="text-success"><strong>₱${parseFloat(p.net_pay).toLocaleString()}</strong></td>
-        </tr>
-    `).join('') || '<tr><td colspan="17" class="text-center">No faculty payroll records for this period.</td></tr>';
+    tbody.innerHTML = data.map((p, index) => {
+        // AUTO-CALCULATION: Faculty Payroll
+        const basicSalary = parseFloat(p.basic_salary) || 0;
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        
+        // Earnings
+        const earnedForPeriod = basicPay; // From backend calculation
+        const loadPay = parseFloat(p.load_pay) || 5000;
+        const overTime = parseFloat(p.overtime_pay) || 0;
+        const differential = parseFloat(p.differential_pay) || 0;
+        const substitution = parseFloat(p.substitution_pay) || 0;
+        const adjPlus = parseFloat(p.adj_plus) || 0;
+        const honorarium = parseFloat(p.honorarium) || 0;
+        
+        // Deductions
+        const absences = parseFloat(p.absence_deduction) || 0;
+        const lateUT = parseFloat(p.late_deduction) || 0;
+        const hdmfCont = parseFloat(p.hdmf_contribution) || 100;
+        const hdmfLoans = parseFloat(p.hdmf_loans) || 0;
+        const hdmfMP2 = parseFloat(p.hdmf_mp2) || 0;
+        
+        // AUTO-CALCULATED TOTALS
+        const totalDeductions = absences + lateUT + hdmfCont + hdmfLoans + hdmfMP2;
+        const totalEarnings = earnedForPeriod + loadPay + overTime + differential + substitution + adjPlus + honorarium;
+        const netPay = totalEarnings - totalDeductions;
+        
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
+                <td class="currency">₱${basicSalary.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="load_pay" data-id="${p.id}">₱${loadPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="overtime_pay" data-id="${p.id}">₱${overTime.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="differential_pay" data-id="${p.id}">₱${differential.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="substitution_pay" data-id="${p.id}">₱${substitution.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="adj_plus" data-id="${p.id}">₱${adjPlus.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency deduction">(₱${absences.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency deduction">(₱${lateUT.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_mp2" data-id="${p.id}">₱${hdmfMP2.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
+                <td class="currency editable" data-field="honorarium" data-id="${p.id}">₱${honorarium.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="18" class="text-center">No faculty payroll records for this period.</td></tr>';
+    
+    // Make cells editable with auto-calculation
+    makePayrollCellsEditable('faculty');
 }
 
 async function loadUtilityPayroll(period = 'latest') {
@@ -1152,28 +2079,233 @@ async function loadUtilityPayroll(period = 'latest') {
     const periodDisplay = document.getElementById('utility-payroll-period');
     if (periodDisplay) periodDisplay.innerText = actualPeriod;
 
-    tbody.innerHTML = data.map((p, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
-            <td>₱${(parseFloat(p.basic_salary) / 22).toFixed(2)}</td>
-            <td>₱${parseFloat(p.basic_pay).toLocaleString()}</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>(₱${parseFloat(p.deductions).toLocaleString()})</td>
-            <td>₱0.00</td>
-            <td>₱100.00</td>
-            <td>₱0.00</td>
-            <td>₱0.00</td>
-            <td>₱${parseFloat(p.deductions + 100).toLocaleString()}</td>
-            <td class="text-success"><strong>₱${parseFloat(p.net_pay).toLocaleString()}</strong></td>
-            <td>₱${parseFloat(p.net_pay).toLocaleString()}</td>
-            <td>₱0.00</td>
-        </tr>
-    `).join('') || '<tr><td colspan="15" class="text-center">No utility payroll records for this period.</td></tr>';
+    tbody.innerHTML = data.map((p, index) => {
+        // AUTO-CALCULATION: Utility Payroll
+        const basicSalary = parseFloat(p.basic_salary) || 0;
+        const ratePerDay = basicSalary / 22; // Standard working days per month
+        
+        // Earnings
+        const earnedForPeriod = parseFloat(p.basic_pay) || 0;
+        const otHolidayPay = parseFloat(p.ot_holiday_pay) || 0;
+        const adjPlus = parseFloat(p.adj_plus) || 0;
+        
+        // Deductions
+        const lateUT = parseFloat(p.late_deduction) || 0;
+        const adjMinus = parseFloat(p.adj_minus) || 0;
+        const hdmfCont = parseFloat(p.hdmf_contribution) || 100;
+        const hdmfLoans = parseFloat(p.hdmf_loans) || 0;
+        const cashAdvance = parseFloat(p.cash_advance) || 0;
+        
+        // AUTO-CALCULATED TOTALS
+        const totalDeductions = lateUT + adjMinus + hdmfCont + hdmfLoans + cashAdvance;
+        const totalEarnings = earnedForPeriod + otHolidayPay + adjPlus;
+        const netPay = totalEarnings - totalDeductions;
+        
+        // ATM vs Non-ATM split
+        const atm = netPay; // Default: all to ATM
+        const nonAtm = 0;
+        
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
+                <td class="currency">₱${ratePerDay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="ot_holiday_pay" data-id="${p.id}">₱${otHolidayPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="adj_plus" data-id="${p.id}">₱${adjPlus.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency deduction">(₱${lateUT.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="adj_minus" data-id="${p.id}">(₱${adjMinus.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
+                <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency editable" data-field="cash_advance" data-id="${p.id}">₱${cashAdvance.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
+                <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
+                <td class="currency atm">₱${atm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency non-atm">₱${nonAtm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="16" class="text-center">No utility payroll records for this period.</td></tr>';
+    
+    // Make cells editable with auto-calculation
+    makePayrollCellsEditable('utility');
 }
 
 // --- Payroll ---
+
+// Make payroll cells editable with auto-calculation
+function makePayrollCellsEditable(type) {
+    const editableCells = document.querySelectorAll(`#${type}PayrollTableBody .editable`);
+    
+    editableCells.forEach(cell => {
+        cell.addEventListener('dblclick', function() {
+            const currentText = this.textContent.replace(/[₱(),]/g, '').trim();
+            const currentValue = parseFloat(currentText) || 0;
+            const field = this.dataset.field;
+            const payrollId = this.dataset.id;
+            
+            // Create input field
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.step = '0.01';
+            input.value = currentValue;
+            input.style.cssText = 'width: 100px; padding: 4px; border: 2px solid #3b4fc9; border-radius: 4px; text-align: right; font-size: inherit;';
+            
+            // Replace cell content with input
+            this.textContent = '';
+            this.appendChild(input);
+            input.focus();
+            input.select();
+            
+            // Handle save on Enter or blur
+            const saveValue = () => {
+                const newValue = parseFloat(input.value) || 0;
+                this.textContent = `₱${newValue.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                this.dataset.value = newValue;
+                
+                // Update backend
+                updatePayrollField(payrollId, field, newValue);
+                
+                // Recalculate the entire row
+                recalculatePayrollRow(this.closest('tr'), type);
+            };
+            
+            input.addEventListener('blur', saveValue);
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        });
+    });
+}
+
+// Update payroll field in backend
+async function updatePayrollField(payrollId, field, value) {
+    try {
+        await fetch('backend/api.php?action=update_payroll_field', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                payroll_id: payrollId,
+                field: field,
+                value: value
+            })
+        });
+    } catch (error) {
+        console.error('Failed to update payroll field:', error);
+    }
+}
+
+// Recalculate payroll row totals
+function recalculatePayrollRow(row, type) {
+    if (type === 'faculty') {
+        recalculateFacultyRow(row);
+    } else if (type === 'utility') {
+        recalculateUtilityRow(row);
+    }
+}
+
+// Recalculate Faculty Payroll row
+function recalculateFacultyRow(row) {
+    const cells = row.querySelectorAll('td.currency');
+    
+    // Get all values from cells
+    const getValue = (className) => {
+        const cell = row.querySelector(`.${className}`);
+        if (!cell) return 0;
+        const text = cell.textContent.replace(/[₱(),]/g, '').trim();
+        return parseFloat(text) || 0;
+    };
+    
+    // Earnings
+    const earnedForPeriod = getValue('earned');
+    const loadPay = getValue('editable[data-field="load_pay"]');
+    const overTime = getValue('editable[data-field="overtime_pay"]');
+    const differential = getValue('editable[data-field="differential_pay"]');
+    const substitution = getValue('editable[data-field="substitution_pay"]');
+    const adjPlus = getValue('editable[data-field="adj_plus"]');
+    const honorarium = getValue('editable[data-field="honorarium"]');
+    
+    // Deductions
+    const absences = getValue('deduction:nth-of-type(1)');
+    const lateUT = getValue('deduction:nth-of-type(2)');
+    const hdmfCont = getValue('editable[data-field="hdmf_contribution"]');
+    const hdmfLoans = getValue('editable[data-field="hdmf_loans"]');
+    const hdmfMP2 = getValue('editable[data-field="hdmf_mp2"]');
+    
+    // Calculate totals
+    const totalDeductions = absences + lateUT + hdmfCont + hdmfLoans + hdmfMP2;
+    const totalEarnings = earnedForPeriod + loadPay + overTime + differential + substitution + adjPlus + honorarium;
+    const netPay = totalEarnings - totalDeductions;
+    
+    // Update total deduction cell
+    const totalDedCell = row.querySelector('.total-deduction');
+    if (totalDedCell) {
+        totalDedCell.innerHTML = `<strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong>`;
+    }
+    
+    // Update net pay cell
+    const netPayCell = row.querySelector('.net-pay');
+    if (netPayCell) {
+        netPayCell.innerHTML = `<strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`;
+    }
+}
+
+// Recalculate Utility Payroll row
+function recalculateUtilityRow(row) {
+    const cells = row.querySelectorAll('td.currency');
+    
+    // Get all values from cells
+    const getValue = (className) => {
+        const cell = row.querySelector(`.${className}`);
+        if (!cell) return 0;
+        const text = cell.textContent.replace(/[₱(),]/g, '').trim();
+        return parseFloat(text) || 0;
+    };
+    
+    // Earnings
+    const earnedForPeriod = getValue('earned');
+    const otHolidayPay = getValue('editable[data-field="ot_holiday_pay"]');
+    const adjPlus = getValue('editable[data-field="adj_plus"]');
+    
+    // Deductions
+    const lateUT = getValue('deduction:nth-of-type(1)');
+    const adjMinus = getValue('editable[data-field="adj_minus"]');
+    const hdmfCont = getValue('editable[data-field="hdmf_contribution"]');
+    const hdmfLoans = getValue('editable[data-field="hdmf_loans"]');
+    const cashAdvance = getValue('editable[data-field="cash_advance"]');
+    
+    // Calculate totals
+    const totalDeductions = lateUT + adjMinus + hdmfCont + hdmfLoans + cashAdvance;
+    const totalEarnings = earnedForPeriod + otHolidayPay + adjPlus;
+    const netPay = totalEarnings - totalDeductions;
+    
+    // Update total deduction cell
+    const totalDedCell = row.querySelector('.total-deduction');
+    if (totalDedCell) {
+        totalDedCell.innerHTML = `<strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong>`;
+    }
+    
+    // Update net pay cell
+    const netPayCell = row.querySelector('.net-pay');
+    if (netPayCell) {
+        netPayCell.innerHTML = `<strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`;
+    }
+    
+    // Update ATM column
+    const atmCell = row.querySelector('.atm');
+    if (atmCell) {
+        atmCell.textContent = `₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    }
+}
 async function runPayroll() {
     const start_date = document.getElementById('payrollStartDate').value;
     const end_date = document.getElementById('payrollEndDate').value;
@@ -1255,6 +2387,7 @@ function renderPayrollTable() {
                     <td><span class="status-badge status-active">Completed</span></td>
                     <td>
                         <button class="btn btn-secondary btn-sm" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye"></i> View</button>
+                        <button class="btn btn-primary btn-sm" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print"></i> Print All</button>
                     </td>
                 </tr>
             `).join('');
@@ -1310,6 +2443,389 @@ function viewBatch(period) {
         html: report,
         confirmButtonColor: '#1e0178'
     });
+}
+
+// View and Print Individual Payslip (for Faculty/Utility pages)
+async function viewAndPrintPayslip(employeeId, period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payslip&employee_id=${employeeId}&period=${encodeURIComponent(period)}`);
+        const p = await response.json();
+        
+        if (!p || p.error) {
+            return showToast("Failed to fetch payslip data.", 'error');
+        }
+
+        // Parse breakdown data
+        let breakdown = {};
+        try {
+            breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+        } catch (e) {
+            console.error('Error parsing breakdown:', e);
+        }
+
+        // Build payslip HTML for modal
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        const netPay = parseFloat(p.net_pay) || 0;
+        
+        let earningsHTML = '';
+        let deductionsHTML = '';
+        
+        // Earnings
+        earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Basic Pay</span><span style="color: #27ae60; font-weight: 600;">₱${basicPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        
+        if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Total Allowances</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.total_allowances).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Load Pay</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.load_pay).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Overtime</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.overtime).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Differential</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.differential).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Substitution</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.substitution).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Adjustments (+)</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.adj_plus).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">OT/Holiday Pay</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.ot_holiday).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+            earningsHTML += `<div class="payslip-item"><span style="color: #2c3e50; font-weight: 500;">Honorarium</span><span style="color: #27ae60; font-weight: 600;">₱${parseFloat(breakdown.honorarium).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        // Deductions
+        if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Absences</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.absences).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Late/Undertime</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.late_ut).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Contribution</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_cont).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Loans</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_loans).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF MP2</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_mp2).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Cash Advance</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.cash_advance).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        // Show individual employee-specific deductions with details
+        if (breakdown.employee_deductions_details && breakdown.employee_deductions_details.length > 0) {
+            breakdown.employee_deductions_details.forEach(function(deduction) {
+                const amount = parseFloat(deduction.amount);
+                if (amount > 0) {
+                    deductionsHTML += `<div class="payslip-item deduction"><span>${escapeHTML(deduction.name)}</span><span style="color: #c0392b; font-weight: 600;">-₱${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+                }
+            });
+        } else if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+            // Fallback to total if details not available
+            deductionsHTML += `<div class="payslip-item deduction"><span>Employee Deductions</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.employee_deductions).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+        
+        if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+            deductionsHTML += `<div class="payslip-item deduction"><span>Adjustments (-)</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.adj_minus).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+        }
+
+        const payslipHTML = `
+            <div style="text-align: left; max-width: 700px; margin: 0 auto;">
+                <div style="text-align: center; border-bottom: 3px solid #1e0178; padding-bottom: 15px; margin-bottom: 20px;">
+                    <h2 style="color: #1e0178; margin: 0;">OFFICIAL PAYSLIP</h2>
+                    <p style="margin: 5px 0; color: #666;">${escapeHTML(p.company_name || 'Company Name')}</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Name:</strong> ${escapeHTML(p.full_name)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Employee ID:</strong> ${escapeHTML(p.emp_code)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Position:</strong> ${escapeHTML(p.position)}</div>
+                    <div style="color: #2c3e50;"><strong style="color: #1e0178;">Period:</strong> ${escapeHTML(p.period)}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h4 style="color: #1e0178; border-bottom: 2px solid #1e0178; padding-bottom: 5px;">EARNINGS</h4>
+                        ${earningsHTML}
+                    </div>
+                    <div>
+                        <h4 style="color: #c0392b; border-bottom: 2px solid #c0392b; padding-bottom: 5px;">DEDUCTIONS</h4>
+                        ${deductionsHTML}
+                    </div>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #1e0178, #667eea); color: white; padding: 20px; border-radius: 8px; text-align: center; margin-top: 20px;">
+                    <div style="font-size: 14px; margin-bottom: 5px;">NET PAY</div>
+                    <div style="font-size: 28px; font-weight: bold;">₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: #999; font-size: 11px; font-style: italic;">
+                    This is a computer-generated payslip and does not require a signature.
+                </div>
+            </div>
+        `;
+
+        await Swal.fire({
+            title: 'Employee Payslip',
+            html: payslipHTML,
+            width: '800px',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-print"></i> Print PDF',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#1e0178',
+            customClass: {
+                popup: 'glass-modal'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Print as PDF
+                printIndividualPayslip(employeeId, period);
+            }
+        });
+        
+    } catch (err) {
+        console.error('Error viewing payslip:', err);
+        showToast("Failed to load payslip.", 'error');
+    }
+}
+
+// Print Individual Payslip as PDF
+async function printIndividualPayslip(employeeId, period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payslip&employee_id=${employeeId}&period=${encodeURIComponent(period)}`);
+        const p = await response.json();
+        
+        if (!p || p.error) {
+            return showToast("Failed to fetch payslip data.", 'error');
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFillColor(30, 1, 120);
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.text('OFFICIAL PAYSLIP', 105, 20, { align: 'center' });
+        doc.setFontSize(10);
+        const companyName = p.company_name || 'Company';
+        doc.text(companyName, 105, 30, { align: 'center' });
+
+        // Employee Info
+        doc.setTextColor(0);
+        doc.setFontSize(12);
+        doc.text('EMPLOYEE DETAILS', 20, 55);
+        doc.line(20, 57, 190, 57);
+        
+        doc.setFontSize(10);
+        const fullName = p.full_name || 'N/A';
+        const empCode = p.emp_code || 'N/A';
+        const position = p.position || 'N/A';
+        const periodText = p.period || 'N/A';
+        const createdAt = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A';
+        
+        doc.text(`Name: ${fullName}`, 20, 65);
+        doc.text(`ID: ${empCode}`, 20, 72);
+        doc.text(`Position: ${position}`, 20, 79);
+        doc.text(`Period: ${periodText}`, 130, 65);
+        doc.text(`Date: ${createdAt}`, 130, 72);
+
+        // Parse breakdown data
+        let breakdown = {};
+        try {
+            breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+        } catch (e) {
+            console.error('Error parsing breakdown:', e);
+        }
+
+        // Financials
+        const basicPay = parseFloat(p.basic_pay) || 0;
+        const netPay = parseFloat(p.net_pay) || 0;
+        
+        // Build earnings and deductions arrays
+        const earnings = [];
+        const deductionsList = [];
+        
+        // Add basic pay
+        earnings.push(['Basic Pay', `PHP ${basicPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        
+        // Add allowances if present
+        if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+            earnings.push(['Total Allowances', `PHP ${parseFloat(breakdown.total_allowances).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add faculty-specific earnings
+        if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+            earnings.push(['Load Pay', `PHP ${parseFloat(breakdown.load_pay).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+            earnings.push(['Overtime', `PHP ${parseFloat(breakdown.overtime).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+            earnings.push(['Differential', `PHP ${parseFloat(breakdown.differential).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+            earnings.push(['Substitution', `PHP ${parseFloat(breakdown.substitution).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+            earnings.push(['Adjustments (+)', `PHP ${parseFloat(breakdown.adj_plus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+            earnings.push(['OT/Holiday Pay', `PHP ${parseFloat(breakdown.ot_holiday).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+            earnings.push(['Honorarium', `PHP ${parseFloat(breakdown.honorarium).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add deductions
+        if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+            deductionsList.push(['Absences', `- PHP ${parseFloat(breakdown.absences).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+            deductionsList.push(['Late/Undertime', `- PHP ${parseFloat(breakdown.late_ut).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+            deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+            deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+            deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+            deductionsList.push(['Cash Advance', `- PHP ${parseFloat(breakdown.cash_advance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Show individual employee-specific deductions with details
+        if (breakdown.employee_deductions_details && breakdown.employee_deductions_details.length > 0) {
+            breakdown.employee_deductions_details.forEach(function(deduction) {
+                const amount = parseFloat(deduction.amount);
+                if (amount > 0) {
+                    deductionsList.push([deduction.name, `- PHP ${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+                }
+            });
+        } else if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+            // Fallback to total if details not available
+            deductionsList.push(['Employee-Specific Deductions', `- PHP ${parseFloat(breakdown.employee_deductions).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+            deductionsList.push(['Adjustments (-)', `- PHP ${parseFloat(breakdown.adj_minus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Add total deductions if not already itemized
+        if (deductionsList.length === 0) {
+            const deductions = parseFloat(p.deductions) || 0;
+            deductionsList.push(['Total Deductions', `- PHP ${deductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+        }
+        
+        // Calculate totals for display
+        const totalEarnings = earnings.reduce((sum, item) => {
+            const amount = parseFloat(item[1].replace('PHP ', '').replace(/,/g, ''));
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        const totalDeductions = deductionsList.reduce((sum, item) => {
+            const amount = parseFloat(item[1].replace('- PHP ', '').replace(/,/g, ''));
+            return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        // Create table with earnings and deductions side by side
+        const maxRows = Math.max(earnings.length, deductionsList.length);
+        const tableBody = [];
+        
+        for (let i = 0; i < maxRows; i++) {
+            const earning = earnings[i] || ['', ''];
+            const deduction = deductionsList[i] || ['', ''];
+            tableBody.push([earning[0], earning[1], deduction[0], deduction[1]]);
+        }
+        
+        // Add totals row
+        tableBody.push([
+            'TOTAL EARNINGS', 
+            `PHP ${totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+            'TOTAL DEDUCTIONS', 
+            `- PHP ${totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+        ]);
+        
+        doc.autoTable({
+            startY: 90,
+            head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
+            body: tableBody,
+            theme: 'striped',
+            headStyles: { fillColor: [30, 1, 120] },
+            styles: { fontSize: 9 },
+            columnStyles: {
+                0: { fontStyle: 'bold' },
+                2: { fontStyle: 'bold' }
+            }
+        });
+
+        const netY = doc.lastAutoTable.finalY + 20;
+        doc.setFillColor(232, 232, 232);
+        doc.rect(20, netY - 10, 170, 20, 'F');
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text('NET PAY:', 30, netY + 3);
+        doc.text(`PHP ${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 180, netY + 3, { align: 'right' });
+
+        const safePeriod = periodText.replace(/[^a-zA-Z0-9]/g, '_');
+        doc.save(`Payslip_${empCode}_${safePeriod}.pdf`);
+        showToast('Payslip PDF generated!', 'success');
+        
+    } catch (err) {
+        console.error('Error printing payslip:', err);
+        showToast("Failed to generate payslip PDF.", 'error');
+    }
+}
+
+// Print All Payslips for a Batch
+async function printBatchPayslips(period) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_payroll_by_period&period=${encodeURIComponent(period)}`);
+        const result = await response.json();
+        
+        if (!result.success || !result.data || result.data.length === 0) {
+            return showToast("No payroll records found for this period.", 'error');
+        }
+
+        const employees = result.data;
+        
+        const { value: confirmPrint } = await Swal.fire({
+            title: 'Print All Payslips',
+            html: `<p>Generate PDF payslips for <strong>${employees.length} employees</strong> for period <strong>${escapeHTML(period)}</strong>?</p>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-print"></i> Yes, Print All',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#1e0178'
+        });
+
+        if (!confirmPrint) return;
+
+        showToast(`Generating ${employees.length} payslips...`, 'info');
+
+        // Generate PDFs one by one
+        for (const emp of employees) {
+            await printIndividualPayslip(emp.employee_id, period);
+            // Small delay to prevent browser blocking
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        showToast(`Successfully generated ${employees.length} payslips!`, 'success');
+        
+    } catch (err) {
+        console.error('Error printing batch payslips:', err);
+        showToast("Failed to generate batch payslips.", 'error');
+    }
 }
 
 // --- Leave ---
@@ -1470,19 +2986,64 @@ async function updateLoanStatus(id, status) {
 function renderResignationTable() {
     const tbody = document.getElementById('resignationTableBody');
     if (!tbody) return;
-    tbody.innerHTML = resignationRequests.map(req => `
-        <tr>
-            <td>${escapeHTML(req.full_name)}</td>
-            <td>${escapeHTML(req.effective_date)}</td>
-            <td>${escapeHTML(req.reason)}</td>
-            <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
-            <td>
-                ${req.status === 'Pending' ? `
-                    <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>
-                ` : (req.status === 'Processing' ? `<button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')">Complete</button>` : '<span class="text-muted">Processed</span>')}
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = resignationRequests.map(req => {
+        let actionButtons = '';
+        
+        if (req.status === 'Pending') {
+            actionButtons = `
+                <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>
+                <button class="btn btn-danger btn-sm" onclick="declineResignation(${req.id}, '${escapeHTML(req.full_name)}')">Decline</button>
+            `;
+        } else if (req.status === 'Processing') {
+            actionButtons = `<button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')">Complete</button>`;
+        } else if (req.status === 'Declined') {
+            actionButtons = `<span class="badge badge-danger">Declined</span>`;
+        } else {
+            actionButtons = '<span class="text-muted">Processed</span>';
+        }
+        
+        return `
+            <tr>
+                <td>${escapeHTML(req.full_name)}</td>
+                <td>${escapeHTML(req.effective_date)}</td>
+                <td>${escapeHTML(req.reason)}</td>
+                <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+                <td>${actionButtons}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function declineResignation(id, employeeName) {
+    const result = await Swal.fire({
+        title: 'Decline Resignation?',
+        html: `<p>Are you sure you want to decline <strong>${employeeName}</strong>'s resignation request?</p>`,
+        input: 'textarea',
+        inputLabel: 'Reason for declining (optional)',
+        inputPlaceholder: 'Enter reason...',
+        showCancelButton: true,
+        confirmButtonText: 'Decline',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        icon: 'warning'
+    });
+
+    if (result.isConfirmed) {
+        const reason = result.value || '';
+        const response = await fetch('backend/api.php?action=decline_resignation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, reason })
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast('Resignation declined successfully', 'success');
+            fetchData();
+        } else {
+            showToast(data.message || 'Failed to decline resignation', 'error');
+        }
+    }
 }
 
 async function updateResignationStatus(id, status) {
@@ -1615,50 +3176,254 @@ async function addAllowanceCategory() {
     }
 }
 
+// ============================================================================
+// MULTI-SELECT COMPONENT FUNCTIONS
+// ============================================================================
+
+// Toggle dropdown visibility
+function toggleMultiSelect(type) {
+    const dropdown = document.getElementById(`${type}Dropdown`);
+    const header = dropdown?.previousElementSibling;
+    
+    if (dropdown) {
+        const isOpen = dropdown.classList.contains('show');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.multi-select-dropdown.show').forEach(d => {
+            d.classList.remove('show');
+            d.previousElementSibling?.classList.remove('active');
+        });
+        
+        // Toggle current dropdown
+        if (!isOpen) {
+            dropdown.classList.add('show');
+            header?.classList.add('active');
+        }
+    }
+}
+
+// Toggle individual option selection
+function toggleMultiSelectOption(type, id) {
+    const option = document.querySelector(`#${type}Options .multi-select-option[data-id="${id}"]`);
+    const checkbox = option?.querySelector('input[type="checkbox"]');
+    
+    if (option && checkbox) {
+        const isSelected = option.classList.contains('selected');
+        
+        if (isSelected) {
+            option.classList.remove('selected');
+            checkbox.checked = false;
+        } else {
+            option.classList.add('selected');
+            checkbox.checked = true;
+        }
+        
+        updateSelectedTags(type);
+    }
+}
+
+// Update selected tags display
+function updateSelectedTags(type) {
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option.selected`);
+    const selectedContainer = document.getElementById(`${type}Selected`);
+    const header = document.querySelector(`#${type}TypesList .multi-select-header`);
+    const clearBtn = document.querySelector(`#${type}TypesList .multi-select-clear`);
+    
+    if (!selectedContainer || !header) return;
+    
+    // Clear existing tags
+    selectedContainer.innerHTML = '';
+    
+    if (options.length === 0) {
+        header.innerHTML = `
+            <span class="multi-select-placeholder">Select ${type} types...</span>
+            <i class="fas fa-chevron-down"></i>
+        `;
+        if (clearBtn) clearBtn.classList.remove('show');
+    } else {
+        // Update header with count
+        header.innerHTML = `
+            <span>${options.length} ${type}(s) selected</span>
+            <i class="fas fa-chevron-down"></i>
+        `;
+        
+        // Add clear button if not exists
+        if (!clearBtn) {
+            const newClearBtn = document.createElement('button');
+            newClearBtn.className = 'multi-select-clear';
+            newClearBtn.innerHTML = '<i class="fas fa-times"></i>';
+            newClearBtn.onclick = (e) => {
+                e.stopPropagation();
+                clearAllSelections(type);
+            };
+            header.appendChild(newClearBtn);
+        }
+        if (clearBtn) clearBtn.classList.add('show');
+        
+        // Create tags for each selected option
+        options.forEach(option => {
+            const id = option.dataset.id;
+            const label = option.querySelector('.multi-select-label')?.textContent;
+            const meta = option.querySelector('.multi-select-meta')?.textContent;
+            
+            const tag = document.createElement('div');
+            tag.className = 'multi-select-tag';
+            tag.innerHTML = `
+                <span>${label}</span>
+                <div class="multi-select-tag-remove" onclick="removeMultiSelectOption('${type}', ${id})">
+                    <i class="fas fa-times"></i>
+                </div>
+            `;
+            selectedContainer.appendChild(tag);
+        });
+    }
+}
+
+// Remove a specific selection
+function removeMultiSelectOption(type, id) {
+    const option = document.querySelector(`#${type}Options .multi-select-option[data-id="${id}"]`);
+    const checkbox = option?.querySelector('input[type="checkbox"]');
+    
+    if (option && checkbox) {
+        option.classList.remove('selected');
+        checkbox.checked = false;
+        updateSelectedTags(type);
+    }
+}
+
+// Clear all selections
+function clearAllSelections(type) {
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option.selected`);
+    options.forEach(option => {
+        option.classList.remove('selected');
+        const checkbox = option.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = false;
+    });
+    updateSelectedTags(type);
+}
+
+// Get selected IDs
+function getSelectedMultiSelectIds(type) {
+    const selected = [];
+    document.querySelectorAll(`#${type}Options .multi-select-option.selected`).forEach(option => {
+        selected.push(parseInt(option.dataset.id));
+    });
+    return selected;
+}
+
+// Filter options based on search
+function filterMultiSelect(type) {
+    const searchTerm = document.getElementById(`${type}Search`)?.value.toLowerCase() || '';
+    const options = document.querySelectorAll(`#${type}Options .multi-select-option`);
+    
+    options.forEach(option => {
+        const label = option.querySelector('.multi-select-label')?.textContent.toLowerCase() || '';
+        const meta = option.querySelector('.multi-select-meta')?.textContent.toLowerCase() || '';
+        
+        if (label.includes(searchTerm) || meta.includes(searchTerm)) {
+            option.style.display = 'flex';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.multi-select-container')) {
+        document.querySelectorAll('.multi-select-dropdown.show').forEach(dropdown => {
+            dropdown.classList.remove('show');
+            dropdown.previousElementSibling?.classList.remove('active');
+        });
+    }
+});
+
 async function assignAllowance() {
     const employee_id = document.getElementById('assignEmployeeSelect').value;
-    const category_id = document.querySelector('input[name="allowanceTypeRadio"]:checked')?.value;
+    const selectedCategories = getSelectedMultiSelectIds('allowance');
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!employee_id || !category_id) return showToast("Please select an employee and an allowance category.", 'error');
+    if (!employee_id) return showToast("Please select an employee.", 'error');
+    if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
 
-    const response = await fetch('backend/api.php?action=assign_employee_allowance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id, category_id, override_amount, effective_date })
-    });
-    const result = await response.json();
-    showToast(result.message, result.success ? 'success' : 'error');
-    if (result.success) {
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Assign each selected category
+    for (const category_id of selectedCategories) {
+        try {
+            const response = await fetch('backend/api.php?action=assign_employee_allowance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_id, category_id, override_amount, effective_date })
+            });
+            const result = await response.json();
+            if (result.success) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (error) {
+            errorCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`${successCount} allowance(s) assigned successfully!`, 'success');
         renderAllowances();
+    }
+    if (errorCount > 0) {
+        showToast(`${errorCount} allowance(s) failed to assign.`, 'error');
     }
 }
 
 async function applyAllowanceToAll() {
-    const category_id = document.querySelector('input[name="allowanceTypeRadio"]:checked')?.value;
+    const selectedCategories = getSelectedMultiSelectIds('allowance');
     const override_amount = document.getElementById('overrideAmount').value;
     const effective_date = document.getElementById('effectiveDate').value;
 
-    if (!category_id) return showToast("Please select an allowance category first.", 'error');
+    if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
     
     const confirmResult = await Swal.fire({
-        title: 'Confirm Action',
-        text: "Are you sure you want to apply this allowance to ALL active employees?",
-        icon: 'question',
+        title: 'Confirm Bulk Action',
+        html: `Apply <strong>${selectedCategories.length}</strong> allowance(s) to <strong>ALL</strong> active employees?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes, apply it!'
+        confirmButtonText: 'Yes, apply to all!',
+        confirmButtonColor: '#667eea'
     });
 
     if (confirmResult.isConfirmed) {
-        const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category_id, override_amount, effective_date })
-        });
-        const result = await response.json();
-        showToast(result.message, result.success ? 'success' : 'error');
-        if (result.success) renderAllowances();
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Apply each selected category to all employees
+        for (const category_id of selectedCategories) {
+            try {
+                const response = await fetch('backend/api.php?action=bulk_assign_allowance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category_id, override_amount, effective_date })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                errorCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            showToast(`${successCount} allowance(s) applied to all employees!`, 'success');
+            renderAllowances();
+        }
+        if (errorCount > 0) {
+            showToast(`${errorCount} allowance(s) failed to apply.`, 'error');
+        }
     }
 }
 
@@ -1681,16 +3446,23 @@ async function renderAllowances() {
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
     }
 
-    // 2. Render Assignment List for Radio Selection
-    const typesList = document.getElementById('allowanceTypesList');
-    if (typesList) {
-        typesList.innerHTML = categories.map(c => `
-            <div class="selection-item-gray">
-                <input type="radio" name="allowanceTypeRadio" value="${c.id}" id="allowance_${c.id}">
-                <label for="allowance_${c.id}">${c.name} (${c.type}: ${c.rate})</label>
+    // 2. Render Assignment List for Multi-Select
+    const optionsContainer = document.getElementById('allowanceOptions');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = categories.map(c => `
+            <div class="multi-select-option" data-id="${c.id}" onclick="toggleMultiSelectOption('allowance', ${c.id})">
+                <input type="checkbox" id="allowance_${c.id}" value="${c.id}">
+                <div class="multi-select-checkbox">
+                    <i class="fas fa-check"></i>
+                </div>
+                <span class="multi-select-label">${c.name}</span>
+                <span class="multi-select-meta">${c.type}: ₱${parseFloat(c.rate).toLocaleString()}</span>
             </div>
-        `).join('') || '<p class="text-muted p-2">No categories available.</p>';
+        `).join('') || '<p class="text-muted p-3 text-center">No categories available.</p>';
     }
+    
+    // Clear selected tags
+    updateSelectedTags('allowance');
 
     // 3. Populate Employee Dropdown
     const empSelect = document.getElementById('assignEmployeeSelect');
@@ -1788,46 +3560,90 @@ async function addDeductionCategory() {
 
 async function assignDeduction() {
     const employee_id = document.getElementById('assignDeductionEmployeeSelect').value;
-    const deduction_id = document.querySelector('input[name="deductionTypeRadio"]:checked')?.value;
+    const selectedDeductions = getSelectedMultiSelectIds('deduction');
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!employee_id || !deduction_id) return showToast("Please select an employee and a deduction category.", 'error');
+    if (!employee_id) return showToast("Please select an employee.", 'error');
+    if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
 
-    const response = await fetch('backend/api.php?action=assign_employee_deduction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employee_id, deduction_id, override_amount, effective_date })
-    });
-    const result = await response.json();
-    showToast(result.message, result.success ? 'success' : 'error');
-    if (result.success) renderDeductions();
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Assign each selected deduction
+    for (const deduction_id of selectedDeductions) {
+        try {
+            const response = await fetch('backend/api.php?action=assign_employee_deduction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employee_id, deduction_id, override_amount, effective_date })
+            });
+            const result = await response.json();
+            if (result.success) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (error) {
+            errorCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`${successCount} deduction(s) assigned successfully!`, 'success');
+        renderDeductions();
+    }
+    if (errorCount > 0) {
+        showToast(`${errorCount} deduction(s) failed to assign.`, 'error');
+    }
 }
 
 async function applyDeductionToAll() {
-    const deduction_id = document.querySelector('input[name="deductionTypeRadio"]:checked')?.value;
+    const selectedDeductions = getSelectedMultiSelectIds('deduction');
     const override_amount = document.getElementById('deductionOverrideAmount').value;
     const effective_date = document.getElementById('deductionEffectiveDate').value;
 
-    if (!deduction_id) return showToast("Please select a deduction category first.", 'error');
+    if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
     
     const confirmResult = await Swal.fire({
-        title: 'Confirm Action',
-        text: "Are you sure you want to apply this deduction to ALL active employees?",
-        icon: 'question',
+        title: 'Confirm Bulk Action',
+        html: `Apply <strong>${selectedDeductions.length}</strong> deduction(s) to <strong>ALL</strong> active employees?`,
+        icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Yes, apply it!'
+        confirmButtonText: 'Yes, apply to all!',
+        confirmButtonColor: '#667eea'
     });
 
     if (confirmResult.isConfirmed) {
-        const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deduction_id, override_amount, effective_date })
-        });
-        const result = await response.json();
-        showToast(result.message, result.success ? 'success' : 'error');
-        if (result.success) renderDeductions();
+        let successCount = 0;
+        let errorCount = 0;
+        
+        // Apply each selected deduction to all employees
+        for (const deduction_id of selectedDeductions) {
+            try {
+                const response = await fetch('backend/api.php?action=bulk_assign_deduction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deduction_id, override_amount, effective_date })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            } catch (error) {
+                errorCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            showToast(`${successCount} deduction(s) applied to all employees!`, 'success');
+            renderDeductions();
+        }
+        if (errorCount > 0) {
+            showToast(`${errorCount} deduction(s) failed to apply.`, 'error');
+        }
     }
 }
 
@@ -1850,16 +3666,23 @@ async function renderDeductions() {
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
     }
 
-    // 2. Radio Selection List
-    const typesList = document.getElementById('deductionTypesList');
-    if (typesList) {
-        typesList.innerHTML = categories.map(c => `
-            <div class="selection-item-gray">
-                <input type="radio" name="deductionTypeRadio" value="${c.id}" id="deduction_${c.id}">
-                <label for="deduction_${c.id}">${c.name} (${c.type}: ${c.value})</label>
+    // 2. Multi-Select List
+    const optionsContainer = document.getElementById('deductionOptions');
+    if (optionsContainer) {
+        optionsContainer.innerHTML = categories.map(c => `
+            <div class="multi-select-option" data-id="${c.id}" onclick="toggleMultiSelectOption('deduction', ${c.id})">
+                <input type="checkbox" id="deduction_${c.id}" value="${c.id}">
+                <div class="multi-select-checkbox">
+                    <i class="fas fa-check"></i>
+                </div>
+                <span class="multi-select-label">${c.name}</span>
+                <span class="multi-select-meta">${c.type}: ₱${parseFloat(c.value).toLocaleString()}</span>
             </div>
-        `).join('') || '<p class="text-muted p-2">No categories available.</p>';
+        `).join('') || '<p class="text-muted p-3 text-center">No categories available.</p>';
     }
+    
+    // Clear selected tags
+    updateSelectedTags('deduction');
 
     // 3. Employee Dropdown
     const empSelect = document.getElementById('assignDeductionEmployeeSelect');
@@ -1987,6 +3810,20 @@ async function changePassword() {
         return;
     }
 
+    // Check if all requirements are met
+    const reqs = document.querySelectorAll('.req-item');
+    let allValid = true;
+    reqs.forEach(req => {
+        if (!req.classList.contains('valid')) {
+            allValid = false;
+        }
+    });
+
+    if (!allValid) {
+        showToast("Password does not meet requirements!", 'error');
+        return;
+    }
+
     const response = await fetch('backend/api.php?action=change_password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2008,37 +3845,40 @@ async function changePassword() {
     }
 }
 
+function checkPasswordStrength() {
+    const password = document.getElementById('newPass').value;
+    const reqs = {
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    };
+
+    Object.keys(reqs).forEach(req => {
+        const el = document.getElementById('req-' + req);
+        if (el) {
+            if (reqs[req]) {
+                el.classList.add('valid');
+            } else {
+                el.classList.remove('valid');
+            }
+        }
+    });
+}
+
 // --- Reports ---
-async function generateReport(type) {
+function generateReport(type) {
     let csvContent = "data:text/csv;charset=utf-8,";
     let filename = `Report_${type}_${new Date().toISOString().split('T')[0]}.csv`;
 
-    // P0 Fix: Fetch data before generating the report if the store is empty
     if (type === 'attendance') {
-        if (attendanceLogs.length === 0) {
-            await fetchData('attendance');
-        }
-        if (attendanceLogs.length === 0) {
-            return showToast("No attendance data available to export.", 'error');
-        }
         csvContent += "Employee ID,Name,Date,Check-In,Check-Out,Status\n";
         attendanceLogs.forEach(log => csvContent += `${log.emp_code},${log.full_name},${log.log_date},${log.check_in},${log.check_out},${log.status}\n`);
     } else if (type === 'payroll') {
-        if (payrollHistory.length === 0) {
-            await fetchData('payroll');
-        }
-        if (payrollHistory.length === 0) {
-            return showToast("No payroll data available to export.", 'error');
-        }
         csvContent += "Employee,Period,Basic Pay,Deductions,Net Pay,Status\n";
         payrollHistory.forEach(p => csvContent += `${p.full_name},${p.period},${p.basic_pay},${p.deductions},${p.net_pay},${p.status}\n`);
     } else if (type === 'employees') {
-        if (employees.length === 0) {
-            await fetchData('employees');
-        }
-        if (employees.length === 0) {
-            return showToast("No employee data available to export.", 'error');
-        }
         csvContent += "Employee ID,Full Name,Position,Department,Status\n";
         employees.forEach(emp => csvContent += `${emp.employee_id},${emp.full_name},${emp.position},${emp.department},${emp.status}\n`);
     }
@@ -2257,11 +4097,94 @@ async function initFaceRegistration() {
     placeholder.style.display = 'flex';
     placeholderText.innerText = "Initializing AI Models...";
 
+    // Prevent file drag and drop on the video/canvas area to bypass camera
+    const preventDragDrop = (e) => {
+        e.preventDefault();
+        if (e.type === 'drop' || e.type === 'paste') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Action Blocked',
+                text: 'Only live camera feed is accepted – please use the built-in camera.',
+                confirmButtonColor: '#1e0178'
+            });
+        }
+    };
+    
+    if (video) {
+        video.addEventListener('dragover', preventDragDrop);
+        video.addEventListener('drop', preventDragDrop);
+    }
+    if (canvas) {
+        canvas.addEventListener('dragover', preventDragDrop);
+        canvas.addEventListener('drop', preventDragDrop);
+    }
+    
+    // Prevent pasting images globally while in registration
+    document.addEventListener('paste', (e) => {
+        if (faceManager.registrationActive && e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+            preventDragDrop(e);
+        }
+    });
+
+    // Ensure audio context is ready for beeps
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    function playSpoofBeep() {
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.3);
+    }
+
     try {
-        await faceManager.loadModels();
+        // Load models with retry logic for stability
+        let modelLoadAttempts = 0;
+        const maxModelAttempts = 3;
+        
+        while (modelLoadAttempts < maxModelAttempts) {
+            try {
+                await faceManager.loadModels();
+                break;
+            } catch (err) {
+                modelLoadAttempts++;
+                if (modelLoadAttempts >= maxModelAttempts) {
+                    throw new Error("Failed to load face recognition models after multiple attempts. Please refresh the page.");
+                }
+                placeholderText.innerText = `Retrying model load (${modelLoadAttempts}/${maxModelAttempts})...`;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        
         placeholderText.innerText = "Starting Camera...";
 
-        await faceManager.startCamera(video);
+        // Start camera with device-specific settings for better compatibility
+        await faceManager.startCamera(video, 640, 480);
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("Camera timeout. Please check permissions.")), 10000);
+            
+            if (video.readyState >= 2) {
+                clearTimeout(timeout);
+                resolve();
+            } else {
+                video.onloadeddata = () => {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                video.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error("Failed to load video stream."));
+                };
+            }
+        });
+        
         placeholder.style.display = 'none';
 
         startBtn.style.display = 'none';
@@ -2271,32 +4194,141 @@ async function initFaceRegistration() {
         faceManager.registrationActive = true;
         faceManager.isProcessing = false;
 
-        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        // Use adaptive detection settings for better cross-device compatibility
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ 
+            inputSize: 320,  // Higher input size for better accuracy
+            scoreThreshold: 0.5  // Balanced threshold
+        });
+
+        let noFaceCount = 0;
+        const maxNoFaceFrames = 30; // Reset stability after 30 frames without face
 
         const loop = async () => {
             if (!faceManager.stream || !faceManager.registrationActive) return;
 
             if (!faceManager.isProcessing) {
-                const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                try {
+                    const detection = await faceapi.detectSingleFace(video, detectorOptions).withFaceLandmarks();
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                if (detection) {
-                    const isStable = faceManager.checkStability(detection.detection.box);
-                    const status = isStable ? "STABLE! AUTO-CAPTURING..." : "HOLD STILL...";
-                    const color = isStable ? "#27ae60" : "#f39c12";
+                    if (detection) {
+                        faceManager.lostFaceCount = 0;
+                        noFaceCount = 0; // Reset counter when face is detected
+                        
+                        // Check stability
+                        const isStable = faceManager.checkStability(detection.detection.box);
+                        
+                        // Check if face is frontal for better enrollment quality
+                        const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
+                        const isFrontal = frontalCheck.isFrontal;
 
-                    faceManager.drawDetection(canvas, video, detection, status, color);
+                        // Verify that the detected face shows natural facial motion across frames
+                        const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
+                        
+                        // Passive Anti-Spoofing: Rigidity Analysis
+                        const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
+                        
+                        // Active Liveness handling for registration
+                        if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
+                            const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
+                            const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
+                            faceManager.setLivenessAction(randomTask);
+                        }
+                        
+                        const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
 
-                    if (isStable) {
-                        faceManager.isProcessing = true;
-                        setTimeout(() => saveFaceRegistration(), 300);
+                        let status, color;
+                        
+                        if (!isLive || !isRealFace) {
+                            status = "NO PHOTO/IMAGE ACCEPTED";
+                            color = "#db261f"; // Red error
+                            captureBtn.disabled = true;
+                            
+                            playSpoofBeep();
+                            
+                            // Show error message
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Presentation Attack Detected',
+                                text: 'Photos and pictures are not accepted. Please present your live face directly to the camera.',
+                                confirmButtonColor: '#1e0178'
+                            });
+                            
+                            // Log spoof attempt
+                            fetch('backend/api.php?action=log_spoof_attempt', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    company_id: currentCompanyId || 1, // Fallback if undefined in script context
+                                    timestamp: new Date().toISOString(),
+                                    reason: 'Photo/spoof detected during registration – access denied'
+                                })
+                            }).catch(e => console.error("Logging spoof failed:", e));
+                            
+                            faceManager.isProcessing = true;
+                            setTimeout(() => { faceManager.isProcessing = false; }, 3000);
+                        } else if (!isFrontal) {
+                            // Face not looking straight
+                            if (!frontalCheck.details.yawOk) {
+                                status = "TURN FACE TO CAMERA";
+                            } else if (!frontalCheck.details.pitchOk) {
+                                status = "LOOK STRAIGHT";
+                            } else if (!frontalCheck.details.rollOk) {
+                                status = "KEEP HEAD LEVEL";
+                            } else {
+                                status = "FACE CAMERA";
+                            }
+                            color = "#f39c12"; // Orange
+                        } else if (!isStable) {
+                            status = "HOLD STILL...";
+                            color = "#f39c12"; // Orange
+                        } else if (!isActiveLivenessPassed) {
+                            // Prompt for liveness action
+                            if (faceManager.framesProcessed <= 15) {
+                                status = "HOLD STILL FOR BASELINE...";
+                            } else {
+                                if (faceManager.livenessAction === 'turn_left') {
+                                    status = "TURN HEAD LEFT";
+                                } else if (faceManager.livenessAction === 'turn_right') {
+                                    status = "TURN HEAD RIGHT";
+                                } else {
+                                    status = faceManager.livenessAction === 'blink' ? `PLEASE BLINK (${faceManager.blinkCount}/2)` : "PLEASE SMILE";
+                                }
+                            }
+                            color = "#3498db"; // Blue action
+                            captureBtn.disabled = true; // Wait for liveness
+                        } else {
+                            // Frontal, stable, and active liveness verified
+                            status = "✓ PERFECT! CAPTURING...";
+                            color = "#27ae60"; // Green
+                            captureBtn.disabled = false; // Enabled
+                        }
+
+                        faceManager.drawDetection(canvas, video, detection, status, color);
+
+                        // Only capture automatically if face is frontal, stable, AND active liveness is verified
+                        if (isFrontal && isStable && isActiveLivenessPassed) {
+                            faceManager.isProcessing = true;
+                            setTimeout(() => saveFaceRegistration(), 300);
+                        }
                     } else {
-                        captureBtn.disabled = false;
+                        noFaceCount++;
+                        faceManager.stabilityCounter = 0;
+                        faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
+                        if (faceManager.lostFaceCount > 15) {
+                            faceManager.setLivenessAction('none'); // Reset active liveness
+                        }
+                        captureBtn.disabled = true;
+                        
+                        // Show helpful message if no face detected for too long
+                        if (noFaceCount > maxNoFaceFrames && noFaceCount % 30 === 0) {
+                            showToast("No face detected. Please ensure good lighting and look at the camera.", "warning");
+                        }
                     }
-                } else {
-                    faceManager.stabilityCounter = 0;
-                    captureBtn.disabled = true;
+                } catch (err) {
+                    console.error("Detection error:", err);
+                    // Don't break the loop on detection errors
                 }
             }
             requestAnimationFrame(loop);
@@ -2398,6 +4430,7 @@ function initCharts() {
         last6.push({ key: monthKey(d), label: monthLabel(d) });
     }
 
+    // Calculate payroll expenditure from real payroll data
     const sums = Object.fromEntries(last6.map(m => [m.key, 0]));
     for (const p of payrollHistory) {
         const d = parseMySqlDateTime(p.created_at);
@@ -2406,13 +4439,29 @@ function initCharts() {
         if (key in sums) sums[key] += parseFloat(p.net_pay || 0);
     }
 
+    // Calculate attendance breakdown from REAL attendance logs
     const todayStr = new Date().toISOString().split('T')[0];
-    const presentIds = new Set(attendanceLogs.filter(l => l.log_date === todayStr && l.check_in).map(l => String(l.employee_id)));
+    
+    // Get unique employees who checked in today
+    const presentIds = new Set(
+        attendanceLogs
+            .filter(l => l.log_date === todayStr && l.check_in)
+            .map(l => String(l.employee_id))
+    );
+    
+    // Count employees on leave
     const onLeaveCount = employees.filter(e => (e.status || '').toLowerCase() === 'on leave').length;
+    
+    // Count active employees (not inactive)
     const activeCount = employees.filter(e => (e.status || '').toLowerCase() !== 'inactive').length;
+    
+    // Present = unique employees who checked in today
     const presentCount = presentIds.size;
+    
+    // Absent = active employees - present - on leave
     const absentCount = Math.max(activeCount - onLeaveCount - presentCount, 0);
 
+    // Update dashboard stat cards with real data
     const totalEl = document.getElementById('stat-total-emp');
     const presentEl = document.getElementById('stat-present');
     const absentEl = document.getElementById('stat-absent');
@@ -2422,6 +4471,7 @@ function initCharts() {
     if (absentEl) absentEl.innerText = String(absentCount);
     if (leaveEl) leaveEl.innerText = String(leaveRequests.filter(r => r.status === 'Pending').length);
 
+    // Payroll Expenditure Chart (Last 6 Months)
     pChart = new Chart(ctxP, {
         type: 'line',
         data: {
@@ -2434,9 +4484,36 @@ function initCharts() {
                 fill: true,
                 tension: 0.4
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return '₱' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
         }
     });
 
+    // Attendance Breakdown Chart (Today's Real Data)
     aChart = new Chart(ctxA, {
         type: 'doughnut',
         data: {
@@ -2445,6 +4522,26 @@ function initCharts() {
                 data: [presentCount, absentCount, onLeaveCount],
                 backgroundColor: ['#27ae60', '#c0392b', '#f39c12']
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = presentCount + absentCount + onLeaveCount;
+                            const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
         }
     });
 }
@@ -2472,4 +4569,180 @@ window.onload = () => {
     fetchData();
     const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
+    
+    // Add event listeners for auto-generating full name
+    const firstNameInput = document.querySelector('input[name="firstName"]');
+    const lastNameInput = document.querySelector('input[name="lastName"]');
+    const middleInitialInput = document.querySelector('input[name="middleInitial"]');
+    const fullNameDisplay = document.getElementById('fullNameDisplay');
+    
+    if (firstNameInput && lastNameInput && fullNameDisplay) {
+        const updateFullName = () => {
+            const firstName = firstNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+            const middleInitial = middleInitialInput ? middleInitialInput.value.trim() : '';
+            
+            if (firstName || lastName) {
+                const fullName = firstName + (middleInitial ? ' ' + middleInitial.toUpperCase() + '.' : '') + (lastName ? ' ' + lastName : '');
+                fullNameDisplay.value = fullName.trim();
+            } else {
+                fullNameDisplay.value = '';
+            }
+        };
+        
+        firstNameInput.addEventListener('input', updateFullName);
+        lastNameInput.addEventListener('input', updateFullName);
+        if (middleInitialInput) {
+            middleInitialInput.addEventListener('input', (e) => {
+                // Ensure only single character
+                if (e.target.value.length > 1) {
+                    e.target.value = e.target.value.charAt(0);
+                }
+                updateFullName();
+            });
+        }
+    }
+
+    // Payroll Bulk Operations Initialization (Task 1.3)
+    initPayrollBulkSelection();
 };
+
+// Payroll Bulk Operations Functions (NEW for Task 1.3)
+let selectedPayrollRows = new Set();
+
+function initPayrollBulkSelection() {
+    // Add select-all checkbox to payroll header if not exists
+    const payrollHeader = document.querySelector('#payrollTable thead tr');
+    if (payrollHeader && !payrollHeader.querySelector('th.select-col')) {
+        const selectTh = document.createElement('th');
+        selectTh.className = 'select-col';
+        selectTh.innerHTML = '<input type="checkbox" id="selectAllPayroll" onchange="toggleSelectAllPayroll(this.checked)">';
+        payrollHeader.prepend(selectTh);
+        
+        // Add checkboxes to table body rows
+        const tableBody = document.querySelector('#payrollTableBody');
+        const observer = new MutationObserver(addRowCheckboxes);
+        observer.observe(tableBody, { childList: true });
+        addRowCheckboxes(); // Initial call
+    }
+}
+
+function addRowCheckboxes() {
+    document.querySelectorAll('#payrollTableBody tr:not(:has(input[type="checkbox"]))').forEach(row => {
+        const checkboxTd = document.createElement('td');
+        checkboxTd.className = 'select-col';
+        checkboxTd.innerHTML = '<input type="checkbox" class="payroll-row-select" onchange="togglePayrollRowSelection(this)">';
+        row.prepend(checkboxTd);
+    });
+}
+
+function toggleSelectAllPayroll(checked) {
+    document.querySelectorAll('.payroll-row-select').forEach(cb => {
+        cb.checked = checked;
+        togglePayrollRowSelection(cb);
+    });
+}
+
+function togglePayrollRowSelection(checkbox) {
+    const row = checkbox.closest('tr');
+    const payrollId = row.dataset.payrollId || row.cells[1]?.textContent.trim(); // Fallback to period cell
+    
+    if (checkbox.checked) {
+        selectedPayrollRows.add(payrollId);
+        row.classList.add('table-selected');
+    } else {
+        selectedPayrollRows.delete(payrollId);
+        row.classList.remove('table-selected');
+    }
+}
+
+async function bulkSalaryAdjustment(multiplier) {
+    if (selectedPayrollRows.size === 0) {
+        showToast('Select rows first or use "ALL" option', 'warning');
+        return;
+    }
+
+    const {isConfirmed} = await Swal.fire({
+        title: 'Bulk Salary Adjustment',
+        html: `Apply ${(multiplier*100-100).toFixed(1)}% adjustment to ${selectedPayrollRows.size} selected payroll rows?`,
+        icon: 'question',
+        showCancelButton: true
+    });
+
+    if (isConfirmed) {
+        const response = await fetch('backend/api.php?action=bulk_payroll_adjustment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                payroll_ids: Array.from(selectedPayrollRows),
+                multiplier: multiplier
+            })
+        });
+
+        const result = await response.json();
+        showToast(result.message || (result.success ? 'Bulk adjustment complete!' : 'Failed'), result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            selectedPayrollRows.clear();
+            document.querySelectorAll('#payrollTable tr.table-selected').forEach(r => r.classList.remove('table-selected'));
+            renderPayrollTable(); // Refresh
+        }
+    }
+}
+
+async function bulkUpdateSelected() {
+    if (selectedPayrollRows.size === 0) {
+        showToast('No rows selected', 'warning');
+        return;
+    }
+
+    const {value} = await Swal.fire({
+        title: 'Bulk Update Selected',
+        html: `
+            <input id="bulkAmount" class="swal2-input" type="number" step="0.01" placeholder="Enter new amount">
+            <select id="bulkField" class="swal2-select">
+                <option value="basic_pay">Basic Pay</option>
+                <option value="net_pay">Net Pay</option>
+                <option value="allowances">Allowances</option>
+            </select>
+        `,
+        preConfirm: () => ({
+            amount: parseFloat(document.getElementById('bulkAmount').value),
+            field: document.getElementById('bulkField').value
+        })
+    });
+
+    if (value) {
+        const response = await fetch('backend/api.php?action=bulk_payroll_update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                payroll_ids: Array.from(selectedPayrollRows),
+                field: value.field,
+                value: value.amount
+            })
+        });
+
+        const result = await response.json();
+        showToast(result.message || 'Bulk update complete!', result.success ? 'success' : 'error');
+        
+        if (result.success) {
+            selectedPayrollRows.clear();
+            renderPayrollTable();
+        }
+    }
+}
+
+// Add CSS for bulk selection
+if (!document.getElementById('bulk-styles')) {
+    const style = document.createElement('style');
+    style.id = 'bulk-styles';
+    style.textContent = `
+        .select-col { width: 50px; text-align: center; }
+        .table-selected { background: #e3f2fd !important; }
+        #payrollTable input[type="checkbox"] { transform: scale(1.2); }
+        .bulk-actions { display: flex; gap: 8px; margin: 0 10px; }
+        .bulk-actions .btn { padding: 6px 12px; font-size: 0.85em; }
+    `;
+    document.head.appendChild(style);
+}
