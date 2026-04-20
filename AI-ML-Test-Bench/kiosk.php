@@ -869,8 +869,8 @@
                     const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
                     const isFrontal = frontalCheck.isFrontal;
 
-                    // Check if the stream is a live camera feed (not a static image)
-                    const isLive = faceManager.checkLiveness(video);
+                    // Verify that the detected face shows natural facial motion across frames
+                    const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
                     
                     // Passive Anti-Spoofing: Rigidity Analysis
                     const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);

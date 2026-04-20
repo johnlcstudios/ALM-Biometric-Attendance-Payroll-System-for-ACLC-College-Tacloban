@@ -24,6 +24,8 @@ class FaceManager {
         this.livenessCtx = null;
         this.lastFrameData = null;
         this.staticFrameCount = 0;
+        this.landmarkHistory = [];
+        this.liveStaticCount = 0;
         
         // Active Liveness state
         this.livenessAction = 'none'; // 'blink', 'smile', 'none'
@@ -188,63 +190,60 @@ class FaceManager {
     }
 
     /**
-     * Checks if the video stream is a live camera feed or a static image
-     * Returns true if motion is detected, false if static (frozen image)
+     * Checks if the detected face shows natural micro-movement across consecutive frames.
+     * Returns true if the face appears live, false if the landmarks are unnaturally static.
      */
-    checkLiveness(videoElement) {
-        if (!this.livenessCanvas) {
-            this.livenessCanvas = document.createElement('canvas');
-            // Use low resolution for fast processing
-            this.livenessCanvas.width = 64;
-            this.livenessCanvas.height = 48;
-            this.livenessCtx = this.livenessCanvas.getContext('2d', { willReadFrequently: true });
+    checkLiveness(landmarks, boundingBox) {
+        if (!landmarks || !boundingBox || !landmarks.positions) {
+            return false;
         }
 
-        try {
-            this.livenessCtx.drawImage(videoElement, 0, 0, 64, 48);
-            const imageData = this.livenessCtx.getImageData(0, 0, 64, 48);
-            const currentFrame = imageData.data;
-            
-            let isLive = true;
+        const points = landmarks.positions;
+        const faceWidth = Math.max(this._getDistance(points[0], points[16]), 1);
+        const sampleIndices = [30, 36, 45, 48, 54, 8];
 
-            if (this.lastFrameData) {
-                let diff = 0;
-                let samples = 0;
-                
-                // Sample pixels (RGBA) to calculate average difference
-                for (let i = 0; i < currentFrame.length; i += 16) {
-                    diff += Math.abs(currentFrame[i] - this.lastFrameData[i]); // R
-                    diff += Math.abs(currentFrame[i+1] - this.lastFrameData[i+1]); // G
-                    diff += Math.abs(currentFrame[i+2] - this.lastFrameData[i+2]); // B
-                    samples += 3;
-                }
-                
-                // Average difference per color channel per sampled pixel
-                const avgDiff = diff / samples;
-                
-                // If avgDiff is extremely low (< 1), it's likely a static image
-                if (avgDiff < 1.0) {
-                    this.staticFrameCount++;
-                } else {
-                    this.staticFrameCount = 0;
-                }
+        const normalizedPoints = sampleIndices.map(index => ({
+            x: points[index].x / faceWidth,
+            y: points[index].y / faceWidth
+        }));
 
-                // If static for 15 consecutive frames, consider it not live (frozen image)
-                if (this.staticFrameCount > 15) {
-                    isLive = false;
-                }
-            } else {
-                this.staticFrameCount = 0;
+        this.landmarkHistory.push(normalizedPoints);
+        if (this.landmarkHistory.length > 12) {
+            this.landmarkHistory.shift();
+        }
+
+        if (this.landmarkHistory.length < 5) {
+            return true; // Not enough history yet, assume live until proven static
+        }
+
+        let totalMotion = 0;
+        let comparisons = 0;
+
+        for (let i = 1; i < this.landmarkHistory.length; i++) {
+            const prev = this.landmarkHistory[i - 1];
+            const current = this.landmarkHistory[i];
+
+            for (let j = 0; j < prev.length; j++) {
+                totalMotion += this._getDistance(prev[j], current[j]);
+                comparisons++;
             }
-
-            // Copy current frame to last frame for next comparison
-            this.lastFrameData = new Uint8ClampedArray(currentFrame);
-            
-            return isLive;
-        } catch (e) {
-            console.error("Liveness check error:", e);
-            return true; // Default to true if canvas drawing fails
         }
+
+        const avgMotion = comparisons ? totalMotion / comparisons : 0;
+        const motionThreshold = 0.0012;
+
+        if (avgMotion < motionThreshold) {
+            this.liveStaticCount++;
+        } else {
+            this.liveStaticCount = 0;
+        }
+
+        // If the face is unnaturally static for many frames, treat it as non-live.
+        if (this.liveStaticCount > 18) {
+            return false;
+        }
+
+        return true;
     }
 
     checkStability(box) {
@@ -414,8 +413,10 @@ class FaceManager {
         // Phase 2: Check for a significant, dynamic change from their personal baseline
         if (this.livenessAction === 'blink') {
             // A real blink drops the EAR significantly from the open-eye baseline
-            const isClosed = avgEAR < (this.baselineEAR - 0.05) && avgEAR < 0.22;
-            const isOpen = avgEAR > (this.baselineEAR - 0.02);
+            const closeThreshold = Math.max(0.18, this.baselineEAR - 0.08);
+            const openThreshold = Math.max(0.18, this.baselineEAR - 0.08);
+            const isClosed = avgEAR < closeThreshold && avgEAR < 0.22;
+            const isOpen = avgEAR > openThreshold;
 
             if (isClosed) {
                 this.isEyesClosed = true;
