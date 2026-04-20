@@ -4082,7 +4082,7 @@ async function initFaceRegistration() {
     // Prevent file drag and drop on the video/canvas area to bypass camera
     const preventDragDrop = (e) => {
         e.preventDefault();
-        if (e.type === 'drop') {
+        if (e.type === 'drop' || e.type === 'paste') {
             Swal.fire({
                 icon: 'error',
                 title: 'Action Blocked',
@@ -4099,6 +4099,29 @@ async function initFaceRegistration() {
     if (canvas) {
         canvas.addEventListener('dragover', preventDragDrop);
         canvas.addEventListener('drop', preventDragDrop);
+    }
+    
+    // Prevent pasting images globally while in registration
+    document.addEventListener('paste', (e) => {
+        if (faceManager.registrationActive && e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+            preventDragDrop(e);
+        }
+    });
+
+    // Ensure audio context is ready for beeps
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    function playSpoofBeep() {
+        if (audioContext.state === 'suspended') audioContext.resume();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.5, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.3);
     }
 
     try {
@@ -4172,6 +4195,7 @@ async function initFaceRegistration() {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                     if (detection) {
+                        faceManager.lostFaceCount = 0;
                         noFaceCount = 0; // Reset counter when face is detected
                         
                         // Check stability
@@ -4184,9 +4208,12 @@ async function initFaceRegistration() {
                         // Check if the stream is a live camera feed
                         const isLive = faceManager.checkLiveness(video);
                         
+                        // Passive Anti-Spoofing: Rigidity Analysis
+                        const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
+                        
                         // Active Liveness handling for registration
-                        if (isFrontal && isLive && faceManager.livenessAction === 'none') {
-                            const tasks = ['blink', 'smile'];
+                        if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
+                            const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
                             const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
                             faceManager.setLivenessAction(randomTask);
                         }
@@ -4195,18 +4222,31 @@ async function initFaceRegistration() {
 
                         let status, color;
                         
-                        if (!isLive) {
-                            status = "STATIC IMAGE DETECTED";
+                        if (!isLive || !isRealFace) {
+                            status = "NO PHOTO/IMAGE ACCEPTED";
                             color = "#db261f"; // Red error
                             captureBtn.disabled = true;
+                            
+                            playSpoofBeep();
                             
                             // Show error message
                             Swal.fire({
                                 icon: 'error',
-                                title: 'Action Blocked',
-                                text: 'Only live camera feed is accepted – please use the built-in camera.',
+                                title: 'Presentation Attack Detected',
+                                text: 'Photos and pictures are not accepted. Please present your live face directly to the camera.',
                                 confirmButtonColor: '#1e0178'
                             });
+                            
+                            // Log spoof attempt
+                            fetch('backend/api.php?action=log_spoof_attempt', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    company_id: currentCompanyId || 1, // Fallback if undefined in script context
+                                    timestamp: new Date().toISOString(),
+                                    reason: 'Photo/spoof detected during registration – access denied'
+                                })
+                            }).catch(e => console.error("Logging spoof failed:", e));
                             
                             faceManager.isProcessing = true;
                             setTimeout(() => { faceManager.isProcessing = false; }, 3000);
@@ -4227,7 +4267,17 @@ async function initFaceRegistration() {
                             color = "#f39c12"; // Orange
                         } else if (!isActiveLivenessPassed) {
                             // Prompt for liveness action
-                            status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
+                            if (faceManager.framesProcessed <= 15) {
+                                status = "HOLD STILL FOR BASELINE...";
+                            } else {
+                                if (faceManager.livenessAction === 'turn_left') {
+                                    status = "TURN HEAD LEFT";
+                                } else if (faceManager.livenessAction === 'turn_right') {
+                                    status = "TURN HEAD RIGHT";
+                                } else {
+                                    status = faceManager.livenessAction === 'blink' ? `PLEASE BLINK (${faceManager.blinkCount}/2)` : "PLEASE SMILE";
+                                }
+                            }
                             color = "#3498db"; // Blue action
                             captureBtn.disabled = true; // Wait for liveness
                         } else {
@@ -4247,7 +4297,10 @@ async function initFaceRegistration() {
                     } else {
                         noFaceCount++;
                         faceManager.stabilityCounter = 0;
-                        faceManager.setLivenessAction('none'); // Reset active liveness
+                        faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
+                        if (faceManager.lostFaceCount > 15) {
+                            faceManager.setLivenessAction('none'); // Reset active liveness
+                        }
                         captureBtn.disabled = true;
                         
                         // Show helpful message if no face detected for too long
