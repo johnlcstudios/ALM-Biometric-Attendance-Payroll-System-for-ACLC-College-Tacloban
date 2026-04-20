@@ -30,7 +30,7 @@ $allowedActions = [
     
     // Employee Management
     'get_employees', 'save_employee', 'delete_employee', 'reinstate_employee',
-    'upload_profile_picture',
+    'upload_profile_picture', 'update_employee_profile',
     
     // Attendance
     'get_attendance', 'add_attendance', 'update_attendance', 'flag_attendance',
@@ -1214,33 +1214,45 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $company_id = $_SESSION['company_id'];
 
-            $stmt = $pdo->prepare("UPDATE companies SET name=?, timezone=?, work_start=?, work_end=?, lunch_start=?, lunch_end=?, lunch_out_start=?, lunch_out_end=?, lunch_in_start=?, lunch_in_end=?, lunch_buffer=?, checkout_buffer=?, ot_percentage=?, deduction_per_sec=?, deduction_per_min=?, deduction_per_hour=? WHERE id=?");
-            $success = $stmt->execute([
-                $data['companyName'],
-                $data['timezone'],
-                $data['workStart'],
-                $data['workEnd'],
-                $data['lunchOutStart'], // Assuming lunchOutStart is mapped to lunch_start/lunch_out_start logic as per form 
-                $data['lunchInEnd'],    // This is just mapping back appropriately based on the form, but let's see exactly what fields the form has
-                $data['lunchOutStart'],
-                $data['lunchOutEnd'],
-                $data['lunchInStart'],
-                $data['lunchInEnd'],
-                (int) $data['lunchBuffer'],
-                (int) $data['checkoutBuffer'],
-                (int) $data['otPercentage'],
-                (float) $data['deductionPerSec'],
-                (float) $data['deductionPerMin'],
-                (float) $data['deductionPerHour'],
-                $company_id
-            ]);
+            // Basic validation
+            if (empty($data['companyName'])) {
+                echo json_encode(['success' => false, 'message' => 'Company Name is required']);
+                break;
+            }
 
-            if ($success) {
-                $_SESSION['company_timezone'] = $data['timezone'];
-                $_SESSION['company_name'] = $data['companyName'];
-                echo json_encode(['success' => true]);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Database update failed']);
+            try {
+                $pdo->beginTransaction();
+                $stmt = $pdo->prepare("UPDATE companies SET name=?, timezone=?, work_start=?, work_end=?, lunch_out_start=?, lunch_out_end=?, lunch_in_start=?, lunch_in_end=?, lunch_buffer=?, checkout_buffer=?, ot_percentage=?, deduction_per_sec=?, deduction_per_min=?, deduction_per_hour=? WHERE id=?");
+                $success = $stmt->execute([
+                    $data['companyName'],
+                    $data['timezone'] ?: 'Asia/Manila',
+                    $data['workStart'] ?: '08:00:00',
+                    $data['workEnd'] ?: '17:00:00',
+                    $data['lunchOutStart'] ?: '10:00:00',
+                    $data['lunchOutEnd'] ?: '10:30:00',
+                    $data['lunchInStart'] ?: '10:30:00',
+                    $data['lunchInEnd'] ?: '11:00:00',
+                    (int) ($data['lunchBuffer'] ?? 30),
+                    (int) ($data['checkoutBuffer'] ?? 60),
+                    (int) ($data['otPercentage'] ?? 25),
+                    (float) ($data['deductionPerSec'] ?? 0.0083),
+                    (float) ($data['deductionPerMin'] ?? 0.50),
+                    (float) ($data['deductionPerHour'] ?? 30.00),
+                    $company_id
+                ]);
+
+                if ($success) {
+                    $pdo->commit();
+                    $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
+                    $_SESSION['company_name'] = $data['companyName'];
+                    echo json_encode(['success' => true]);
+                } else {
+                    $pdo->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Database update failed']);
+                }
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
             }
             break;
 
@@ -2329,57 +2341,6 @@ try {
             echo json_encode(['success' => true, 'message' => 'Deduction category deleted']);
             break;
 
-        case 'save_settings':
-            if (!isPayrollOrHigher())
-                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $data = json_decode(file_get_contents('php://input'), true);
-
-            // Basic validation
-            if (empty($data['companyName'])) {
-                echo json_encode(['success' => false, 'message' => 'Company Name is required']);
-                break;
-            }
-
-            $stmt = $pdo->prepare("UPDATE companies SET 
-                name = ?, 
-                timezone = ?,
-                work_start = ?, 
-                work_end = ?, 
-                lunch_out_start = ?, 
-                lunch_out_end = ?, 
-                lunch_in_start = ?, 
-                lunch_in_end = ?, 
-                lunch_buffer = ?,
-                checkout_buffer = ?,
-                ot_percentage = ?, 
-                deduction_per_sec = ?, 
-                deduction_per_min = ?, 
-                deduction_per_hour = ? 
-                WHERE id = ?");
-
-            $stmt->execute([
-                $data['companyName'],
-                $data['timezone'] ?: 'Asia/Manila',
-                $data['workStart'] ?: '08:00:00',
-                $data['workEnd'] ?: '17:00:00',
-                $data['lunchOutStart'] ?: '10:00:00',
-                $data['lunchOutEnd'] ?: '10:30:00',
-                $data['lunchInStart'] ?: '10:30:00',
-                $data['lunchInEnd'] ?: '11:00:00',
-                (int) ($data['lunchBuffer'] ?? 30),
-                (int) ($data['checkoutBuffer'] ?? 60),
-                (int) ($data['otPercentage'] ?? 25),
-                (float) ($data['deductionPerSec'] ?? 0.0083),
-                (float) ($data['deductionPerMin'] ?? 0.50),
-                (float) ($data['deductionPerHour'] ?? 30.00),
-                $_SESSION['company_id']
-            ]);
-
-            $_SESSION['company_name'] = $data['companyName'];
-            $_SESSION['company_timezone'] = $data['timezone'] ?: 'Asia/Manila';
-            echo json_encode(['success' => true]);
-            break;
-
         case 'get_dashboard_stats':
             if (!isset($_SESSION['company_id']))
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
@@ -2556,17 +2517,98 @@ try {
             $oldPass = $data['oldPass'] ?? '';
             $newPass = $data['newPass'] ?? '';
 
+            // Validate password strength
+            if (strlen($newPass) < 8 || !preg_match('/[A-Z]/', $newPass) || !preg_match('/[a-z]/', $newPass) || !preg_match('/\d/', $newPass) || !preg_match('/[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/', $newPass)) {
+                echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters with uppercase, lowercase, number, and special character.']);
+                break;
+            }
+
             $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($oldPass, $user['password'])) {
                 $hashed = password_hash($newPass, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE users SET password = ?, password_last_changed = NOW() WHERE id = ?");
                 $stmt->execute([$hashed, $_SESSION['user_id']]);
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Incorrect current password']);
+            }
+            break;
+
+        case 'update_profile':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $username = trim($data['username'] ?? '');
+            $email = trim($data['email'] ?? '');
+
+            if (empty($username) || empty($email)) {
+                echo json_encode(['success' => false, 'message' => 'Username and email are required']);
+                break;
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+                break;
+            }
+
+            // Check if username is unique
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+            $stmt->execute([$username, $_SESSION['user_id']]);
+            if ($stmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Username already taken']);
+                break;
+            }
+
+            // Check if email is unique
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+            $stmt->execute([$email, $_SESSION['user_id']]);
+            if ($stmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Email already in use']);
+                break;
+            }
+
+            $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?");
+            $success = $stmt->execute([$username, $email, $_SESSION['user_id']]);
+
+            if ($success) {
+                $_SESSION['full_name'] = $username;
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
+            }
+            break;
+
+        case 'update_employee_profile':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $email = trim($data['email'] ?? '');
+            $dob = trim($data['dob'] ?? '');
+            $sss = trim($data['sss'] ?? '');
+            $philhealth = trim($data['philhealth'] ?? '');
+            $tin = trim($data['tin'] ?? '');
+            $pagibig = trim($data['pagibig'] ?? '');
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+                break;
+            }
+
+            // Get employee id from user_id
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp = $stmt->fetch();
+            if (!$emp) {
+                echo json_encode(['success' => false, 'message' => 'Employee not found']);
+                break;
+            }
+
+            $stmt = $pdo->prepare("UPDATE employees SET email = ?, dob = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE id = ?");
+            $success = $stmt->execute([$email, $dob, $sss, $philhealth, $tin, $pagibig, $emp['id']]);
+
+            if ($success) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to update employee profile']);
             }
             break;
 

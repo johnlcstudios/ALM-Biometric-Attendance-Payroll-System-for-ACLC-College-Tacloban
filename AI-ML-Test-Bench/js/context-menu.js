@@ -1322,24 +1322,6 @@ function exportPayrollAssignments() {
     }
 }
 
-function saveSettings() {
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: 'Save Settings?',
-            text: 'This will save all current system settings.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Save',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                showToast('Settings saved successfully', 'success');
-                // TODO: Call backend API to save settings
-            }
-        });
-    }
-}
-
 function resetSettings() {
     if (typeof Swal !== 'undefined') {
         Swal.fire({
