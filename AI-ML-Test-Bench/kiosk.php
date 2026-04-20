@@ -590,6 +590,19 @@
             });
         });
         
+        // Prevent pasting images
+        document.addEventListener('paste', (e) => {
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Blocked',
+                    text: 'Pasting images is not allowed. Only live camera feed is accepted.',
+                    confirmButtonColor: '#1e0178'
+                });
+            }
+        });
+        
         // Prevent any file picker dialogs
         document.addEventListener('click', (e) => {
             if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'file') {
@@ -802,6 +815,27 @@
             }
         }
 
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        function playBeep() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz beep
+            
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
         async function detectLoop() {
             const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
@@ -823,6 +857,8 @@
                 const positionHint = document.getElementById('positionHint');
 
                 if (detection) {
+                    faceManager.lostFaceCount = 0;
+                    
                     // Show face guide
                     faceGuide.classList.add('active');
 
@@ -835,11 +871,14 @@
 
                     // Check if the stream is a live camera feed (not a static image)
                     const isLive = faceManager.checkLiveness(video);
+                    
+                    // Passive Anti-Spoofing: Rigidity Analysis
+                    const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
 
                     // Active Liveness action handling
-                    if (isFrontal && isLive && faceManager.livenessAction === 'none') {
+                    if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
                         // Assign a random liveness task when face is frontal
-                        const tasks = ['blink', 'smile'];
+                        const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
                         const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
                         faceManager.setLivenessAction(randomTask);
                     }
@@ -849,19 +888,33 @@
                     // Determine status message and color
                     let status, color, hint;
                     
-                    if (!isLive) {
-                        status = "STATIC IMAGE DETECTED";
-                        hint = "Only live camera feed is accepted – please use the built-in camera.";
+                    if (!isLive || !isRealFace) {
+                        status = "NO PHOTO/IMAGE ACCEPTED";
+                        hint = "Live face required. Please step back and try again.";
                         color = "#db261f"; // Red error
                         guideCircle.className = 'face-guide-circle border-danger';
+                        
+                        // Play audible beep
+                        playBeep();
                         
                         // Show error message
                         Swal.fire({
                             icon: 'error',
-                            title: 'Action Blocked',
-                            text: 'Only live camera feed is accepted – please use the built-in camera.',
+                            title: 'Presentation Attack Detected',
+                            text: 'Photos and pictures are not accepted. Please present your live face directly to the camera.',
                             confirmButtonColor: '#1e0178'
                         });
+                        
+                        // Log spoof attempt
+                        fetch('backend/api.php?action=log_spoof_attempt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                company_id: currentCompanyId,
+                                timestamp: getNow().toISOString(),
+                                reason: 'Photo/spoof detected – access denied'
+                            })
+                        }).catch(e => console.error("Logging spoof failed:", e));
                         
                         // Stop processing temporarily to let user read the message
                         faceManager.isProcessing = true;
@@ -891,8 +944,21 @@
                         guideCircle.className = 'face-guide-circle warning';
                     } else if (!isActiveLivenessPassed) {
                         // Waiting for liveness action
-                        status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
-                        hint = faceManager.livenessAction === 'blink' ? "Blink twice to verify liveness" : "Smile to verify liveness";
+                        if (faceManager.framesProcessed <= 15) {
+                            status = "HOLD STILL FOR BASELINE...";
+                            hint = "Analyzing your neutral face structure...";
+                        } else {
+                            if (faceManager.livenessAction === 'turn_left') {
+                                status = "TURN HEAD LEFT";
+                                hint = "Slightly turn your head to the left";
+                            } else if (faceManager.livenessAction === 'turn_right') {
+                                status = "TURN HEAD RIGHT";
+                                hint = "Slightly turn your head to the right";
+                            } else {
+                                status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
+                                hint = faceManager.livenessAction === 'blink' ? `Blinks detected: ${faceManager.blinkCount}/2` : "Smile widely to verify";
+                            }
+                        }
                         color = "#3498db"; // Blue action
                         guideCircle.className = 'face-guide-circle border-primary';
                     } else {
@@ -914,7 +980,10 @@
                     }
                 } else {
                     faceManager.stabilityCounter = 0;
-                    faceManager.setLivenessAction('none'); // Reset active liveness
+                    faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
+                    if (faceManager.lostFaceCount > 15) {
+                        faceManager.setLivenessAction('none'); // Reset active liveness
+                    }
                     cameraCircle.classList.remove('scanning');
                     faceGuide.classList.remove('active');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);

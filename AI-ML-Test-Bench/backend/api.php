@@ -2913,6 +2913,26 @@ echo json_encode([
             ]);
             break;
 
+        case 'log_spoof_attempt':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $company_id = $data['company_id'] ?? $_SESSION['company_id'] ?? 1;
+            $reason = $data['reason'] ?? 'Photo/spoof detected – access denied';
+            
+            // We use the audit log system to record spoof attempts
+            // A dedicated spoof log table could be used, but audit_logs works for security events
+            $stmt = $pdo->prepare("INSERT INTO audit_logs (company_id, user_id, action, target_table, record_id, changes) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $company_id,
+                $_SESSION['user_id'] ?? null,
+                'SPOOF_ATTEMPT_DETECTED',
+                'system_security',
+                null,
+                $reason
+            ]);
+            
+            echo json_encode(['success' => true, 'message' => 'Spoof attempt logged']);
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
             break;
