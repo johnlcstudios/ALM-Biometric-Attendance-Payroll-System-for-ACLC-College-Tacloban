@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - **Codename: P^&$^%ina Ayuko Na!** - 2024-10-27
+
+### Added
+- **AI/ML Test Bench Infrastructure** (`AI-ML-Test-Bench/`):
+  - Complete biometric attendance system with face-api.js integration
+  - Role-specific dashboards: Admin/HR, Payroll Officer, Shared pages
+  - Specialized payroll modules: faculty_payroll.php, utility_payroll.php, subject_loads.php
+  - Backend API v2 with advanced features: audit.php, backup.php, payroll_tax.php, two_factor_auth.php, rate_limit.php, data_retention.php
+  - Kiosk mode with lunch in/out, late detection, server-time sync
+  - Deployment automation: bat/deploy_fixes.bat, bat/download-dependencies.bat
+
+- **Security & Compliance Enhancements**:
+  - Two-factor authentication (two_factor_auth.php)
+  - Rate limiting and request logging (rate_limit.php, requests.php)
+  - Encryption utilities and audit trails (encryption.php, audit.php)
+  - Soft deletes and user active status tracking
+
+- **Advanced Payroll Features**:
+  - Tax calculations and PH-specific payroll rules (payroll_tax.php)
+  - Bulk allowances/deductions assignment
+  - Resignation workflow with decline/reinstate options
+  - Comprehensive reports and PDF exports across all modules
+
+- **Deployment & Documentation**:
+  - Windows batch deployment scripts (bat/)
+  - Web installer (web-app/Installer.cs, Launcher.cs)
+  - Extensive guides: Docs/ (Kiosk frontal detection, offline setup, payroll auto-calc, payslip fixes, etc.)
+  - Complete SQL schema (sql/complete_schema.sql)
+
+### Changed
+- **Project Structure**: Major reorganization into week6/updated biometrics with production-ready architecture
+- **Backend Refactor**: api_v2.php with modular helpers (api_helpers.php, notifications.php, modals.php)
+- **UI/UX**: Responsive payroll CSS, inter-fonts, context menus, SweetAlert2 integration
+
+### Fixed/Improved
+- Database migrations: indexes, soft deletes, reinstatement columns, user active status
+- Face enrollment stability, model loading with retries, cross-device camera support
+- Payroll hire_date validation, loan workflows, subject load CRUD operations
+
 ## [2.5.0] - **Thursday Release** - 2024-10-20
 
 ### Added
