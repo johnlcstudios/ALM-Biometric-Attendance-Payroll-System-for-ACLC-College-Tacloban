@@ -75,6 +75,10 @@ $allowedActions = [
     
     // User Management
     'get_users', 'add_user', 'update_user', 'delete_user', 'update_role',
+    'assign_role', 'deactivate_user',
+    
+    // SD Pages
+    'get_sd_analytics',
     
     // Face Recognition
     'upload_face_encoding', 'get_face_registrations', 'save_face_registration',
@@ -695,7 +699,8 @@ try {
                 $company_id = $pdo->lastInsertId();
 
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'HR', ?)");
+                // Assign School Director role to signup users (SD Pages admin)
+                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'School Director', ?)");
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
 
                 $pdo->commit();
@@ -3008,6 +3013,176 @@ echo json_encode([
             ]);
             
             echo json_encode(['success' => true, 'message' => 'Spoof attempt logged']);
+            break;
+
+        case 'assign_role':
+            // SD/Admin can assign HR and Payroll Officer roles
+            if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'SD', 'School Director'])) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $employee_id = $data['employee_id'] ?? '';
+            $username = trim($data['username'] ?? '');
+            $password = $data['password'] ?? '';
+            $email = trim($data['email'] ?? '');
+            $role = $data['role'] ?? '';
+            
+            // Validate required fields
+            if (empty($employee_id) || empty($username) || empty($password) || empty($email) || empty($role)) {
+                echo json_encode(['success' => false, 'message' => 'All fields are required']);
+                break;
+            }
+            
+            // Validate role
+            if (!in_array($role, ['HR', 'Admin', 'Payroll Officer'])) {
+                echo json_encode(['success' => false, 'message' => 'Invalid role']);
+                break;
+            }
+            
+            // Check if username already exists
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                // Add random number to username
+                $username = $username . rand(10, 99);
+            }
+            
+            // Check if email already exists
+            $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Email already exists']);
+                break;
+            }
+            
+            try {
+                $pdo->beginTransaction();
+                
+                // Create user account
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $company_id = $_SESSION['company_id'] ?? 1;
+                
+                $stmt = $pdo->prepare("
+                    INSERT INTO users (company_id, username, password, role, email, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, 1, NOW())
+                ");
+                $stmt->execute([$company_id, $username, $hashed_password, $role, $email]);
+                $user_id = $pdo->lastInsertId();
+                
+                // Link employee to user
+                $stmt = $pdo->prepare("UPDATE employees SET user_id = ? WHERE id = ?");
+                $stmt->execute([$user_id, $employee_id]);
+                
+                $pdo->commit();
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Role assigned successfully',
+                    'user_id' => $user_id,
+                    'username' => $username
+                ]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Failed to assign role: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'deactivate_user':
+            // SD/Admin can deactivate users
+            if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'SD', 'School Director'])) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $user_id = $data['user_id'] ?? '';
+            
+            if (empty($user_id)) {
+                echo json_encode(['success' => false, 'message' => 'User ID is required']);
+                break;
+            }
+            
+            try {
+                // Deactivate user
+                $stmt = $pdo->prepare("UPDATE users SET is_active = 0 WHERE id = ?");
+                $stmt->execute([$user_id]);
+                
+                // Unlink from employee
+                $stmt = $pdo->prepare("UPDATE employees SET user_id = NULL WHERE user_id = ?");
+                $stmt->execute([$user_id]);
+                
+                echo json_encode(['success' => true, 'message' => 'User deactivated successfully']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Failed to deactivate user: ' . $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_sd_analytics':
+            // Get analytics data for SD dashboard
+            if (!isset($_SESSION['user_id'])) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            
+            try {
+                $company_id = $_SESSION['company_id'] ?? 1;
+                
+                // Total employees
+                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM employees WHERE status = 'Active' AND company_id = ?");
+                $stmt->execute([$company_id]);
+                $total_employees = $stmt->fetch()['total'] ?? 0;
+                
+                // Present today
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(DISTINCT a.employee_id) as total 
+                    FROM attendance a
+                    JOIN employees e ON a.employee_id = e.id
+                    WHERE DATE(a.scan_time) = CURDATE() 
+                    AND a.type = 'IN'
+                    AND e.company_id = ?
+                ");
+                $stmt->execute([$company_id]);
+                $present_today = $stmt->fetch()['total'] ?? 0;
+                
+                // Absent today
+                $absent_today = max(0, $total_employees - $present_today);
+                
+                // Total HR users
+                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role IN ('HR', 'Admin') AND is_active = 1 AND company_id = ?");
+                $stmt->execute([$company_id]);
+                $total_hr = $stmt->fetch()['total'] ?? 0;
+                
+                // Total Payroll Officers
+                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'Payroll Officer' AND is_active = 1 AND company_id = ?");
+                $stmt->execute([$company_id]);
+                $total_payroll = $stmt->fetch()['total'] ?? 0;
+                
+                // Monthly payroll
+                $stmt = $pdo->prepare("
+                    SELECT SUM(net_pay) as total 
+                    FROM payroll_records 
+                    WHERE MONTH(pay_date) = MONTH(CURDATE()) 
+                    AND YEAR(pay_date) = YEAR(CURDATE())
+                ");
+                $stmt->execute();
+                $monthly_payroll = $stmt->fetch()['total'] ?? 0;
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => [
+                        'total_employees' => $total_employees,
+                        'present_today' => $present_today,
+                        'absent_today' => $absent_today,
+                        'total_hr' => $total_hr,
+                        'total_payroll' => $total_payroll,
+                        'monthly_payroll' => $monthly_payroll
+                    ]
+                ]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => 'Failed to get analytics: ' . $e->getMessage()]);
+            }
             break;
 
         default:

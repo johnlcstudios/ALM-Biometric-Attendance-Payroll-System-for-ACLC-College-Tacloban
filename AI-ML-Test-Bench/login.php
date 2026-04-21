@@ -6,7 +6,11 @@ if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['role'] ?? 'Employee';
     if (in_array($role, ['Payroll', 'Payroll Officer'])) {
         header('Location: Payroll-Officer.php');
-    } elseif ($role === 'Admin' || $role === 'HR') {
+    } elseif (in_array($role, ['Admin', 'SD', 'School Director'])) {
+        // SD/Admin users go to SD Dashboard
+        header('Location: sd_dashboard.php');
+    } elseif ($role === 'HR') {
+        // HR users go to regular index
         header('Location: index.php');
     } else {
         header('Location: ess.php');
@@ -502,6 +506,8 @@ body {
     </div>
 </div>
 
+
+
 <style>
 @keyframes fadeInUp {
     from {
@@ -587,7 +593,11 @@ document.getElementById('loginForm').onsubmit = async (e) => {
         const role = result.role ? result.role.trim() : 'Employee';
         if (role === 'Payroll' || role === 'Payroll Officer') {
             window.location.href = 'Payroll-Officer.php';
-        } else if (role === 'Admin' || role === 'HR') {
+        } else if (role === 'Admin' || role === 'SD' || role === 'School Director') {
+            // SD/Admin users go to SD Dashboard
+            window.location.href = 'sd_dashboard.php';
+        } else if (role === 'HR') {
+            // HR users go to regular index
             window.location.href = 'index.php';
         } else {
             window.location.href = 'ess.php';
@@ -769,6 +779,10 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
 
 <!-- Custom Context Menu -->
 <script src="js/context-menu.js?v=1.0"></script>
-
+<!-- <footer>
+    <p>&copy; <?php echo date('Y'); ?> ACLC College of Tacloban | All Rights Reserved</p>
+    <p>Developed by BSIT 3A</p>
+    <p>BSIT 3A | A.Y. 2025-2026 | Batch 2027</p>
+</footer> -->
 </body>
 </html>
