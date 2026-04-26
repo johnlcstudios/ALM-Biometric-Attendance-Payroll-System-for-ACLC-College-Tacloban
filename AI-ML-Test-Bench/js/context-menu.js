@@ -3,253 +3,14 @@
  * Provides page-specific right-click menus throughout the application
  */
 
-// Context menu configuration for different pages
+/// Context menu configuration
 const contextMenuConfig = {
-    // Authentication Pages
-    login: {
-        title: 'Login Options',
+    global: {
+        title: 'System Options',
         items: [
-            { icon: 'fas fa-user-plus', label: 'Create Account', action: () => window.location.href = 'signup.php' },
-            { icon: 'fas fa-key', label: 'Forgot Password', action: () => showForgotPasswordHelp() },
-            { divider: true },
-            { icon: 'fas fa-info-circle', label: 'System Information', action: () => showSystemInfo() },
-            { icon: 'fas fa-question-circle', label: 'Help & Support', action: () => showHelp() }
-        ]
-    },
-    signup: {
-        title: 'Registration Options',
-        items: [
-            { icon: 'fas fa-sign-in-alt', label: 'Already have an account?', action: () => window.location.href = 'login.php' },
-            { icon: 'fas fa-shield-alt', label: 'Password Requirements', action: () => showPasswordRequirements() },
-            { divider: true },
-            { icon: 'fas fa-info-circle', label: 'System Information', action: () => showSystemInfo() },
-            { icon: 'fas fa-question-circle', label: 'Help & Support', action: () => showHelp() }
-        ]
-    },
-    
-    // Kiosk Page
-    kiosk: {
-        title: 'Kiosk Options',
-        items: [
-            { icon: 'fas fa-sync-alt', label: 'Refresh System', action: () => location.reload() },
-            { icon: 'fas fa-info-circle', label: 'System Status', action: () => showKioskStatus() },
-            { divider: true },
-            { icon: 'fas fa-question-circle', label: 'Help & Support', action: () => showHelp() }
-        ]
-    },
-    
-    // Admin/HR Pages
-    // Admin/HR Pages
-    dashboard: {
-        title: 'Dashboard Actions',
-        items: [
-            { icon: 'fas fa-sync-alt', label: 'Refresh Data', action: () => location.reload() },
-            { icon: 'fas fa-chart-bar', label: 'View Reports', action: () => navigateTo('reports') },
-            { icon: 'fas fa-cog', label: 'System Settings', action: () => navigateTo('settings') },
-            { divider: true },
-            { icon: 'fas fa-question-circle', label: 'Help & Support', action: () => showHelp() }
-        ]
-    },
-    employees: {
-        title: 'Employee Management',
-        items: [
-            { icon: 'fas fa-user-plus', label: 'Add New Employee', action: () => openAddEmployeeModal() },
-            { icon: 'fas fa-file-export', label: 'Export Employee List', action: () => exportEmployees() },
-            { icon: 'fas fa-file-import', label: 'Import Employees', action: () => openImportModal() },
-            { divider: true },
-            { icon: 'fas fa-search', label: 'Advanced Search', action: () => toggleAdvancedSearch() },
-            { icon: 'fas fa-filter', label: 'Filter Options', action: () => showFilterOptions() }
-        ]
-    },
-    attendance: {
-        title: 'Attendance Actions',
-        items: [
-            { icon: 'fas fa-calendar-plus', label: 'Manual Entry', action: () => openManualAttendanceModal() },
-            { icon: 'fas fa-file-pdf', label: 'Generate DTR', action: () => contextGenerateDTR() },
-            { icon: 'fas fa-download', label: 'Export Attendance', action: () => exportAttendance() },
-            { divider: true },
-            { icon: 'fas fa-history', label: 'View Edit History', action: () => showAttendanceHistory() },
-            { icon: 'fas fa-tools', label: 'Fix Missing Logs', action: () => openFixLogsModal() }
-        ]
-    },
-    payroll: {
-        title: 'Payroll Processing',
-        items: [
-            { icon: 'fas fa-calculator', label: 'Calculate Payroll', action: () => calculatePayroll() },
-            { icon: 'fas fa-paper-plane', label: 'Process Payroll', action: () => processPayroll() },
-            { icon: 'fas fa-file-pdf', label: 'Export Payslips', action: () => exportAllPayslips() },
-            { divider: true },
-            { icon: 'fas fa-history', label: 'Payroll History', action: () => showPayrollHistory() },
-            { icon: 'fas fa-cog', label: 'Payroll Settings', action: () => showPayrollSettings() }
-        ]
-    },
-    faculty_payroll: {
-        title: 'Faculty Payroll',
-        items: [
-            { icon: 'fas fa-chalkboard-teacher', label: 'View Subject Loads', action: () => navigateTo('subject_loads') },
-            { icon: 'fas fa-calculator', label: 'Calculate Faculty Pay', action: () => calculateFacultyPayroll() },
-            { icon: 'fas fa-file-pdf', label: 'Export Faculty Payslips', action: () => exportFacultyPayslips() },
-            { divider: true },
-            { icon: 'fas fa-sync-alt', label: 'Recalculate All', action: () => recalculateFacultyPayroll() }
-        ]
-    },
-    utility_payroll: {
-        title: 'Utility Payroll',
-        items: [
-            { icon: 'fas fa-calculator', label: 'Calculate Utility Pay', action: () => calculateUtilityPayroll() },
-            { icon: 'fas fa-file-pdf', label: 'Export Utility Payslips', action: () => exportUtilityPayslips() },
-            { divider: true },
-            { icon: 'fas fa-sync-alt', label: 'Recalculate All', action: () => recalculateUtilityPayroll() }
-        ]
-    },
-    allowances: {
-        title: 'Allowances Management',
-        items: [
-            { icon: 'fas fa-plus-circle', label: 'Add Allowance', action: () => openAddAllowanceModal() },
-            { icon: 'fas fa-edit', label: 'Edit Allowances', action: () => enableAllowanceEditing() },
-            { icon: 'fas fa-file-export', label: 'Export Report', action: () => exportAllowances() }
-        ]
-    },
-    deductions: {
-        title: 'Deductions Management',
-        items: [
-            { icon: 'fas fa-plus-circle', label: 'Add Deduction', action: () => openAddDeductionModal() },
-            { icon: 'fas fa-edit', label: 'Edit Deductions', action: () => enableDeductionEditing() },
-            { icon: 'fas fa-file-export', label: 'Export Report', action: () => exportDeductions() }
-        ]
-    },
-    leave: {
-        title: 'Leave Management',
-        items: [
-            { icon: 'fas fa-calendar-check', label: 'View Calendar', action: () => showLeaveCalendar() },
-            { icon: 'fas fa-check-circle', label: 'Bulk Approve', action: () => bulkApproveLeaves() },
-            { icon: 'fas fa-times-circle', label: 'Bulk Reject', action: () => bulkRejectLeaves() },
-            { divider: true },
-            { icon: 'fas fa-file-export', label: 'Export Leave Records', action: () => exportLeaveRecords() }
-        ]
-    },
-    loans: {
-        title: 'Loan Management',
-        items: [
-            { icon: 'fas fa-hand-holding-usd', label: 'Create Loan', action: () => openCreateLoanModal() },
-            { icon: 'fas fa-check-circle', label: 'Approve Selected', action: () => approveSelectedLoans() },
-            { icon: 'fas fa-file-export', label: 'Export Loan Records', action: () => exportLoanRecords() }
-        ]
-    },
-    resignations: {
-        title: 'Resignation Management',
-        items: [
-            { icon: 'fas fa-file-alt', label: 'View Details', action: () => viewResignationDetails() },
-            { icon: 'fas fa-check-circle', label: 'Process Resignation', action: () => processResignation() },
-            { icon: 'fas fa-file-export', label: 'Export Records', action: () => exportResignationRecords() }
-        ]
-    },
-    reports: {
-        title: 'Reports & Analytics',
-        items: [
-            { icon: 'fas fa-file-pdf', label: 'Generate PDF Report', action: () => generatePDFReport() },
-            { icon: 'fas fa-file-excel', label: 'Export to Excel', action: () => exportToExcel() },
-            { icon: 'fas fa-chart-line', label: 'Advanced Analytics', action: () => showAdvancedAnalytics() },
-            { divider: true },
-            { icon: 'fas fa-print', label: 'Print Report', action: () => printReport() }
-        ]
-    },
-    biometrics: {
-        title: 'Biometric Registration',
-        items: [
-            { icon: 'fas fa-camera', label: 'Start Registration', action: () => startRegistration() },
-            { icon: 'fas fa-redo', label: 'Retrain Model', action: () => retrainFaceModel() },
-            { icon: 'fas fa-trash-alt', label: 'Clear Face Data', action: () => clearFaceData() },
-            { divider: true },
-            { icon: 'fas fa-download', label: 'Export Face Data', action: () => exportFaceData() }
-        ]
-    },
-    subject_loads: {
-        title: 'Subject Load Management',
-        items: [
-            { icon: 'fas fa-plus-circle', label: 'Assign Subject Load', action: () => openAssignSubjectModal() },
-            { icon: 'fas fa-file-export', label: 'Export Subject Loads', action: () => exportSubjectLoads() },
-            { icon: 'fas fa-calculator', label: 'Recalculate Hours', action: () => recalculateHours() }
-        ]
-    },
-    assign_payroll: {
-        title: 'Payroll Assignment',
-        items: [
-            { icon: 'fas fa-users', label: 'Assign Employees', action: () => openAssignEmployeesModal() },
-            { icon: 'fas fa-file-export', label: 'Export Assignments', action: () => exportPayrollAssignments() }
-        ]
-    },
-    settings: {
-        title: 'System Settings',
-        items: [
-            { icon: 'fas fa-save', label: 'Save Settings', action: () => saveSettings() },
-            { icon: 'fas fa-undo', label: 'Reset to Defaults', action: () => resetSettings() },
-            { icon: 'fas fa-database', label: 'Backup Database', action: () => backupDatabase() },
-            { divider: true },
-            { icon: 'fas fa-info-circle', label: 'System Info', action: () => showSystemInfo() }
-        ]
-    },
-
-    // Employee Self-Service Pages
-    'ess-dashboard': {
-        title: 'My Dashboard',
-        items: [
-            { icon: 'fas fa-sync-alt', label: 'Refresh Data', action: () => location.reload() },
-            { icon: 'fas fa-calendar-check', label: 'View Attendance', action: () => showESSPage('attendance') },
-            { icon: 'fas fa-file-invoice-dollar', label: 'View Payslips', action: () => showESSPage('payroll') }
-        ]
-    },
-    'ess-attendance': {
-        title: 'My Attendance',
-        items: [
-            { icon: 'fas fa-file-pdf', label: 'Download DTR', action: () => contextGenerateDTR() },
-            { icon: 'fas fa-filter', label: 'Filter by Date', action: () => focusAttendanceFilter() }
-        ]
-    },
-    'ess-payroll': {
-        title: 'My Payslips',
-        items: [
-            { icon: 'fas fa-download', label: 'Download Latest', action: () => downloadLatestPayslip() },
-            { icon: 'fas fa-print', label: 'Print Payslip', action: () => printPayslip() }
-        ]
-    },
-    'ess-requests': {
-        title: 'My Requests',
-        items: [
-            { icon: 'fas fa-paper-plane', label: 'New Leave Request', action: () => contextSwitchRequestTab('leave', document.querySelector('.tab-link')) },
-            { icon: 'fas fa-hand-holding-usd', label: 'New Loan Request', action: () => contextSwitchRequestTab('loan', document.querySelectorAll('.tab-link')[1]) },
-            { icon: 'fas fa-sign-out-alt', label: 'Submit Resignation', action: () => contextSwitchRequestTab('resignation', document.querySelectorAll('.tab-link')[2]) }
-        ]
-    },
-    'ess-profile': {
-        title: 'My Profile',
-        items: [
-            { icon: 'fas fa-camera', label: 'Update Photo', action: () => triggerPhotoUpload() },
-            { icon: 'fas fa-key', label: 'Change Password', action: () => contextSwitchProfileTab('security', document.querySelectorAll('.tab-link')[1]) },
-            { icon: 'fas fa-info-circle', label: 'View Personal Info', action: () => contextSwitchProfileTab('info', document.querySelector('.tab-link')) }
-        ]
-    },
-
-    // Payroll Officer Pages
-    'po-dashboard': {
-        title: 'Payroll Dashboard',
-        items: [
-            { icon: 'fas fa-sync-alt', label: 'Refresh Data', action: () => location.reload() },
-            { icon: 'fas fa-calculator', label: 'Process Payroll', action: () => navigateToPO('payroll') }
-        ]
-    },
-    'po-employees': {
-        title: 'Employee Directory',
-        items: [
-            { icon: 'fas fa-search', label: 'Search Employee', action: () => focusEmployeeSearch() },
-            { icon: 'fas fa-file-export', label: 'Export List', action: () => exportEmployeeList() }
-        ]
-    },
-    'po-payroll': {
-        title: 'Payroll Processing',
-        items: [
-            { icon: 'fas fa-calculator', label: 'Calculate Payroll', action: () => calculatePayroll() },
-            { icon: 'fas fa-file-pdf', label: 'Export Payslips', action: () => exportPayslips() }
+            { icon: 'fas fa-sync-alt', label: 'Refresh', action: () => location.reload() },
+            { icon: 'fas fa-info-circle', label: 'System Info', action: () => window.location.href = 'about.php' },
+            { icon: 'fas fa-question-circle', label: 'Help and Support', action: () => window.location.href = 'contact-us.php' }
         ]
     }
 };
@@ -294,15 +55,8 @@ function handleContextMenu(e) {
     // Prevent default context menu
     e.preventDefault();
     
-    // Get current page context
-    const pageContext = getCurrentPageContext();
-    currentPageContext = pageContext;
-    
-    // Get menu configuration for current page
-    const config = contextMenuConfig[pageContext];
-    if (!config) {
-        return; // No custom menu for this page
-    }
+    // Use global menu configuration
+    const config = contextMenuConfig.global;
     
     // Build and show context menu
     buildContextMenu(config);
@@ -489,14 +243,7 @@ function showESSPage(pageId) {
 }
 
 function showHelp() {
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: 'Help & Support',
-            html: '<p>For assistance, please contact:</p><p><strong>IT Support:</strong> support@alm.edu</p><p><strong>Phone:</strong> (053) 123-4567</p>',
-            icon: 'info',
-            confirmButtonText: 'Close'
-        });
-    }
+    window.location.href = 'contact-us.php';
 }
 
 function showForgotPasswordHelp() {
@@ -1360,14 +1107,7 @@ function backupDatabase() {
 }
 
 function showSystemInfo() {
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            title: 'System Information',
-            html: '<p><strong>Version:</strong> 2.4.0</p><p><strong>Build:</strong> 9</p><p><strong>Last Updated:</strong> April 2026</p>',
-            icon: 'info',
-            confirmButtonText: 'Close'
-        });
-    }
+    window.location.href = 'about.php';
 }
 
 function focusAttendanceFilter() {

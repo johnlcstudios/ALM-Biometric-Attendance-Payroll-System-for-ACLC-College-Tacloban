@@ -422,5 +422,6 @@ try {
             }
         });
     </script>
+    <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>
