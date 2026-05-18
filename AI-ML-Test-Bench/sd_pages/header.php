@@ -435,7 +435,7 @@ $company_id = $_SESSION['company_id'] ?? 1;
                     <div class="nav-submenu" id="payroll-submenu">
                         <a class="nav-link" href="sd_pages/budget_actual.php">Budget vs Actual</a>
                         <a class="nav-link" href="sd_pages/payroll_auth.php">Payroll Authorization</a>
-                        <a class="nav-link" href="sd_pages/loan_oversight.php">Loan Oversight</a>
+                        <a class="nav-link" href="sd_pages/loan_oversight.php">Cash Advance Oversight</a>
                         <a class="nav-link" href="sd_pages/gov_compliance.php">Government Compliance</a>
                     </div>
                 </li>

@@ -36,7 +36,7 @@
                     <th>Absences</th>
                     <th>Latest/UT</th>
                     <th>HDMF Cont.</th>
-                    <th>HDMF Loans</th>
+                    <th>HDMF Cash Advance</th>
                     <th>HDMF MP2</th>
                     <th>Total Deduction</th>
                     <th>Honorarium</th>

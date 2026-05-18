@@ -12,11 +12,13 @@
                     <th>ID</th>
                     <th>Name</th>
                     <th>Position</th>
+                    <th>Work Position</th>
                     <th>Department</th>
                     <th>Faculty Level</th>
                     <th>Hire Date</th>
                     <th>Loads</th>
                     <th>Status</th>
+                    <th>Work Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>

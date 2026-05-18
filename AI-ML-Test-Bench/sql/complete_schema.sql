@@ -261,6 +261,8 @@ CREATE TABLE `employees` (
   `philhealth` varchar(50) DEFAULT NULL,
   `pagibig` varchar(50) DEFAULT NULL,
   `leave_balance` int(11) DEFAULT 15,
+  `work_position` varchar(100) DEFAULT NULL,
+  `work_status` varchar(50) DEFAULT NULL,
   `face_descriptor` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`face_descriptor`)),
   `profile_picture` varchar(255) DEFAULT NULL,
   `enrolled_at` datetime DEFAULT NULL,
@@ -559,6 +561,44 @@ CREATE TABLE `subject_loads` (
 INSERT INTO `subject_loads` (`id`, `company_id`, `faculty_id`, `code`, `description`, `units`, `hours`, `created_at`) VALUES
 (1, 2, 7, 'MATH101', 'College Algebra', 3, 3, '2026-04-11 02:43:12'),
 (2, 4, 8, 'awdds', 'qeqd', 3, 3, '2026-04-11 13:57:14');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `subject_schedules`
+--
+
+CREATE TABLE `subject_schedules` (
+  `id` int(11) NOT NULL,
+  `company_id` int(11) NOT NULL,
+  `subject_load_id` int(11) NOT NULL,
+  `day_of_week` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+  `time_start` time NOT NULL,
+  `time_end` time NOT NULL,
+  `room` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Indexes for table `subject_schedules`
+--
+ALTER TABLE `subject_schedules`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `company_id` (`company_id`),
+  ADD KEY `subject_load_id` (`subject_load_id`);
+
+--
+-- AUTO_INCREMENT for table `subject_schedules`
+--
+ALTER TABLE `subject_schedules`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for table `subject_schedules`
+--
+ALTER TABLE `subject_schedules`
+  ADD CONSTRAINT `subject_schedules_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `subject_schedules_ibfk_2` FOREIGN KEY (`subject_load_id`) REFERENCES `subject_loads` (`id`) ON DELETE CASCADE;
 
 -- --------------------------------------------------------
 

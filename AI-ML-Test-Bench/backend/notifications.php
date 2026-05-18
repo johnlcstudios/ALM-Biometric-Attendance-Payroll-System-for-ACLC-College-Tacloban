@@ -66,11 +66,11 @@ function notifyPayrollGenerated($employeeEmail, $employeeName, $period, $netPay)
 }
 
 function notifyLoanStatus($employeeEmail, $employeeName, $amount, $status) {
-    $subject = "Loan Request $status";
+    $subject = "Cash Advance Request $status";
     $htmlBody = "
-        <h2>Loan Request Update</h2>
+        <h2>Cash Advance Request Update</h2>
         <p>Dear $employeeName,</p>
-        <p>Your loan request of <strong>₱" . number_format($amount, 2) . "</strong> has been <strong>$status</strong>.</p>
+        <p>Your cash advance request of <strong>₱" . number_format($amount, 2) . "</strong> has been <strong>$status</strong>.</p>
         <p>Please contact HR/Payroll for more details.</p>
         <br>
         <p><small>This is an automated message from ALM Biometrics System</small></p>

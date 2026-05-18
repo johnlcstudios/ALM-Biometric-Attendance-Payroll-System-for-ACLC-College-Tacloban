@@ -39,5 +39,9 @@
             <h3>Attendance Breakdown</h3>
             <canvas id="attendanceChart"></canvas>
         </div>
+        <div class="chart-card full-width" style="margin-top:0;">
+            <h3>Monthly Attendance Trends</h3>
+            <canvas id="monthlyTrendsChart"></canvas>
+        </div>
     </div>
 </section>

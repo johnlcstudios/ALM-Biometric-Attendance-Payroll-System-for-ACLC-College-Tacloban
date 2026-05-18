@@ -404,6 +404,48 @@ try {
         if (!$silent) echo "'subject_loads' table already exists.\n";
     }
 
+    // 20. Add 'work_position' column to 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'work_position'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'work_position' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN work_position VARCHAR(100) DEFAULT NULL AFTER position");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'work_position' column already exists in 'employees' table.\n";
+    }
+
+    // 21. Add 'work_status' column to 'employees' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM employees LIKE 'work_status'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'work_status' column to 'employees' table... ";
+        $pdo->exec("ALTER TABLE employees ADD COLUMN work_status VARCHAR(50) DEFAULT NULL AFTER status");
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'work_status' column already exists in 'employees' table.\n";
+    }
+
+    // 22. Create 'subject_schedules' table
+    $stmt = $pdo->query("SHOW TABLES LIKE 'subject_schedules'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Creating 'subject_schedules' table... ";
+        $sql = "CREATE TABLE subject_schedules (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            company_id INT NOT NULL,
+            subject_load_id INT NOT NULL,
+            day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+            time_start TIME NOT NULL,
+            time_end TIME NOT NULL,
+            room VARCHAR(100) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (subject_load_id) REFERENCES subject_loads(id) ON DELETE CASCADE
+        )";
+        $pdo->exec($sql);
+        if (!$silent) echo "DONE\n";
+    } else {
+        if (!$silent) echo "'subject_schedules' table already exists.\n";
+    }
+
     if (!$silent) {
         echo "\n<b>Database update completed successfully!</b>";
         echo "\n<a href='index.php'>Return to Dashboard</a>";

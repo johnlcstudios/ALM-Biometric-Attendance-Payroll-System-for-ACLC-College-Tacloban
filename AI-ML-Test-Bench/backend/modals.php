@@ -91,19 +91,21 @@
                         <div class="form-group">
                             <label><i class="fas fa-id-badge"></i> Position <span class="required text-danger">*</span></label>
                             <select name="position" onchange="toggleSubjectStep()" required>
-                                <option value="">Select a Posiion</option>
+                                <option value="">Select a Position</option>
                                 <option value="Faculty">Full-Time Faculty</option>
-
                                 <option value="Staff">Regular Staff</option>
                                 <option value="Utility">Utility Staff</option>
                                 <option value="Payroll Officer">Payroll Officer</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-chalkboard-teacher"></i> Work Position (Academic Rank)</label>
+                            <input type="text" name="work_position" placeholder="e.g. Assistant Professor, Lecturer, Instructor">
+                        </div>
                         <div class="form-group" id="facultyLevelGroup" style="display:none;">
                             <label><i class="fas fa-graduation-cap"></i> Faculty Level <span class="required text-danger">*</span></label>
                             <select name="faculty_level">
                                 <option value="">Select a Faculty Level</option>
-
                                 <option value="SHS">Senior High School (SHS)</option>
                                 <option value="College">College</option>
                                 <option value="Both">Both SHS & College</option>
@@ -114,7 +116,6 @@
                             <select name="department" required>
                                 <option value="">Select a Department</option>
                                 <option value="IT">Information Technology</option>
-
                                 <option value="Education">Education</option>
                                 <option value="Admin">Administration</option>
                                 <option value="Utility">General Services</option>
@@ -133,9 +134,18 @@
                             <select name="status">
                                 <option value="">Select a...</option>
                                 <option value="Active">Active</option>
-
                                 <option value="Probationary">Probationary</option>
                                 <option value="Contractual">Contractual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-briefcase"></i> Work Status</label>
+                            <select name="work_status">
+                                <option value="">Select Work Status...</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Part-time">Part-time</option>
+                                <option value="Contractual">Contractual</option>
+                                <option value="Probationary">Probationary</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -411,6 +421,57 @@
                         <!-- Dynamic Content -->
                     </tbody>
                 </table>
+            </div>
+            <hr style="margin:20px 0;">
+            <h4>Schedule Management</h4>
+            <p class="text-muted" style="font-size:0.85rem;margin-bottom:12px;">Select a subject load above and manage its weekly schedules below.</p>
+            <div id="scheduleSection" style="display:none;">
+                <div class="form-row-custom" style="grid-template-columns: 1fr 1fr 1fr 1fr auto; gap:8px; align-items:end;">
+                    <div class="form-group-custom">
+                        <label>Day</label>
+                        <select id="schedDay" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Time Start</label>
+                        <input type="time" id="schedTimeStart" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Time End</label>
+                        <input type="time" id="schedTimeEnd" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Room</label>
+                        <input type="text" id="schedRoom" placeholder="Rm. 101" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="saveSchedule()" style="padding:8px 16px;font-size:0.85rem;">Add</button>
+                    </div>
+                </div>
+                <div style="margin-top:12px;">
+                    <table class="payroll-table">
+                        <thead>
+                            <tr>
+                                <th>DAY</th>
+                                <th>TIME START</th>
+                                <th>TIME END</th>
+                                <th>ROOM</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody">
+                            <!-- Dynamic schedule rows -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <div class="modal-footer">

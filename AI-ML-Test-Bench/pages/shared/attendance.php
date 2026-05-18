@@ -41,6 +41,7 @@
                     <th>LUNCH-IN</th>
                     <th>CHECK-OUT</th>
                     <th>STATUS</th>
+                    <th>SCHEDULE</th>
                     <th>ACTION</th>
                 </tr>
             </thead>

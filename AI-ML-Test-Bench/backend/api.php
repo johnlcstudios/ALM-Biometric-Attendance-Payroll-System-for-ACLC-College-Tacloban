@@ -59,6 +59,9 @@ $allowedActions = [
     // Subject Load Management
     'get_subjects', 'save_subject', 'delete_subject',
     'get_subject_loads', 'save_subject_load', 'delete_subject_load',
+    'get_subject_schedules', 'save_subject_schedule', 'delete_subject_schedule',
+    'get_my_subject_loads', 'save_my_subject_load', 'delete_my_subject_load',
+    'get_my_subject_schedules', 'save_my_subject_schedule', 'delete_my_subject_schedule',
     
     // Leave Management
     'get_leave_requests', 'apply_leave', 'update_leave_status',
@@ -92,7 +95,11 @@ $allowedActions = [
     
     // NEW: Payroll Calendar & Improvements (Phase 1)
     'get_payroll_schedule', 'save_payroll_schedule', 'validate_payroll_readiness',
-    'calculate_taxes', 'apply_payroll_taxes'
+    'calculate_taxes', 'apply_payroll_taxes',
+    
+    // ESS Specific Subject Load endpoints
+    'save_subject_load_ess', 'delete_subject_load_ess',
+    'save_subject_schedule_ess', 'delete_subject_schedule_ess'
 ];
 
 
@@ -1418,12 +1425,13 @@ try {
 
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
-                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ? WHERE id = ? AND company_id = ?");
+                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
                 $stmt->execute([
                     trim($data['fullName']),
                     $data['dob'],
                     $email,
                     $data['position'],
+                    $data['work_position'] ?? null,
                     $data['department'],
                     $data['faculty_level'] ?? null,
                     $data['hire_date'] ?? date('Y-m-d'),
@@ -1433,6 +1441,7 @@ try {
                     trim($data['tin'] ?? ''),
                     trim($data['pagibig'] ?? ''),
                     $status,
+                    $data['work_status'] ?? null,
                     $data['id'],
                     $_SESSION['company_id']
                 ]);
@@ -1463,7 +1472,7 @@ try {
                     $stmt->execute([$_SESSION['company_id'], $username, $hashed_pass, $role, $email]);
                     $user_id = $pdo->lastInsertId();
 
-                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, department, faculty_level, hire_date, basic_salary, sss, philhealth, tin, pagibig, user_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, work_position, department, faculty_level, hire_date, basic_salary, sss, philhealth, tin, pagibig, user_id, status, work_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $_SESSION['company_id'],
                         $emp_id,
@@ -1471,6 +1480,7 @@ try {
                         $data['dob'],
                         $email,
                         $data['position'],
+                        $data['work_position'] ?? null,
                         $data['department'],
                         $data['faculty_level'] ?? null,
                         $data['hire_date'] ?? date('Y-m-d'),
@@ -1480,7 +1490,8 @@ try {
                         trim($data['tin'] ?? ''),
                         trim($data['pagibig'] ?? ''),
                         $user_id,
-                        $status
+                        $status,
+                        $data['work_status'] ?? null
                     ]);
                     $new_emp_id = $pdo->lastInsertId();
 
@@ -1592,9 +1603,57 @@ try {
         case 'get_attendance':
             if (!isset($_SESSION['company_id']))
                 exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC");
+            $date = $_GET['date'] ?? date('Y-m-d');
+            $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code, e.position FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC");
             $stmt->execute([$_SESSION['company_id']]);
-            echo json_encode($stmt->fetchAll());
+            $attendance = $stmt->fetchAll();
+            
+            // Enrich with schedule data for faculty
+            $day_map = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            $today_day_name = $day_map[(int)date('N', strtotime($date)) - 1];
+            
+            foreach ($attendance as &$row) {
+                $row['schedule'] = [];
+                if ($row['position'] === 'Faculty') {
+                    $stmt_sched = $pdo->prepare("
+                        SELECT ss.day_of_week, ss.time_start, ss.time_end, ss.room, 
+                               sl.description as subject_description, sl.code as subject_code
+                        FROM subject_schedules ss 
+                        JOIN subject_loads sl ON ss.subject_load_id = sl.id 
+                        WHERE sl.faculty_id = ? AND ss.day_of_week = ? AND ss.company_id = ?
+                        ORDER BY ss.time_start
+                    ");
+                    $stmt_sched->execute([$row['employee_id'], $today_day_name, $_SESSION['company_id']]);
+                    $schedules = $stmt_sched->fetchAll();
+                    
+                    // Fallback: if not found for today, try matching log_date day name
+                    if (empty($schedules)) {
+                        $log_day_name = $day_map[(int)date('N', strtotime($row['log_date'])) - 1];
+                        $stmt_sched->execute([$row['employee_id'], $log_day_name, $_SESSION['company_id']]);
+                        $schedules = $stmt_sched->fetchAll();
+                    }
+                    $row['schedule'] = $schedules;
+                    
+                    // Calculate on-time based on schedule
+                    if (!empty($schedules) && $row['check_in']) {
+                        $first_start = $schedules[0]['time_start'];
+                        if ($row['check_in'] <= $first_start) {
+                            $row['schedule_ontime_in'] = true;
+                        } else {
+                            $row['schedule_ontime_in'] = false;
+                        }
+                        
+                        $last_end = end($schedules)['time_end'];
+                        if ($row['check_out'] && $row['check_out'] >= $last_end) {
+                            $row['schedule_ontime_out'] = true;
+                        } else {
+                            $row['schedule_ontime_out'] = $row['check_out'] ? false : null;
+                        }
+                    }
+                }
+            }
+            
+            echo json_encode($attendance);
             break;
 
         case 'kiosk_scan':
@@ -1824,10 +1883,38 @@ try {
 
             // Late status calculation (only for check_in)
             if ($column === 'check_in') {
-                $late_time = date('H:i:s', strtotime($work_start . " + $grace_period minutes"));
+                // For faculty, check against first subject load schedule
+                $day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                $today_day_name = $day_names[(int)date('N', strtotime($date)) - 1];
+                $sched_start = null;
+                
+                if ($emp_data['position'] === 'Faculty') {
+                    $stmt_sched = $pdo->prepare("SELECT ss.time_start, ss.time_end FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE sl.faculty_id = ? AND ss.day_of_week = ? AND ss.company_id = ? ORDER BY ss.time_start LIMIT 1");
+                    $stmt_sched->execute([$employee_id, $today_day_name, $company_id]);
+                    $first_sched = $stmt_sched->fetch();
+                    if ($first_sched) {
+                        $sched_start = $first_sched['time_start'];
+                    }
+                }
+                
+                $late_ref_time = $sched_start ?: $work_start;
+                $late_time = date('H:i:s', strtotime($late_ref_time . " + $grace_period minutes"));
                 if ($time > $late_time) {
                     $status = 'Late';
-                    $late_minutes = max(0, floor((strtotime($time) - strtotime($work_start)) / 60));
+                    $late_minutes = max(0, floor((strtotime($time) - strtotime($late_ref_time)) / 60));
+                }
+            }
+            
+            // For faculty check_out: on-time if after last subject load end
+            if ($column === 'check_out' && $emp_data['position'] === 'Faculty') {
+                $day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                $today_day_name = $day_names[(int)date('N', strtotime($date)) - 1];
+                $stmt_sched = $pdo->prepare("SELECT ss.time_end FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE sl.faculty_id = ? AND ss.day_of_week = ? AND ss.company_id = ? ORDER BY ss.time_end DESC LIMIT 1");
+                $stmt_sched->execute([$employee_id, $today_day_name, $company_id]);
+                $last_sched = $stmt_sched->fetch();
+                if ($last_sched && $time < $last_sched['time_end']) {
+                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR TIME OUT (Last subject ends " . date('h:i A', strtotime($last_sched['time_end'])) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                    break;
                 }
             }
 
@@ -2307,7 +2394,7 @@ try {
                 echo json_encode(['success' => true]);
             } catch (Exception $e) {
                 // If table doesn't exist, we might need to create it. For now, return error.
-                echo json_encode(['success' => false, 'message' => 'Loans feature not fully initialized: ' . $e->getMessage()]);
+                echo json_encode(['success' => false, 'message' => 'Cash advance feature not fully initialized: ' . $e->getMessage()]);
             }
             break;
 
@@ -2362,6 +2449,27 @@ try {
             $stats['present_today'] = (int) $stmt->fetchColumn();
 
             $stats['absent_today'] = $stats['total_employees'] - $stats['present_today'];
+            
+            // Attendance breakdown by status for today
+            $stmt = $pdo->prepare("SELECT status, COUNT(*) as count FROM attendance WHERE company_id = ? AND log_date = ? GROUP BY status");
+            $stmt->execute([$cid, $today]);
+            $stats['attendance_breakdown'] = $stmt->fetchAll();
+            
+            // Absence by department
+            $stmt = $pdo->prepare("SELECT e.department, COUNT(*) as count FROM employees e LEFT JOIN attendance a ON e.id = a.employee_id AND a.log_date = ? AND a.check_in IS NOT NULL WHERE e.company_id = ? AND e.status = 'Active' AND a.id IS NULL GROUP BY e.department");
+            $stmt->execute([$today, $cid]);
+            $stats['absence_by_department'] = $stmt->fetchAll();
+            
+            // Monthly attendance trends (last 6 months)
+            $six_months_ago = date('Y-m-d', strtotime('-6 months'));
+            $stmt = $pdo->prepare("SELECT DATE_FORMAT(log_date, '%Y-%m') as month, 
+                                  COUNT(CASE WHEN status = 'On-Time' THEN 1 END) as on_time,
+                                  COUNT(CASE WHEN status = 'Late' THEN 1 END) as late,
+                                  COUNT(CASE WHEN status = 'Absent' THEN 1 END) as absent
+                                  FROM attendance WHERE company_id = ? AND log_date >= ? 
+                                  GROUP BY DATE_FORMAT(log_date, '%Y-%m') ORDER BY month");
+            $stmt->execute([$cid, $six_months_ago]);
+            $stats['monthly_trends'] = $stmt->fetchAll();
 
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM leave_requests WHERE company_id = ? AND status = 'Pending'");
             $stmt->execute([$cid]);
@@ -2486,6 +2594,170 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        case 'get_subject_schedules':
+            if (!isset($_SESSION['company_id']))
+                exit(json_encode([]));
+            $subject_load_id = $_GET['subject_load_id'] ?? null;
+            $faculty_id = $_GET['faculty_id'] ?? null;
+            $day = $_GET['day'] ?? null;
+            $sql = "SELECT ss.*, sl.faculty_id, sl.description as subject_description, sl.code as subject_code, e.full_name as faculty_name 
+                    FROM subject_schedules ss 
+                    JOIN subject_loads sl ON ss.subject_load_id = sl.id 
+                    JOIN employees e ON sl.faculty_id = e.id 
+                    WHERE ss.company_id = ?";
+            $params = [$_SESSION['company_id']];
+            if ($subject_load_id) { $sql .= " AND ss.subject_load_id = ?"; $params[] = $subject_load_id; }
+            if ($faculty_id) { $sql .= " AND sl.faculty_id = ?"; $params[] = $faculty_id; }
+            if ($day) { $sql .= " AND ss.day_of_week = ?"; $params[] = $day; }
+            $sql .= " ORDER BY ss.day_of_week, ss.time_start";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_subject_schedule':
+            if (!isAdminOrHR())
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (empty($data['subject_load_id']) || empty($data['day_of_week']) || empty($data['time_start']) || empty($data['time_end'])) {
+                echo json_encode(['success' => false, 'message' => 'Subject load, day, start time, and end time are required']);
+                break;
+            }
+            if (isset($data['id']) && !empty($data['id'])) {
+                $stmt = $pdo->prepare("UPDATE subject_schedules SET subject_load_id = ?, day_of_week = ?, time_start = ?, time_end = ?, room = ? WHERE id = ? AND company_id = ?");
+                $stmt->execute([$data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? null, $data['id'], $_SESSION['company_id']]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO subject_schedules (company_id, subject_load_id, day_of_week, time_start, time_end, room) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$_SESSION['company_id'], $data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? null]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_schedule':
+            if (!isAdminOrHR())
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Invalid ID']);
+                break;
+            }
+            $stmt = $pdo->prepare("DELETE FROM subject_schedules WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        // --- Faculty Self-Service: Subject Loads ---
+        case 'get_my_subject_loads':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT e.id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT * FROM subject_loads WHERE faculty_id = ? ORDER BY code");
+            $stmt->execute([$emp_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_my_subject_load':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+            $company_id = $_SESSION['company_id'] ?? null;
+            if (!$company_id) exit(json_encode(['success' => false, 'message' => 'No company']));
+            if (isset($data['id']) && !empty($data['id'])) {
+                $stmt = $pdo->prepare("UPDATE subject_loads SET code = ?, description = ?, units = ?, hours = ? WHERE id = ? AND faculty_id = ?");
+                $stmt->execute([$data['code'], $data['description'], $data['units'], $data['hours'], $data['id'], $emp_id]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$company_id, $emp_id, $data['code'], $data['description'], $data['units'], $data['hours']]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_my_subject_load':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND faculty_id = ?");
+            $stmt->execute([$id, $emp_id]);
+            echo json_encode(['success' => true]);
+            break;
+
+        // --- Faculty Self-Service: Subject Schedules ---
+        case 'get_my_subject_schedules':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT e.id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode([]));
+            $subject_load_id = $_GET['subject_load_id'] ?? null;
+            if (!$subject_load_id) exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT ss.*, sl.code as subject_code, sl.description as subject_description FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE ss.subject_load_id = ? AND sl.faculty_id = ? ORDER BY ss.day_of_week, ss.time_start");
+            $stmt->execute([$subject_load_id, $emp_id]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_my_subject_schedule':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("SELECT e.id, e.company_id FROM employees e WHERE e.user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp = $stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+            $emp_id = $emp['id'];
+            $company_id = $emp['company_id'];
+            // Verify the subject_load belongs to this faculty
+            $stmt = $pdo->prepare("SELECT id FROM subject_loads WHERE id = ? AND faculty_id = ?");
+            $stmt->execute([$data['subject_load_id'], $emp_id]);
+            if (!$stmt->fetch()) exit(json_encode(['success' => false, 'message' => 'Subject load not found']));
+            if (empty($data['day_of_week']) || empty($data['time_start']) || empty($data['time_end'])) {
+                echo json_encode(['success' => false, 'message' => 'Day, start time, and end time are required']);
+                break;
+            }
+            // Overlap check
+            $stmt = $pdo->prepare("SELECT ss.id FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE sl.faculty_id = ? AND ss.day_of_week = ? AND ss.time_start < ? AND ss.time_end > ? AND (? IS NULL OR ss.id != ?)");
+            $existing_id = $data['id'] ?? null;
+            $stmt->execute([$emp_id, $data['day_of_week'], $data['time_end'], $data['time_start'], $existing_id, $existing_id]);
+            if ($stmt->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Schedule overlaps with an existing entry on this day.']);
+                break;
+            }
+            if (isset($data['id']) && !empty($data['id'])) {
+                $stmt = $pdo->prepare("UPDATE subject_schedules SET day_of_week = ?, time_start = ?, time_end = ?, room = ? WHERE id = ? AND subject_load_id IN (SELECT id FROM subject_loads WHERE id = ? AND faculty_id = ?)");
+                $stmt->execute([$data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? null, $data['id'], $data['subject_load_id'], $emp_id]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO subject_schedules (company_id, subject_load_id, day_of_week, time_start, time_end, room) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$company_id, $data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? null]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_my_subject_schedule':
+            if (!isset($_SESSION['user_id']))
+                exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id || $id <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); break; }
+            $stmt = $pdo->prepare("SELECT e.id FROM employees e WHERE e.user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+            $stmt = $pdo->prepare("DELETE ss FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE ss.id = ? AND sl.faculty_id = ?");
+            $stmt->execute([$id, $emp_id]);
+            echo json_encode(['success' => true]);
+            break;
+
         case 'update_role':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
@@ -2547,6 +2819,9 @@ try {
             $username = trim($data['username'] ?? '');
             $email = trim($data['email'] ?? '');
             $phone = trim($data['phone'] ?? '');
+            $work_position = trim($data['work_position'] ?? '') ?: null;
+            $work_status = trim($data['work_status'] ?? '') ?: null;
+            $hire_date = trim($data['hire_date'] ?? '') ?: null;
 
             if (empty($username) || empty($email)) {
                 echo json_encode(['success' => false, 'message' => 'Username and email are required']);
@@ -2576,6 +2851,18 @@ try {
 
             $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ?, phone = ? WHERE id = ?");
             $success = $stmt->execute([$username, $email, $phone, $_SESSION['user_id']]);
+
+            // Also update employee fields
+            $empFields = [];
+            $empParams = [];
+            if ($work_position !== null) { $empFields[] = "work_position = ?"; $empParams[] = $work_position; }
+            if ($work_status !== null) { $empFields[] = "work_status = ?"; $empParams[] = $work_status; }
+            if ($hire_date !== null) { $empFields[] = "hire_date = ?"; $empParams[] = $hire_date; }
+            if (!empty($empFields)) {
+                $empParams[] = $_SESSION['user_id'];
+                $empStmt = $pdo->prepare("UPDATE employees SET " . implode(', ', $empFields) . " WHERE user_id = ?");
+                $empStmt->execute($empParams);
+            }
 
             if ($success) {
                 $_SESSION['full_name'] = $username;
@@ -2654,10 +2941,12 @@ try {
             $gender = trim($data['gender'] ?? '') ?: null;
             $contact_no = trim($data['contact_no'] ?? '') ?: null;
             $position = trim($data['position'] ?? '') ?: null;
+            $work_position = trim($data['work_position'] ?? '') ?: null;
             $department = trim($data['department'] ?? '') ?: null;
             $hire_date = trim($data['hire_date'] ?? '') ?: null;
             $faculty_level = trim($data['faculty_level'] ?? '') ?: null;
             $status = trim($data['status'] ?? 'active');
+            $work_status = trim($data['work_status'] ?? '') ?: null;
             
             // Keep backward compatibility with old fields
             $sss = trim($data['sss'] ?? '') ?: null;
@@ -2684,8 +2973,8 @@ try {
                 break;
             }
 
-            $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, email = ?, dob = ?, gender = ?, contact_no = ?, position = ?, department = ?, hire_date = ?, faculty_level = ?, status = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE user_id = ?");
-            $success = $stmt->execute([$full_name, $email, $dob, $gender, $contact_no, $position, $department, $hire_date, $faculty_level, $status, $sss, $philhealth, $tin, $pagibig, $_SESSION['user_id']]);
+            $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, email = ?, dob = ?, gender = ?, contact_no = ?, position = ?, work_position = ?, department = ?, hire_date = ?, faculty_level = ?, status = ?, work_status = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ? WHERE user_id = ?");
+            $success = $stmt->execute([$full_name, $email, $dob, $gender, $contact_no, $position, $work_position, $department, $hire_date, $faculty_level, $status, $work_status, $sss, $philhealth, $tin, $pagibig, $_SESSION['user_id']]);
 
             if ($success) {
                 echo json_encode(['success' => true]);
@@ -3183,6 +3472,61 @@ echo json_encode([
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'message' => 'Failed to get analytics: ' . $e->getMessage()]);
             }
+            break;
+
+        case 'save_subject_load_ess':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            if (!$emp_id) exit(json_encode(['success' => false, 'message' => 'Employee not found']));
+            
+            $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'] ?? 1, $emp_id, $data['code'], $data['description'], $data['units'], 0]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_load_ess':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            if (!$id) exit(json_encode(['success' => false, 'message' => 'Invalid ID']));
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            
+            $stmt = $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND faculty_id = ?");
+            $stmt->execute([$id, $emp_id]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'save_subject_schedule_ess':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            
+            // Verify ownership
+            $stmt = $pdo->prepare("SELECT id FROM subject_loads WHERE id = ? AND faculty_id = ?");
+            $stmt->execute([$data['subject_load_id'], $emp_id]);
+            if (!$stmt->fetch()) exit(json_encode(['success' => false, 'message' => 'Subject load not found']));
+            
+            $stmt = $pdo->prepare("INSERT INTO subject_schedules (company_id, subject_load_id, day_of_week, time_start, time_end, room) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'] ?? 1, $data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room']]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_schedule_ess':
+            if (!isset($_SESSION['user_id'])) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
+            $stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $emp_id = $stmt->fetchColumn();
+            
+            $stmt = $pdo->prepare("DELETE ss FROM subject_schedules ss JOIN subject_loads sl ON ss.subject_load_id = sl.id WHERE ss.id = ? AND sl.faculty_id = ?");
+            $stmt->execute([$id, $emp_id]);
+            echo json_encode(['success' => true]);
             break;
 
         default:

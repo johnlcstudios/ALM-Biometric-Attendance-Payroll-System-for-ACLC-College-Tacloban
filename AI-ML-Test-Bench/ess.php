@@ -205,10 +205,26 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-icon red"><i class="fas fa-clock"></i></div>
+                        <div class="stat-info">
+                            <h3>Late Minutes</h3>
+                            <div class="stat-value" id="stat-late">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-icon orange"><i class="fas fa-wallet"></i></div>
                         <div class="stat-info">
                             <h3>Last Net Pay</h3>
                             <div class="stat-value" id="stat-net-pay">₱0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container" style="margin-bottom: 2rem;">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
+                        <h3>Attendance Summary</h3>
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="attendanceChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -308,7 +324,7 @@ $position = $emp['position'] ?? 'Staff';
             <section id="requests" class="page">
                 <div class="tab-nav">
                     <button class="tab-link active" onclick="switchRequestTab('leave', this)">Leave Requests</button>
-                    <button class="tab-link" onclick="switchRequestTab('loan', this)">Loan Requests</button>
+                    <button class="tab-link" onclick="switchRequestTab('loan', this)">Cash Advance</button>
                     <button class="tab-link" onclick="switchRequestTab('resignation', this)">Resignation</button>
                 </div>
 
@@ -365,22 +381,101 @@ $position = $emp['position'] ?? 'Staff';
                 <!-- Loan Request Section -->
                 <div id="request-loan" class="request-section" style="display: none;">
                     <div class="ess-request-grid">
-                        <div class="request-form-card">
-                            <h3>Apply for Loan</h3>
-                            <form id="loan-form" onsubmit="submitRequest(event, 'loan')">
-                                <div class="form-group-custom">
-                                    <label>Amount (PHP)</label>
-                                    <input type="number" name="amount" class="form-control-large-gray" placeholder="0.00" step="0.01" required>
+                        <div class="request-form-card" style="padding: 0; background: #f8f9fa; border: 1px solid #e9ecef; overflow: hidden;">
+                            <div class="printable-form-wrapper" style="background: white; padding: 40px 30px; margin: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-radius: 4px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 30px;">
+                                    <img src="assets/logo.jpg" alt="Logo" style="width: 70px; height: 70px; margin-right: 20px; object-fit: contain;">
+                                    <div style="font-weight: 800; font-size: 18px; color: #111; line-height: 1.3;">
+                                        ACLC COLLEGE<br>TACLOBAN
+                                    </div>
                                 </div>
-                                <div class="form-group-custom">
-                                    <label>Reason</label>
-                                    <textarea name="reason" class="form-control-large-gray" rows="4" required></textarea>
+                                <div style="text-align: center; font-weight: 800; font-size: 20px; margin-bottom: 40px; color: #111; letter-spacing: 1px;">
+                                    CASH ADVANCE FORM
                                 </div>
-                                <button type="submit" class="btn btn-dark-purple btn-full">Submit Request</button>
-                            </form>
+                                <form id="loan-form" onsubmit="submitRequest(event, 'loan')">
+                                    <style>
+                                        .ca-row { display: flex; align-items: flex-end; margin-bottom: 20px; }
+                                        .ca-label { width: 160px; font-weight: 700; font-size: 14px; color: #333; }
+                                        .ca-colon { width: 25px; text-align: center; font-weight: 700; color: #333; }
+                                        .ca-input { flex-grow: 1; border: none; border-bottom: 1px solid #000; background: transparent; font-family: inherit; font-size: 15px; outline: none; padding: 4px 8px; font-weight: 600; color: #111; }
+                                        .ca-input[readonly] { color: #555; border-bottom: 1px dotted #888; }
+                                        .ca-input:focus { border-bottom: 2px solid var(--primary-color); background: rgba(0,0,0,0.02); }
+                                    </style>
+                                    
+                                    <div class="ca-row">
+                                        <div class="ca-label">CA FORM NO.</div>
+                                        <div class="ca-colon">:</div>
+                                        <input type="text" class="ca-input" value="Auto-generated" readonly>
+                                    </div>
+                                    <div class="ca-row">
+                                        <div class="ca-label">Date Filed:</div>
+                                        <div class="ca-colon">:</div>
+                                        <input type="text" class="ca-input" value="<?php echo date('F j, Y'); ?>" readonly>
+                                    </div>
+                                    <div class="ca-row">
+                                        <div class="ca-label">Name of Employee</div>
+                                        <div class="ca-colon">:</div>
+                                        <input type="text" class="ca-input" value="<?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+                                    </div>
+                                    <div class="ca-row">
+                                        <div class="ca-label">Position</div>
+                                        <div class="ca-colon">:</div>
+                                        <input type="text" class="ca-input" value="<?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+                                    </div>
+                                    <div class="ca-row">
+                                        <div class="ca-label">Amount Loan</div>
+                                        <div class="ca-colon">:</div>
+                                        <input type="number" name="amount" class="ca-input" placeholder="Enter amount (PHP)..." step="0.01" required style="border-bottom: 2px solid var(--primary-color);">
+                                    </div>
+                                    <div class="ca-row" style="align-items: flex-start;">
+                                        <div class="ca-label" style="margin-top: 8px;">Purpose</div>
+                                        <div class="ca-colon" style="margin-top: 8px;">:</div>
+                                        <textarea name="reason" class="ca-input" rows="2" placeholder="Enter reason for cash advance..." required style="resize: none; border-bottom: 2px solid var(--primary-color); line-height: 1.5; padding-top: 8px;"></textarea>
+                                    </div>
+                                    
+                                    <div style="margin-top: 50px; margin-bottom: 40px;">
+                                        <div class="ca-row" style="align-items: flex-start;">
+                                            <div class="ca-label" style="margin-top: 8px;">Signature</div>
+                                            <div style="flex-grow: 1; margin-left: 25px; border-bottom: 1px solid #000; min-height: 25px;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 30px; font-size: 14px;">
+                                        <div class="ca-row" style="margin-bottom: 15px;">
+                                            <div class="ca-label" style="width: 200px;">Verified by</div>
+                                            <div class="ca-colon">:</div>
+                                            <div style="font-weight: 700; color: #333;">Accounting Clerk</div>
+                                        </div>
+                                        <div class="ca-row" style="margin-bottom: 15px;">
+                                            <div class="ca-label" style="width: 200px;">Recommending Approval</div>
+                                            <div class="ca-colon">:</div>
+                                            <div style="font-weight: 700; color: #333;">School Director</div>
+                                        </div>
+                                        <div class="ca-row" style="margin-bottom: 15px;">
+                                            <div class="ca-label" style="width: 200px;">Approved By</div>
+                                            <div class="ca-colon">:</div>
+                                            <div style="font-weight: 700; color: #333;">Managing Director</div>
+                                        </div>
+                                        <div class="ca-row" style="margin-bottom: 15px;">
+                                            <div class="ca-label" style="width: 200px;">Released By</div>
+                                            <div class="ca-colon">:</div>
+                                            <div style="font-weight: 700; color: #333;">Cashier</div>
+                                        </div>
+                                    </div>
+
+                                    <div style="margin-top: 40px; border-top: 1px dashed #ccc; padding-top: 20px; display: flex; justify-content: flex-end; gap: 15px;">
+                                        <button type="button" onclick="printFilledCashAdvance()" class="btn" style="padding: 12px 30px; font-size: 16px; border-radius: 30px; font-weight: 600; text-decoration: none; color: #333; background: #e9ecef; border: 1px solid #ced4da; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); display: flex; align-items: center;">
+                                            <i class="fas fa-print" style="margin-right: 8px;"></i> Print Filled Form
+                                        </button>
+                                        <button type="submit" class="btn btn-dark-purple" style="padding: 12px 30px; font-size: 16px; border-radius: 30px; font-weight: 600; box-shadow: 0 4px 10px rgba(103, 58, 183, 0.3);">
+                                            <i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Submit Request
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                         <div class="request-history-card">
-                            <h3>Loan History</h3>
+                            <h3>Cash Advance History</h3>
                             <div class="modern-table-wrapper" style="box-shadow: none;">
                                 <table class="modern-table">
                                     <thead>
@@ -388,6 +483,7 @@ $position = $emp['position'] ?? 'Staff';
                                             <th>Date</th>
                                             <th>Amount</th>
                                             <th>Status</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="loan-history-body"></tbody>
@@ -447,12 +543,17 @@ $position = $emp['position'] ?? 'Staff';
                         <div class="info-row"><span class="info-label">Employee ID</span> <span class="info-value"><?php echo htmlspecialchars($emp_id, ENT_QUOTES, 'UTF-8'); ?></span></div>
                         <div class="info-row"><span class="info-label">Company Code</span> <span class="info-value" style="color: var(--primary-color); font-weight: 700;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></span></div>
                         <div class="info-row"><span class="info-label">Department</span> <span class="info-value"><?php echo htmlspecialchars($emp['department'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Employment Date</span> <span class="info-value"><?php echo htmlspecialchars($emp['hire_date'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span></div>
+                        <div class="info-row"><span class="info-label">Employee Type</span> <span class="info-value"><?php echo htmlspecialchars($emp['work_status'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span></div>
                         <div class="info-row"><span class="info-label">Status</span> <span class="status-tag status-approved"><?php echo htmlspecialchars($emp['status'] ?? 'Active', ENT_QUOTES, 'UTF-8'); ?></span></div>
                     </div>
                     
                     <div class="profile-details-card">
                         <div class="tab-nav">
                             <button class="tab-link active" onclick="switchProfileTab('info', this)">Personal Information</button>
+                            <?php if ($position === 'Faculty'): ?>
+                            <button class="tab-link" onclick="switchProfileTab('faculty', this)">Subject Load & Schedule</button>
+                            <?php endif; ?>
                             <button class="tab-link" onclick="switchProfileTab('security', this)">Security Settings</button>
                         </div>
                         
@@ -466,6 +567,26 @@ $position = $emp['position'] ?? 'Staff';
                                     <div class="form-group-custom">
                                         <label>Company Code</label>
                                         <input type="text" value="<?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Date Hired</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp['hire_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Work Status</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp['work_status'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label>Work Position</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp['work_position'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Department</label>
+                                        <input type="text" value="<?php echo htmlspecialchars($emp['department'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
@@ -503,6 +624,56 @@ $position = $emp['position'] ?? 'Staff';
                             </form>
                         </div>
                         
+                        <?php if ($position === 'Faculty'): ?>
+                        <div id="profile-faculty" class="profile-tab-section" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h3>Subject Loads</h3>
+                                <button class="btn btn-dark-purple" onclick="openSubjectLoadModal()">
+                                    <i class="fas fa-plus"></i> Add Subject
+                                </button>
+                            </div>
+                            <div class="modern-table-wrapper" style="margin-bottom: 2rem;">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Description</th>
+                                            <th>Units</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="faculty-subjects-body">
+                                        <tr><td colspan="4" class="text-center">Loading subjects...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+                                <h3>Schedules</h3>
+                                <button class="btn btn-dark-purple" onclick="openScheduleModal()">
+                                    <i class="fas fa-plus"></i> Add Schedule
+                                </button>
+                            </div>
+                            <div class="modern-table-wrapper">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject</th>
+                                            <th>Day</th>
+                                            <th>Time Start</th>
+                                            <th>Time End</th>
+                                            <th>Room</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="faculty-schedules-body">
+                                        <tr><td colspan="6" class="text-center">Loading schedules...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <div id="profile-security" class="profile-tab-section" style="display: none;">
                             <form onsubmit="changePassword(event)">
                                 <div class="form-group-custom">
@@ -536,6 +707,79 @@ $position = $emp['position'] ?? 'Staff';
     <!-- Modals -->
     <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 100001; pointer-events: none;"></div>
 
+    <!-- Subject Load Modal (Faculty) -->
+    <div id="subjectLoadModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Add Subject Load</h2>
+                <span class="close" onclick="closeModal('subjectLoadModal')">&times;</span>
+            </div>
+            <form id="subjectLoadForm" onsubmit="saveSubjectLoad(event)">
+                <div class="form-group-custom">
+                    <label>Subject Code</label>
+                    <input type="text" name="code" class="form-control-large-gray" required>
+                </div>
+                <div class="form-group-custom">
+                    <label>Description</label>
+                    <input type="text" name="description" class="form-control-large-gray" required>
+                </div>
+                <div class="form-group-custom">
+                    <label>Units</label>
+                    <input type="number" name="units" step="0.5" class="form-control-large-gray" required>
+                </div>
+                <div class="form-group-custom" style="display:none;">
+                    <input type="hidden" name="faculty_id" value="<?php echo $emp['id']; ?>">
+                </div>
+                <button type="submit" class="btn btn-dark-purple btn-full">Save Subject</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Schedule Modal (Faculty) -->
+    <div id="scheduleModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Add Schedule</h2>
+                <span class="close" onclick="closeModal('scheduleModal')">&times;</span>
+            </div>
+            <form id="scheduleForm" onsubmit="saveSchedule(event)">
+                <div class="form-group-custom">
+                    <label>Subject</label>
+                    <select name="subject_load_id" id="scheduleSubjectSelect" class="form-control-large-gray" required>
+                    </select>
+                </div>
+                <div class="form-group-custom">
+                    <label>Day of Week</label>
+                    <select name="day_of_week" class="form-control-large-gray" required>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
+                <div class="form-row-custom">
+                    <div class="form-group-custom">
+                        <label>Start Time</label>
+                        <input type="time" name="time_start" class="form-control-large-gray" required>
+                    </div>
+                    <div class="form-group-custom">
+                        <label>End Time</label>
+                        <input type="time" name="time_end" class="form-control-large-gray" required>
+                    </div>
+                </div>
+                <div class="form-group-custom">
+                    <label>Room (Optional)</label>
+                    <input type="text" name="room" class="form-control-large-gray">
+                </div>
+                <button type="submit" class="btn btn-dark-purple btn-full">Save Schedule</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
     <script src="js/script.js"></script>
@@ -558,6 +802,28 @@ $position = $emp['position'] ?? 'Staff';
                 btn.classList.add('active');
                 const title = btn.innerText.trim();
                 document.getElementById('current-page-title').innerText = title;
+            }
+        }
+
+        function printFilledCashAdvance() {
+            const form = document.getElementById('loan-form');
+            const amount = form.amount ? form.amount.value : '';
+            const reason = form.reason ? form.reason.value : '';
+            const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const url = `print_cash_advance.php?amount=${encodeURIComponent(amount)}&reason=${encodeURIComponent(reason)}&date=${encodeURIComponent(today)}`;
+            window.open(url, '_blank');
+        }
+
+        function printHistoricalCashAdvance(id) {
+            const loans = essData.loans || [];
+            const loan = loans.find(l => l.id == id);
+            if (loan) {
+                const amount = loan.amount;
+                const reason = loan.reason || 'Cash Advance'; 
+                const dateF = new Date(loan.requested_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                const caNo = "CA-" + String(loan.id).padStart(5, '0');
+                const url = `print_cash_advance.php?amount=${encodeURIComponent(amount)}&reason=${encodeURIComponent(reason)}&date=${encodeURIComponent(dateF)}&ca_no=${encodeURIComponent(caNo)}`;
+                window.open(url, '_blank');
             }
         }
 
@@ -629,6 +895,185 @@ $position = $emp['position'] ?? 'Staff';
                     <td><span class="late-tag ${a.status === 'Late' ? 'text-danger' : 'text-success'}">${a.status}</span></td>
                 </tr>
             `).join('') || '<tr><td colspan="4" class="text-center">No recent logs</td></tr>';
+
+            // Draw Absence Chart
+            drawAbsenceChart(att.filter(a => a.check_in).length, essData.absent_days || 0);
+            
+            // If faculty, load their specific data
+            if (profile.position === 'Faculty') {
+                loadFacultySubjectsAndSchedules();
+            }
+        }
+
+        let absenceChartInstance = null;
+        function drawAbsenceChart(presentDays, absentDays) {
+            const ctx = document.getElementById('attendanceChart');
+            if (!ctx) return;
+            
+            if (absenceChartInstance) {
+                absenceChartInstance.destroy();
+            }
+            
+            absenceChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Present Days', 'Absent Days'],
+                    datasets: [{
+                        data: [presentDays, absentDays],
+                        backgroundColor: ['#28a745', '#dc3545'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+        
+        function openSubjectLoadModal() {
+            document.getElementById('subjectLoadModal').style.display = 'block';
+        }
+        
+        function openScheduleModal() {
+            document.getElementById('scheduleModal').style.display = 'block';
+        }
+        
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        async function loadFacultySubjectsAndSchedules() {
+            try {
+                // Fetch Subjects
+                let res = await fetch(`backend/api.php?action=get_subject_loads&faculty_id=${essData.profile.id}`);
+                const subjects = await res.json();
+                
+                let tbody = document.getElementById('faculty-subjects-body');
+                if (tbody) {
+                    tbody.innerHTML = subjects.map(s => `
+                        <tr>
+                            <td>${s.code}</td>
+                            <td>${s.description}</td>
+                            <td>${s.units}</td>
+                            <td>
+                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSubjectLoad(${s.id})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="4" class="text-center">No subjects found</td></tr>';
+                }
+                
+                // Populate schedule select
+                let select = document.getElementById('scheduleSubjectSelect');
+                if (select) {
+                    select.innerHTML = subjects.map(s => `<option value="${s.id}">${s.code} - ${s.description}</option>`).join('');
+                }
+                
+                // Fetch Schedules
+                res = await fetch(`backend/api.php?action=get_subject_schedules&faculty_id=${essData.profile.id}`);
+                const schedules = await res.json();
+                
+                let tbodySched = document.getElementById('faculty-schedules-body');
+                if (tbodySched) {
+                    tbodySched.innerHTML = schedules.map(s => `
+                        <tr>
+                            <td>${s.subject_code} - ${s.subject_description}</td>
+                            <td>${s.day_of_week}</td>
+                            <td>${s.time_start}</td>
+                            <td>${s.time_end}</td>
+                            <td>${s.room || 'N/A'}</td>
+                            <td>
+                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="6" class="text-center">No schedules found</td></tr>';
+                }
+                
+            } catch (err) {
+                console.error("Error loading faculty data", err);
+            }
+        }
+        
+        async function saveSubjectLoad(e) {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target).entries());
+            try {
+                const res = await fetch('backend/api.php?action=save_subject_load_ess', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Subject saved!', 'success');
+                    closeModal('subjectLoadModal');
+                    e.target.reset();
+                    loadFacultySubjectsAndSchedules();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+        
+        async function deleteSubjectLoad(id) {
+            if (!confirm('Delete this subject load? This will also delete related schedules.')) return;
+            try {
+                const res = await fetch(`backend/api.php?action=delete_subject_load_ess&id=${id}`);
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Deleted', 'success');
+                    loadFacultySubjectsAndSchedules();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+        
+        async function saveSchedule(e) {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target).entries());
+            data.faculty_id = essData.profile.id;
+            try {
+                const res = await fetch('backend/api.php?action=save_subject_schedule_ess', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Schedule saved!', 'success');
+                    closeModal('scheduleModal');
+                    e.target.reset();
+                    loadFacultySubjectsAndSchedules();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+        
+        async function deleteSchedule(id) {
+            if (!confirm('Delete this schedule?')) return;
+            try {
+                const res = await fetch(`backend/api.php?action=delete_subject_schedule_ess&id=${id}`);
+                const result = await res.json();
+                if (result.success) {
+                    showToast('Deleted', 'success');
+                    loadFacultySubjectsAndSchedules();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
         }
 
         function renderAttendance() {
@@ -709,8 +1154,13 @@ $position = $emp['position'] ?? 'Staff';
                     <td>${new Date(l.requested_at).toLocaleDateString()}</td>
                     <td>₱${parseFloat(l.amount).toLocaleString()}</td>
                     <td><span class="status-tag status-${l.status.toLowerCase()}">${l.status}</span></td>
+                    <td style="white-space: nowrap;">
+                        <button class="btn-icon" title="Print Request" onclick="printHistoricalCashAdvance(${l.id})">
+                            <i class="fas fa-print"></i>
+                        </button>
+                    </td>
                 </tr>
-            `).join('') || '<tr><td colspan="3" class="text-center">No loan requests</td></tr>';
+            `).join('') || '<tr><td colspan="4" class="text-center">No cash advance requests</td></tr>';
 
             const latestResign = resign[0];
             if (latestResign) {
@@ -960,7 +1410,7 @@ $position = $emp['position'] ?? 'Staff';
                 deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
             }
             if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
-                deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+                deductionsList.push(['HDMF (Pag-IBIG) Cash Advance', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
             }
             if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
                 deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
