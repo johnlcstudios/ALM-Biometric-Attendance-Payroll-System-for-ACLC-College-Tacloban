@@ -4,7 +4,7 @@
 
 // --- Dashboard Charts ---
 let attendanceChart = null;
-let pChart, aChart;
+let pChart, aChart, mChart;
 
 // --- Data Stores ---
 let employees = [];
@@ -890,7 +890,7 @@ function showPage(pageId) {
         'allowances': 'Allowances & Benefits',
         'deductions': 'Deductions Management',
         'leave': 'Leave Management',
-        'loans': 'Loan Management',
+        'loans': 'Cash Advance',
         'resignations': 'Resignations',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
@@ -1022,15 +1022,17 @@ function renderEmployeeTable() {
                     </div>
                 </td>
                 <td><span class="position-badge">${escapeHTML(emp.position)}</span></td>
+                <td><span class="text-muted">${escapeHTML(emp.work_position || '---')}</span></td>
                 <td>${escapeHTML(emp.department || '---')}</td>
                 <td>${isFaculty ? `<span class="faculty-badge faculty-${facultyLevel.toLowerCase()}">${escapeHTML(facultyLevel)}</span>` : '<span class="text-muted">---</span>'}</td>
                 <td><span class="hire-date">${hireDate}</span></td>
                 <td>${actionHtml}</td>
                 <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
+                <td><span class="text-muted">${escapeHTML(emp.work_status || '---')}</span></td>
                 <td>${buttonsHtml}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="9" class="text-center text-muted">No employees found.</td></tr>';
+    }).join('') || '<tr><td colspan="11" class="text-center text-muted">No employees found.</td></tr>';
     
     // Render pagination
     renderPagination('employees', filteredEmployees.length);
@@ -1200,7 +1202,7 @@ async function exportFacultyPayroll() {
     });
 
     doc.autoTable({
-        head: [['No.', 'Name', 'Basic Pay', 'Earned for the Period', 'Load', 'Over Time', 'Differential', 'Substitution', 'Adj. (+)', 'Absences', 'Latest/UT', 'HDMF Cont.', 'HDMF Loans', 'HDMF MP2', 'Total Deduction', 'Honorarium', 'Net Pay']],
+        head: [['No.', 'Name', 'Basic Pay', 'Earned for the Period', 'Load', 'Over Time', 'Differential', 'Substitution', 'Adj. (+)', 'Absences', 'Latest/UT', 'HDMF Cont.', 'HDMF Cash Advance', 'HDMF MP2', 'Total Deduction', 'Honorarium', 'Net Pay']],
         body: rows,
         startY: 30,
         styles: { fontSize: 7, cellPadding: 1 },
@@ -1242,7 +1244,7 @@ async function exportUtilityPayroll() {
     });
 
     doc.autoTable({
-        head: [['No.', 'Name', 'Rate per Day', 'Earned for the Period', 'OT/ Holiday Pay', 'Adj.(+)', 'Latest/UT', 'Adj. (-)', 'HDMF Cont.', 'HDMF Loans', 'Cash Advance', 'Total Deduction', 'Net Pay', 'ATM', 'Non ATM']],
+        head: [['No.', 'Name', 'Rate per Day', 'Earned for the Period', 'OT/ Holiday Pay', 'Adj.(+)', 'Latest/UT', 'Adj. (-)', 'HDMF Cont.', 'HDMF Cash Advance', 'Cash Advance', 'Total Deduction', 'Net Pay', 'ATM', 'Non ATM']],
         body: rows,
         startY: 30,
         styles: { fontSize: 8, cellPadding: 2 },
@@ -1409,6 +1411,7 @@ function editEmployee(id) {
     form.dob.value = emp.dob || '';
     form.email.value = emp.email || '';
     form.position.value = emp.position;
+    if (form.work_position) form.work_position.value = emp.work_position || '';
     form.department.value = emp.department;
     
     // Set faculty level if exists
@@ -1422,6 +1425,9 @@ function editEmployee(id) {
     }
     
     form.basicSalary.value = emp.basic_salary;
+    
+    // Set work status if exists
+    if (form.work_status) form.work_status.value = emp.work_status || '';
     form.sss.value = emp.sss || '';
     form.philhealth.value = emp.philhealth || '';
     form.tin.value = emp.tin || '';
@@ -1795,6 +1801,36 @@ function renderAttendanceTable() {
     tbody.innerHTML = paginatedAttendance.map(log => {
         const status = log.status || '---';
         const statusClass = status.toLowerCase().replace(' ', '-');
+        
+        // Build schedule display string
+        let scheduleHtml = '';
+        if (log.schedule && log.schedule.length > 0) {
+            scheduleHtml = '<div class="schedule-list">';
+            log.schedule.forEach(s => {
+                const inTime = s.time_start ? formatTime(s.time_start) : '---';
+                const outTime = s.time_end ? formatTime(s.time_end) : '---';
+                scheduleHtml += `<div class="schedule-item">
+                    <span class="schedule-subj">${escapeHTML(s.subject_code || s.subject_description || '')}</span>
+                    <span class="schedule-time">${inTime} - ${outTime}</span>
+                    ${s.room ? `<span class="schedule-room">${escapeHTML(s.room)}</span>` : ''}
+                </div>`;
+            });
+            scheduleHtml += '</div>';
+            
+            // Add on-time indicators
+            if (log.check_in) {
+                const inClass = log.schedule_ontime_in ? 'ontime' : 'late-schedule';
+                const inLabel = log.schedule_ontime_in ? 'On Time (Schedule)' : 'Late (Schedule)';
+                scheduleHtml += `<div class="schedule-status ${inClass}"><i class="fas ${log.schedule_ontime_in ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${inLabel} In</div>`;
+            }
+            if (log.check_out && log.schedule_ontime_out !== null) {
+                const outClass = log.schedule_ontime_out ? 'ontime' : 'late-schedule';
+                const outLabel = log.schedule_ontime_out ? 'On Time (Schedule)' : 'Early (Schedule)';
+                scheduleHtml += `<div class="schedule-status ${outClass}"><i class="fas ${log.schedule_ontime_out ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${outLabel} Out</div>`;
+            }
+        } else {
+            scheduleHtml = '<span class="text-muted">---</span>';
+        }
 
         // Formatted Employee Display - ensuring it's in one column
         const employeeDisplay = `
@@ -1821,6 +1857,7 @@ function renderAttendanceTable() {
                     ${log.late_minutes > 0 ? `<span class="late-tag">${log.late_minutes}m late</span>` : ''}
                 </div>
             </td>
+            <td class="schedule-cell">${scheduleHtml}</td>
             <td>
                 <div class="table-actions">
                     <button class="btn-icon" title="View Details" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye"></i></button>
@@ -1829,7 +1866,7 @@ function renderAttendanceTable() {
             </td>
         </tr>
     `;
-    }).join('') || '<tr><td colspan="8" class="text-center text-muted">No attendance records found.</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="text-center text-muted">No attendance records found.</td></tr>';
     
     // Render pagination
     renderPagination('attendance', filteredAttendance.length);
@@ -2491,7 +2528,7 @@ async function viewAndPrintPayslip(employeeId, period) {
             deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Contribution</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_cont).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
         }
         if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
-            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Loans</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_loans).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
+            deductionsHTML += `<div class="payslip-item deduction"><span>HDMF Cash Advance</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_loans).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
         }
         if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
             deductionsHTML += `<div class="payslip-item deduction"><span>HDMF MP2</span><span style="color: #c0392b; font-weight: 600;">-₱${parseFloat(breakdown.hdmf_mp2).toLocaleString('en-US', {minimumFractionDigits: 2})}</span></div>`;
@@ -2677,7 +2714,7 @@ async function printIndividualPayslip(employeeId, period) {
             deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
         }
         if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
-            deductionsList.push(['HDMF (Pag-IBIG) Loans', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            deductionsList.push(['HDMF (Pag-IBIG) Cash Advance', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
         }
         if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
             deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
@@ -2958,7 +2995,7 @@ async function updateLoanStatus(id, status) {
     });
     const result = await response.json();
     if (result.success) {
-        showToast(`Loan status updated to ${status}.`, 'success');
+        showToast(`Cash advance status updated to ${status}.`, 'success');
         fetchData();
     } else {
         showToast(result.message || "Failed to update status.", 'error');
@@ -3874,6 +3911,8 @@ function generateReport(type) {
     document.body.removeChild(link);
 }
 
+let selectedSubjectLoadId = null;
+
 function viewFacultyLoads(empId) {
     const emp = employees.find(e => e.id == empId);
     if (!emp) return;
@@ -3886,19 +3925,120 @@ function viewFacultyLoads(empId) {
 
     if (tbody) {
         tbody.innerHTML = facultyLoads.map(load => `
-            <tr>
+            <tr onclick="selectSubjectLoad(${load.id})" style="cursor:pointer;" class="load-row" data-load-id="${load.id}">
                 <td><strong>${load.code}</strong></td>
                 <td>${load.description}</td>
                 <td>${load.units}</td>
                 <td>${load.hours}</td>
                 <td>
-                    <button class="btn btn-danger btn-sm" onclick="deleteSubjectLoad('${load.id}'); viewFacultyLoads('${empId}');"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteSubjectLoad('${load.id}'); viewFacultyLoads('${empId}');"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No loads assigned to this faculty.</td></tr>';
     }
+    
+    selectedSubjectLoadId = null;
+    document.getElementById('scheduleSection').style.display = 'none';
 
     openModal('viewLoadsModal');
+}
+
+function selectSubjectLoad(loadId) {
+    selectedSubjectLoadId = loadId;
+    document.querySelectorAll('.load-row').forEach(r => r.classList.remove('selected'));
+    const row = document.querySelector(`.load-row[data-load-id="${loadId}"]`);
+    if (row) row.classList.add('selected');
+    document.getElementById('scheduleSection').style.display = 'block';
+    loadSchedules(loadId);
+}
+
+async function loadSchedules(loadId) {
+    try {
+        const response = await fetch(`backend/api.php?action=get_subject_schedules&subject_load_id=${loadId}`);
+        const schedules = await response.json();
+        const tbody = document.getElementById('scheduleTableBody');
+        if (tbody) {
+            tbody.innerHTML = (Array.isArray(schedules) ? schedules : []).map(s => `
+                <tr>
+                    <td>${s.day_of_week}</td>
+                    <td>${formatTime(s.time_start)}</td>
+                    <td>${formatTime(s.time_end)}</td>
+                    <td>${s.room || '---'}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center">No schedules for this load.</td></tr>';
+        }
+    } catch (e) {
+        console.error('Error loading schedules:', e);
+    }
+}
+
+async function saveSchedule() {
+    if (!selectedSubjectLoadId) {
+        showToast('Select a subject load first', 'warning');
+        return;
+    }
+    const day = document.getElementById('schedDay').value;
+    const timeStart = document.getElementById('schedTimeStart').value;
+    const timeEnd = document.getElementById('schedTimeEnd').value;
+    const room = document.getElementById('schedRoom').value;
+    
+    if (!timeStart || !timeEnd) {
+        showToast('Time start and time end are required', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('backend/api.php?action=save_subject_schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subject_load_id: selectedSubjectLoadId,
+                day_of_week: day,
+                time_start: timeStart,
+                time_end: timeEnd,
+                room: room
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Schedule added', 'success');
+            document.getElementById('schedTimeStart').value = '';
+            document.getElementById('schedTimeEnd').value = '';
+            document.getElementById('schedRoom').value = '';
+            loadSchedules(selectedSubjectLoadId);
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (e) {
+        showToast('Failed to save schedule', 'error');
+    }
+}
+
+async function deleteSchedule(id) {
+    const confirmResult = await Swal.fire({
+        title: 'Delete Schedule?',
+        text: 'Are you sure?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#db261f',
+        confirmButtonText: 'Delete'
+    });
+    if (!confirmResult.isConfirmed) return;
+    try {
+        const response = await fetch(`backend/api.php?action=delete_subject_schedule&id=${id}`);
+        const result = await response.json();
+        if (result.success) {
+            showToast('Schedule deleted', 'success');
+            if (selectedSubjectLoadId) loadSchedules(selectedSubjectLoadId);
+        } else {
+            showToast('Error: ' + result.message, 'error');
+        }
+    } catch (e) {
+        showToast('Failed to delete schedule', 'error');
+    }
 }
 
 async function deleteSubjectLoad(id) {
@@ -4390,10 +4530,12 @@ async function saveFaceRegistration() {
 function initCharts() {
     const ctxP = document.getElementById('payrollChart')?.getContext('2d');
     const ctxA = document.getElementById('attendanceChart')?.getContext('2d');
+    const ctxM = document.getElementById('monthlyTrendsChart')?.getContext('2d');
     if (!ctxP || !ctxA) return;
 
     if (pChart) pChart.destroy();
     if (aChart) aChart.destroy();
+    if (mChart) mChart.destroy();
 
     const parseMySqlDateTime = (value) => {
         if (!value) return null;
@@ -4526,6 +4668,55 @@ function initCharts() {
             }
         }
     });
+
+    // Monthly Attendance Trends (stacked bar chart)
+    if (ctxM) {
+        const trendsByMonth = {};
+        for (const l of attendanceLogs) {
+            if (!l.log_date) continue;
+            const m = l.log_date.substring(0, 7);
+            if (!trendsByMonth[m]) trendsByMonth[m] = { on_time: 0, late: 0, absent: 0 };
+            const s = (l.status || '').toLowerCase();
+            if (s === 'on-time' || s === 'on time') trendsByMonth[m].on_time++;
+            else if (s === 'late') trendsByMonth[m].late++;
+            else if (s === 'absent') trendsByMonth[m].absent++;
+        }
+        
+        const months = Object.keys(trendsByMonth).sort().slice(-6);
+        const onTimeData = months.map(m => trendsByMonth[m].on_time);
+        const lateData = months.map(m => trendsByMonth[m].late);
+        const absentData = months.map(m => trendsByMonth[m].absent);
+        const monthLabels = months.map(m => {
+            const d = new Date(m + '-01');
+            return d.toLocaleString('default', { month: 'short', year: '2-digit' });
+        });
+
+        mChart = new Chart(ctxM, {
+            type: 'bar',
+            data: {
+                labels: monthLabels,
+                datasets: [
+                    { label: 'On-Time', data: onTimeData, backgroundColor: '#27ae60' },
+                    { label: 'Late', data: lateData, backgroundColor: '#f39c12' },
+                    { label: 'Absent', data: absentData, backgroundColor: '#c0392b' }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: true
+                    }
+                },
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                }
+            }
+        });
+    }
 }
 
 // --- Auth ---

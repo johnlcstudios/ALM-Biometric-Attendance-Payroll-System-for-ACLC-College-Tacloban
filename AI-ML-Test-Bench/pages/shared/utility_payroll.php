@@ -33,7 +33,7 @@
                     <th>Latest/UT</th>
                     <th>Adj. (-)</th>
                     <th>HDMF Cont.</th>
-                    <th>HDMF Loans</th>
+                    <th>HDMF Cash Advance</th>
                     <th>Cash Advance</th>
                     <th>Total Deduction</th>
                     <th>Net Pay</th>

@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['loan_id']) && isset($
     try {
         $stmt = $pdo->prepare("UPDATE `loans_advances` SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");
         $stmt->execute([$action, $director_name, $loan_id]);
-        $msg = "Loan request ID $loan_id has been successfully $action.";
+        $msg = "Cash advance request ID $loan_id has been successfully $action.";
     } catch (Exception $e) {
         $msg_error = "Error: " . $e->getMessage();
     }
@@ -37,7 +37,7 @@ $loans = $stmt->fetchAll() ?: [];
 
 <div class="card p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h5 class="mb-0 text-danger fw-bold"><i class="fas fa-hand-holding-usd me-2"></i> Loan & Advance Requests</h5>
+        <h5 class="mb-0 text-danger fw-bold"><i class="fas fa-hand-holding-usd me-2"></i> Cash Advance Requests</h5>
         <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">Pending Review: <?php 
             $pending = $pdo->query("SELECT COUNT(*) FROM loans_advances WHERE status='pending'")->fetchColumn() ?? 0;
             echo $pending;
@@ -60,7 +60,7 @@ $loans = $stmt->fetchAll() ?: [];
             <tbody class="border-top-0">
                 <?php 
                 if (empty($loans)) {
-                    echo '<tr><td colspan="7" class="text-center text-muted py-4">No loan requests found</td></tr>';
+                    echo '<tr><td colspan="7" class="text-center text-muted py-4">No cash advance requests found</td></tr>';
                 } else {
                     foreach ($loans as $loan):
                 ?>
@@ -68,7 +68,7 @@ $loans = $stmt->fetchAll() ?: [];
                     <td class="fw-bold text-dark"><?php echo htmlspecialchars($loan['employee_name'] ?? 'N/A'); ?></td>
                     <td>
                         <?php if($loan['type'] === 'Loan'): ?>
-                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill">Loan</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-1 rounded-pill">Cash Advance</span>
                         <?php else: ?>
                             <span class="badge bg-info bg-opacity-10 text-info px-3 py-1 rounded-pill">Advance</span>
                         <?php endif; ?>
@@ -120,11 +120,11 @@ $loans = $stmt->fetchAll() ?: [];
 <div class="row mt-4">
     <div class="col-md-12">
         <div class="card bg-light bg-opacity-50 border-0 p-4">
-            <h6 class="text-muted text-uppercase fw-bold mb-3 small"><i class="fas fa-info-circle me-2"></i> Loan Review Policy</h6>
+            <h6 class="text-muted text-uppercase fw-bold mb-3 small"><i class="fas fa-info-circle me-2"></i> Cash Advance Review Policy</h6>
             <ul class="small text-muted mb-0">
-                <li><strong>High-Value Threshold:</strong> Loans exceeding ₱50,000.00 require secondary approval from the Board of Trustees.</li>
+                <li><strong>High-Value Threshold:</strong> Cash advances exceeding ₱50,000.00 require secondary approval from the Board of Trustees.</li>
                 <li><strong>Cash Advance Limit:</strong> Limited to 50% of the employee's monthly basic salary.</li>
-                <li><strong>Delinquency Rule:</strong> Employees with existing unpaid loans are not eligible for new requests.</li>
+                <li><strong>Delinquency Rule:</strong> Employees with existing unpaid cash advances are not eligible for new requests.</li>
                 <li><strong>Interest Rate:</strong> Follows institutional policy as per employee handbook.</li>
             </ul>
         </div>

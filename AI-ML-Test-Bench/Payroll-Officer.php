@@ -115,7 +115,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                     <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'loans' ? 'active' : ''; ?>" data-page="loans" onclick="window.location.href='Payroll-Officer.php?page=loans'">
-                    <i class="fas fa-hand-holding-usd"></i> <span>Loan Requests</span>
+                    <i class="fas fa-hand-holding-usd"></i> <span>Cash Advance</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'resignations' ? 'active' : ''; ?>" data-page="resignations" onclick="window.location.href='Payroll-Officer.php?page=resignations'">
                     <i class="fas fa-user-minus"></i> <span>Resignations</span>

@@ -2965,3 +2965,114 @@ body.dark-mode .context-menu-divider {
         max-height: 40vh;
     }
 }
+
+/* Schedule display in attendance table */
+.schedule-cell {
+    min-width: 200px;
+}
+.schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.schedule-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 3px 6px;
+    background: #f0f4ff;
+    border-radius: 4px;
+    font-size: 0.78rem;
+}
+.schedule-subj {
+    font-weight: 600;
+    color: #2c3e50;
+}
+.schedule-time {
+    color: #667eea;
+    font-weight: 500;
+}
+.schedule-room {
+    color: #7f8c8d;
+    font-style: italic;
+}
+.schedule-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.schedule-status.ontime {
+    background: #d4edda;
+    color: #155724;
+}
+.schedule-status.late-schedule {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Schedule management table */
+.schedule-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+.schedule-row select, .schedule-row input {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+.schedule-row .btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+/* Charts container */
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 24px;
+}
+.charts-container .chart-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.charts-container .chart-card h3 {
+    font-size: 1rem;
+    margin-bottom: 16px;
+    color: #2c3e50;
+}
+.charts-container .chart-card.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Bulk payroll action bar */
+.bulk-action-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 0;
+}
+
+/* Selected load row highlight */
+.load-row.selected {
+    background: #e8f0fe !important;
+    border-left: 3px solid #667eea;
+}
+.load-row:hover {
+    background: #f5f7fa;
+}

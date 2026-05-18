@@ -791,27 +791,27 @@ function approveSelectedLoans() {
     if (typeof loanRequests !== 'undefined' && loanRequests.length > 0) {
         const pendingLoans = loanRequests.filter(l => l.status === 'Pending');
         if (pendingLoans.length === 0) {
-            showToast('No pending loan requests to approve', 'warning');
+            showToast('No pending cash advance requests to approve', 'warning');
             return;
         }
         
         if (typeof Swal !== 'undefined') {
             Swal.fire({
-                title: `Approve ${pendingLoans.length} Loan Requests?`,
-                text: 'This will approve all pending loan requests.',
+                title: `Approve ${pendingLoans.length} Cash Advance Requests?`,
+                text: 'This will approve all pending cash advance requests.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, approve all',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    showToast('Bulk loan approval initiated', 'info');
+                    showToast('Bulk cash advance approval initiated', 'info');
                     // TODO: Call backend API
                 }
             });
         }
     } else {
-        showToast('No loan requests available', 'warning');
+        showToast('No cash advance requests available', 'warning');
     }
 }
 
@@ -829,9 +829,9 @@ function exportLoanRecords() {
         a.download = `loan_records_export_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         window.URL.revokeObjectURL(url);
-        showToast('Loan records exported successfully', 'success');
+        showToast('Cash advance records exported successfully', 'success');
     } else {
-        showToast('No loan records available', 'warning');
+        showToast('No cash advance records available', 'warning');
     }
 }
 
