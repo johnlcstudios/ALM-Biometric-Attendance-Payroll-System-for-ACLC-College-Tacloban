@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - **Cash Advance Form Redesign & Printable System** - 2026-05-18
+
+### Added
+- **Printable Cash Advance Layout** (`print_cash_advance.php`):
+  - Designed a professional, printable A4-ready layout that accommodates 4 forms per page.
+  - Integrated interactive, auto-filling text inputs to allow manual details to be keyed in or pre-populated prior to printing.
+  - Dynamically pulls employee's `Name` and `Position` based on the active session.
+- **Print Filled Cash Advance Forms** (`ess.php`):
+  - Created JavaScript utility `printFilledCashAdvance()` to capture active form inputs (Amount, Purpose) and forward them to the printable layout via URL parameters.
+- **Print Historical Cash Advances** (`ess.php`):
+  - Added an "Action" column in the Cash Advance History table with dedicated print icon buttons.
+  - Created `printHistoricalCashAdvance(id)` to retrieve past request data and pre-populate the printable forms with their original values and a padded Cash Advance Form number (e.g., `CA-00042`).
+
+### Changed
+- **Employee Dashboard Redesign** (`ess.php`):
+  - Overhauled the digital "Apply for Cash Advance" form to visually mimic the physical printed document.
+  - Rebuilt it using a document-styled layout with ACLCTacloban branding, dotted lines, formal signature lines, and multi-stage verification roles (Accounting Clerk, School Director, Managing Director, Cashier).
+
 ## [2.6.0] - **Codename: P^&$^%ina Ayuko Na!** - 2024-10-27
 
 ### Added
