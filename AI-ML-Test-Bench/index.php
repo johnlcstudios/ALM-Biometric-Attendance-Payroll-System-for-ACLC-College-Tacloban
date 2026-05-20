@@ -40,8 +40,7 @@ $allowed_pages = [
     'biometrics',
     'attendance',
     'payroll',
-    'faculty_payroll',
-    'utility_payroll',
+    'payroll_specialized',
     'allowances',
     'deductions',
     'leave',
@@ -84,7 +83,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script src="js/sweetalert2.all.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/sweetalert2@11'"></script>
     
     <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.4">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
     <?php if ($showSplash): ?>
@@ -302,11 +301,8 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'payroll' ? 'active' : ''; ?>" data-page="payroll" onclick="window.location.href='index.php?page=payroll'">
                     <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
                 </button>
-                <button class="nav-btn <?php echo $page === 'faculty_payroll' ? 'active' : ''; ?>" data-page="faculty_payroll" onclick="window.location.href='index.php?page=faculty_payroll'">
-                    <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
-                </button>
-                <button class="nav-btn <?php echo $page === 'utility_payroll' ? 'active' : ''; ?>" data-page="utility_payroll" onclick="window.location.href='index.php?page=utility_payroll'">
-                    <i class="fas fa-tools"></i> <span>Utility Payroll</span>
+                <button class="nav-btn <?php echo $page === 'payroll_specialized' ? 'active' : ''; ?>" data-page="payroll_specialized" onclick="window.location.href='index.php?page=payroll_specialized'">
+                    <i class="fas fa-file-invoice"></i> <span>Specialized Payroll</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'allowances' ? 'active' : ''; ?>" data-page="allowances" onclick="window.location.href='index.php?page=allowances'">
                     <i class="fas fa-coins"></i> <span>Allowances</span>
@@ -382,7 +378,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
-    <script src="js/script.js?v=2.3"></script>
+    <script src="js/script.js?v=2.4"></script>
     <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>

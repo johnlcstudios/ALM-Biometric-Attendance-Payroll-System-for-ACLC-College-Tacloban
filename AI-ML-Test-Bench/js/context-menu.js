@@ -552,7 +552,7 @@ function showPayrollSettings() {
 }
 
 function calculateFacultyPayroll() {
-    navigateTo('faculty_payroll');
+    navigateTo('payroll_specialized');
 }
 
 function exportFacultyPayslips() {
@@ -600,7 +600,7 @@ function recalculateFacultyPayroll() {
 }
 
 function calculateUtilityPayroll() {
-    navigateTo('utility_payroll');
+    navigateTo('payroll_specialized');
 }
 
 function exportUtilityPayslips() {

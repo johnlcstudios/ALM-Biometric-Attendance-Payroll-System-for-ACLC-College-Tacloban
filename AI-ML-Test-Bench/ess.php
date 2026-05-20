@@ -55,7 +55,7 @@ $position = $emp['position'] ?? 'Staff';
     <script src="js/chart.min.js"></script>
     
     <!-- CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.4">
     <style>
         /* ESS Specific Styles */
         .ess-request-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; }
@@ -782,7 +782,7 @@ $position = $emp['position'] ?? 'Staff';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
-    <script src="js/script.js"></script>
+    <script src="js/script.js?v=2.4"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
     

@@ -21,7 +21,7 @@
             <button class="btn-process-payroll" onclick="showPayrollModal()">
                 + Process New Payroll
             </button>
-        <link rel="stylesheet" href="../css/responsive-payroll.css">
+        <link rel="stylesheet" href="css/responsive-payroll.css">
     </div>
 </section>
 

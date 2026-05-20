@@ -56,7 +56,9 @@ $allowedActions = [
     'get_employee_allowances', 'assign_employee_allowance', 'delete_employee_allowance',
     'bulk_assign_allowance',
     
-    // Subject Load Management (removed)
+    // Subject Load Management
+    'get_subjects', 'save_subject', 'delete_subject',
+    'get_subject_loads', 'save_subject_load', 'delete_subject_load',
     
     // Leave Management
     'get_leave_requests', 'apply_leave', 'update_leave_status',
@@ -3173,6 +3175,53 @@ echo json_encode([
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'message' => 'Failed to get analytics: ' . $e->getMessage()]);
             }
+            break;
+
+        // Subject Load Management
+        case 'get_subjects':
+            $stmt = $pdo->prepare("SELECT * FROM subjects WHERE company_id = ? ORDER BY code");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_subject':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO subjects (company_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+            echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
+            break;
+
+        case 'delete_subject':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'] ?? null;
+            if ($id) {
+                $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_subject_loads':
+            $stmt = $pdo->prepare("SELECT * FROM subject_loads WHERE company_id = ? ORDER BY code");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'save_subject_load':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+            echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
+            break;
+
+        case 'delete_subject_load':
+            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'] ?? null;
+            if ($id) {
+                $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+            }
+            echo json_encode(['success' => true]);
             break;
 
         default:
