@@ -3476,24 +3476,22 @@ async function editDeduction(id) {
 
 // --- Allowances ---
 async function addAllowanceCategory() {
-    const name = document.getElementById('allowanceName').value;
-    const type = document.getElementById('allowanceType').value;
-    const rate = document.getElementById('allowanceRate').value;
-    const description = document.getElementById('allowanceDesc').value;
+    const name = document.getElementById('allowanceName')?.value || '';
+    const type = document.getElementById('allowanceType')?.value || '';
+    const rate = document.getElementById('allowanceRate')?.value || '';
 
     if (!name || !rate) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=add_allowance_category', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, rate, description })
+        body: JSON.stringify({ name, type, rate })
     });
     const result = await response.json();
     showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('allowanceName').value = '';
         document.getElementById('allowanceRate').value = '';
-        document.getElementById('allowanceDesc').value = '';
         renderAllowances();
     }
 }
@@ -3661,10 +3659,10 @@ document.addEventListener('click', function(e) {
 });
 
 async function assignAllowance() {
-    const employee_id = document.getElementById('assignEmployeeSelect').value;
+    const employee_id = document.getElementById('assignEmployeeSelect')?.value || '';
     const selectedCategories = getSelectedMultiSelectIds('allowance');
-    const override_amount = document.getElementById('overrideAmount').value;
-    const effective_date = document.getElementById('effectiveDate').value;
+    const override_amount = document.getElementById('allowanceOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('EffectiveDate')?.value || '';
 
     if (!employee_id) return showToast("Please select an employee.", 'error');
     if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
@@ -3702,8 +3700,8 @@ async function assignAllowance() {
 
 async function applyAllowanceToAll() {
     const selectedCategories = getSelectedMultiSelectIds('allowance');
-    const override_amount = document.getElementById('overrideAmount').value;
-    const effective_date = document.getElementById('effectiveDate').value;
+    const override_amount = document.getElementById('allowanceOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('EffectiveDate')?.value || '';
 
     if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
     
@@ -3760,12 +3758,11 @@ async function renderAllowances() {
                 <td>${c.name}</td>
                 <td>₱${parseFloat(c.rate).toLocaleString()}</td>
                 <td>${c.type}</td>
-                <td>Yes</td>
                 <td>
                     <button class="btn-icon delete" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
+        `).join('') || '<tr><td colspan="4" class="text-center">No categories found.</td></tr>';
     }
 
     // 2. Render Assignment List for Multi-Select
@@ -3796,7 +3793,8 @@ async function renderAllowances() {
     }
 
     // 4. Render Breakdown Table
-    const breakdownResponse = await fetch('backend/api.php?action=get_allowance_breakdown');
+    // Correct backend action is 'get_employee_allowances' (was incorrectly calling 'get_allowance_breakdown')
+    const breakdownResponse = await fetch('backend/api.php?action=get_employee_allowances');
     const breakdown = await breakdownResponse.json();
     const breakdownBody = document.getElementById('allowanceBreakdownBody');
     if (breakdownBody) {
@@ -3858,33 +3856,31 @@ async function deleteAllowanceCategory(id) {
 
 // --- Deductions ---
 async function addDeductionCategory() {
-    const name = document.getElementById('deductionName').value;
-    const type = document.getElementById('deductionType').value;
-    const value = document.getElementById('deductionRate').value;
-    const description = document.getElementById('deductionDesc').value;
+    const name = document.getElementById('deductionName')?.value || '';
+    const type = document.getElementById('deductionType')?.value || '';
+    const value = document.getElementById('deductionRate')?.value || '';
 
     if (!name || !value) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=save_deduction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, value, description, is_active: true, is_government: false })
+        body: JSON.stringify({ name, type, value, is_active: true, is_government: false })
     });
     const result = await response.json();
     showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('deductionName').value = '';
         document.getElementById('deductionRate').value = '';
-        document.getElementById('deductionDesc').value = '';
         renderDeductions();
     }
 }
 
 async function assignDeduction() {
-    const employee_id = document.getElementById('assignDeductionEmployeeSelect').value;
+    const employee_id = document.getElementById('assignDeductionEmployeeSelect')?.value || '';
     const selectedDeductions = getSelectedMultiSelectIds('deduction');
-    const override_amount = document.getElementById('deductionOverrideAmount').value;
-    const effective_date = document.getElementById('deductionEffectiveDate').value;
+    const override_amount = document.getElementById('deductionOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('deductionEffectiveDate')?.value || '';
 
     if (!employee_id) return showToast("Please select an employee.", 'error');
     if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
@@ -3922,8 +3918,8 @@ async function assignDeduction() {
 
 async function applyDeductionToAll() {
     const selectedDeductions = getSelectedMultiSelectIds('deduction');
-    const override_amount = document.getElementById('deductionOverrideAmount').value;
-    const effective_date = document.getElementById('deductionEffectiveDate').value;
+    const override_amount = document.getElementById('deductionOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('deductionEffectiveDate')?.value || '';
 
     if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
     
@@ -3980,12 +3976,11 @@ async function renderDeductions() {
                 <td>${c.name}</td>
                 <td>₱${parseFloat(c.value).toLocaleString()}</td>
                 <td>${c.type}</td>
-                <td>${c.is_active ? 'Yes' : 'No'}</td>
                 <td>
                     <button class="btn-icon delete" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
+        `).join('') || '<tr><td colspan="4" class="text-center">No categories found.</td></tr>';
     }
 
     // 2. Multi-Select List

@@ -1054,8 +1054,8 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
+            $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate']]);
             echo json_encode(['success' => true, 'message' => 'Category added successfully']);
             break;
 
@@ -2509,6 +2509,23 @@ try {
             $stmt_resignations->execute([$eid]);
             $resignations = $stmt_resignations->fetchAll();
 
+            $coes = [];
+            $obs = [];
+            try {
+                $stmt_coe = $pdo->prepare("SELECT * FROM coe_requests WHERE employee_id = ? ORDER BY id DESC");
+                $stmt_coe->execute([$eid]);
+                $coes = $stmt_coe->fetchAll();
+            } catch (PDOException $ex) {
+                $coes = [];
+            }
+            try {
+                $stmt_ob = $pdo->prepare("SELECT * FROM ob_requests WHERE employee_id = ? ORDER BY id DESC");
+                $stmt_ob->execute([$eid]);
+                $obs = $stmt_ob->fetchAll();
+            } catch (PDOException $ex) {
+                $obs = [];
+            }
+
             echo json_encode([
                 'profile' => $emp,
                 'attendance' => $attendance,
@@ -2516,6 +2533,8 @@ try {
                 'payroll' => $payroll,
                 'leave' => $leave,
                 'loans' => $loans,
+                'coes' => $coes,
+                'obs' => $obs,
                 'resignations' => $resignations
             ]);
             break;

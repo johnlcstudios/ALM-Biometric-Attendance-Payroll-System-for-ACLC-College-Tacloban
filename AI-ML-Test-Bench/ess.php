@@ -221,8 +221,20 @@ $position = $emp['position'] ?? 'Staff';
                 </div>
 
                 <div class="charts-container" style="margin-bottom: 2rem;">
-                    <div class="chart-card" style="grid-column: 1 / -1;">
-                        <h3>Attendance Summary</h3>
+                    <div class="chart-card" id="absenceChartSection" style="grid-column: 1 / -1;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+                            <h3 style="margin:0;">Attendance Summary</h3>
+                            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                                <button class="btn btn-outline-secondary" id="toggleAbsenceChartBtn" onclick="toggleAbsenceChart()" type="button">Hide Absence Chart</button>
+                                <label style="display:flex; align-items:center; gap:0.5rem; margin:0; font-size:0.95rem; color:#555;">
+                                    <span>Chart type</span>
+                                    <select id="absenceChartType" onchange="changeAbsenceChartType()" style="padding:8px 10px; border-radius:10px; border:1px solid #ced4da; background:#fff; min-width:140px;">
+                                        <option value="doughnut">Pie</option>
+                                        <option value="bar">Bar</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
                         <div style="height: 300px; position: relative;">
                             <canvas id="attendanceChart"></canvas>
                         </div>
@@ -326,7 +338,10 @@ $position = $emp['position'] ?? 'Staff';
                     <button class="tab-link active" onclick="switchRequestTab('leave', this)">Leave Requests</button>
                     <button class="tab-link" onclick="switchRequestTab('loan', this)">Cash Advance</button>
                     <button class="tab-link" onclick="switchRequestTab('resignation', this)">Resignation</button>
+                    <button class="tab-link" onclick="switchRequestTab('coe', this)">COE</button>
+                    <button class="tab-link" onclick="switchRequestTab('ob', this)">Official Business (OB)</button>
                 </div>
+
 
                 <!-- Leave Request Section -->
                 <div id="request-leave" class="request-section active">
@@ -493,9 +508,124 @@ $position = $emp['position'] ?? 'Staff';
                     </div>
                 </div>
 
+                <!-- COE Request Section -->
+                <div id="request-coe" class="request-section" style="display: none;">
+                    <div class="ess-request-grid">
+                        <div class="request-form-card">
+                            <h3>Request Certificate of Employment</h3>
+                            <form id="coe-form" onsubmit="submitRequest(event, 'coe')">
+                                <div class="form-group-custom">
+                                    <label for="coe-purpose">Purpose <span class="text-danger">*</span></label>
+                                    <textarea id="coe-purpose" name="purpose" class="form-control-large-gray" rows="3" required placeholder="Describe why (e.g., Bank loan, Visa, Employer verification)" minlength="10" maxlength="500"></textarea>
+                                    <small class="form-text text-muted">Min 10 characters | Max 500 characters</small>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label for="coe-recipient">Recipient / Organization <span class="text-danger">*</span></label>
+                                        <input type="text" id="coe-recipient" name="recipient" class="form-control-large-gray" placeholder="e.g., BDO Bank, Bureau of Immigration" required minlength="3" maxlength="100">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label for="coe-date">Date Requested <span class="text-danger">*</span></label>
+                                        <input type="date" id="coe-date" name="requested_date" class="form-control-large-gray" value="<?php echo date('Y-m-d'); ?>" required>
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:10px;">
+                                    <button type="submit" class="btn btn-dark-purple btn-full">Submit COE Request</button>
+                                    <button type="reset" class="btn btn-outline-secondary btn-full">Clear Form</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="request-history-card">
+                            <h3>COE Request History</h3>
+                            <div class="modern-table-wrapper" style="box-shadow: none;">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date Filed</th>
+                                            <th>Purpose</th>
+                                            <th>Recipient</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="coe-history-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Official Business Section -->
+                <div id="request-ob" class="request-section" style="display: none;">
+                    <div class="ess-request-grid">
+                        <div class="request-form-card">
+                            <h3>Official Business Request</h3>
+                            <form id="ob-form" onsubmit="submitRequest(event, 'ob')">
+                                <div class="form-group-custom">
+                                    <label for="ob-purpose">Purpose of Travel <span class="text-danger">*</span></label>
+                                    <textarea id="ob-purpose" name="purpose" class="form-control-large-gray" rows="3" required placeholder="e.g., Client meeting, Training, Audit, Inspection" minlength="10" maxlength="500"></textarea>
+                                    <small class="form-text text-muted">Min 10 characters | Max 500 characters</small>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label for="ob-destination">Destination/Location <span class="text-danger">*</span></label>
+                                        <input type="text" id="ob-destination" name="destination" class="form-control-large-gray" placeholder="e.g., Cebu City, Manila, Tacloban Branch" required minlength="3" maxlength="100">
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label for="ob-travel-date">Date of Travel <span class="text-danger">*</span></label>
+                                        <input type="date" id="ob-travel-date" name="travel_date" class="form-control-large-gray" value="<?php echo date('Y-m-d'); ?>" required min="<?php echo date('Y-m-d'); ?>">
+                                        <small class="form-text text-muted">Cannot be in the past</small>
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
+                                        <label for="ob-time-out">Time of Departure <span class="text-danger">*</span></label>
+                                        <input type="time" id="ob-time-out" name="time_out" class="form-control-large-gray" required>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label for="ob-time-in">Expected Return Time <span class="text-danger">*</span></label>
+                                        <input type="time" id="ob-time-in" name="time_in" class="form-control-large-gray" required>
+                                    </div>
+                                </div>
+                                <div class="form-group-custom">
+                                    <label for="ob-approval">Department Approval Required <span class="text-danger">*</span></label>
+                                    <select id="ob-approval" name="department_approval" class="form-control-large-gray" required>
+                                        <option value="">-- Select approval requirement --</option>
+                                        <option value="Required">Required (Awaiting approval)</option>
+                                        <option value="Not Required">Not Required (No approval needed)</option>
+                                    </select>
+                                </div>
+                                <div style="display:flex; gap:10px;">
+                                    <button type="submit" class="btn btn-dark-purple btn-full">Submit OB Request</button>
+                                    <button type="reset" class="btn btn-outline-secondary btn-full">Clear Form</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="request-history-card">
+                            <h3>OB Request History</h3>
+                            <div class="modern-table-wrapper" style="box-shadow: none;">
+                                <table class="modern-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date Filed</th>
+                                            <th>Travel Date</th>
+                                            <th>Destination</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ob-history-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Resignation Section -->
                 <div id="request-resignation" class="request-section" style="display: none;">
+
                     <div class="ess-request-grid">
+
                         <div class="request-form-card">
                             <h3>Submit Resignation</h3>
                             <form id="resignation-form" onsubmit="submitRequest(event, 'resignation')">
@@ -571,22 +701,36 @@ $position = $emp['position'] ?? 'Staff';
                                 </div>
                                 <div class="form-row-custom">
                                     <div class="form-group-custom">
+                                        <label>Full Name</label>
+                                        <input type="text" name="full_name" value="<?php echo htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" required>
+                                    </div>
+                                    <div class="form-group-custom">
+                                        <label>Position</label>
+                                        <input type="text" name="position" value="<?php echo htmlspecialchars($position, ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" required>
+                                    </div>
+                                </div>
+                                <div class="form-row-custom">
+                                    <div class="form-group-custom">
                                         <label>Date Hired</label>
-                                        <input type="text" value="<?php echo htmlspecialchars($emp['hire_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                        <input type="date" name="hire_date" value="<?php echo htmlspecialchars($emp['hire_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray">
                                     </div>
                                     <div class="form-group-custom">
                                         <label>Work Status</label>
-                                        <input type="text" value="<?php echo htmlspecialchars($emp['work_status'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                        <select name="work_status" class="form-control-large-gray" required>
+                                            <option value="">Select status</option>
+                                            <option value="Regular" <?php echo (($emp['work_status'] ?? '') === 'Regular') ? 'selected' : ''; ?>>Regular</option>
+                                            <option value="Part-time" <?php echo (($emp['work_status'] ?? '') === 'Part-time') ? 'selected' : ''; ?>>Part-time</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
                                     <div class="form-group-custom">
                                         <label>Work Position</label>
-                                        <input type="text" value="<?php echo htmlspecialchars($emp['work_position'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                        <input type="text" name="work_position" value="<?php echo htmlspecialchars($emp['work_position'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" required>
                                     </div>
                                     <div class="form-group-custom">
                                         <label>Department</label>
-                                        <input type="text" value="<?php echo htmlspecialchars($emp['department'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly>
+                                        <input type="text" name="department" value="<?php echo htmlspecialchars($emp['department'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" required>
                                     </div>
                                 </div>
                                 <div class="form-row-custom">
@@ -782,9 +926,22 @@ $position = $emp['position'] ?? 'Staff';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
+<<<<<<< HEAD
     <script src="js/script.js?v=2.4"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
+=======
+    <script src="js/script.js"></script>
+    <script>
+        function _loadLocalJS(src) {
+            var s = document.createElement('script');
+            s.src = src;
+            document.body.appendChild(s);
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="_loadLocalJS('js/jspdf.umd.min.js')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" onerror="_loadLocalJS('js/jspdf.plugin.autotable.min.js')"></script>
+>>>>>>> be505afb39a7b3b7a6e8872462c663bc30f020b8
     
     <script>
         let essData = null;
@@ -825,6 +982,196 @@ $position = $emp['position'] ?? 'Staff';
                 const url = `print_cash_advance.php?amount=${encodeURIComponent(amount)}&reason=${encodeURIComponent(reason)}&date=${encodeURIComponent(dateF)}&ca_no=${encodeURIComponent(caNo)}`;
                 window.open(url, '_blank');
             }
+        }
+
+        function printCOERequest(id) {
+            const coes = essData.coes || [];
+            const request = coes.find(c => c.id == id);
+            if (!request) return;
+            const profile = essData.profile || {};
+            const url = `print_coe.php?name=${encodeURIComponent(profile.full_name || '')}&employee_id=${encodeURIComponent(profile.employee_id || '')}&position=${encodeURIComponent(profile.position || '')}&department=${encodeURIComponent(profile.department || '')}&hire_date=${encodeURIComponent(profile.hire_date || '')}&work_status=${encodeURIComponent(profile.work_status || '')}&company_name=${encodeURIComponent(profile.company_name || 'ALM COLLEGE TACLOBAN')}&company_code=${encodeURIComponent(profile.company_code || '')}&date=${encodeURIComponent(new Date(request.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))}`;
+            window.open(url, '_blank');
+        }
+
+        function downloadCOEPDF(id) {
+            const coes = essData.coes || [];
+            const request = coes.find(c => c.id == id);
+            if (!request) {
+                showToast('COE request not found', 'error');
+                return;
+            }
+            const profile = essData.profile || {};
+            
+            // Prepare data for PDF generation
+            const data = {
+                type: 'COE',
+                request_id: id,
+                employee_name: profile.full_name || 'Employee',
+                employee_id: profile.employee_id || 'N/A',
+                position: profile.position || 'N/A',
+                department: profile.department || 'N/A',
+                hire_date: profile.hire_date || 'N/A',
+                work_status: profile.work_status || 'N/A',
+                company_name: profile.company_name || 'ALM COLLEGE TACLOBAN',
+                company_code: profile.company_code || '',
+                purpose: request.purpose,
+                recipient: request.recipient,
+                date_filed: new Date(request.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            };
+            
+            generatePDF(data);
+        }
+
+        function printOBRequest(id) {
+            const obs = essData.obs || [];
+            const request = obs.find(o => o.id == id);
+            if (!request) return;
+            const profile = essData.profile || {};
+            const url = `print_ob.php?name=${encodeURIComponent(profile.full_name || '')}&employee_id=${encodeURIComponent(profile.employee_id || '')}&position=${encodeURIComponent(profile.position || '')}&department=${encodeURIComponent(profile.department || '')}&company_name=${encodeURIComponent(profile.company_name || 'ALM COLLEGE TACLOBAN')}&company_code=${encodeURIComponent(profile.company_code || '')}&ob_type=${encodeURIComponent('Official Business')}&destination=${encodeURIComponent(request.destination || '')}&purpose=${encodeURIComponent(request.purpose || '')}&travel_date=${encodeURIComponent(request.travel_date || '')}&time_out=${encodeURIComponent(request.time_out || '')}&time_in=${encodeURIComponent(request.time_in || '')}&date=${encodeURIComponent(new Date(request.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))}`;
+            window.open(url, '_blank');
+        }
+
+        function downloadOBPDF(id) {
+            const obs = essData.obs || [];
+            const request = obs.find(o => o.id == id);
+            if (!request) {
+                showToast('OB request not found', 'error');
+                return;
+            }
+            const profile = essData.profile || {};
+            
+            const data = {
+                type: 'OB',
+                request_id: id,
+                employee_name: profile.full_name || 'Employee',
+                employee_id: profile.employee_id || 'N/A',
+                position: profile.position || 'N/A',
+                department: profile.department || 'N/A',
+                company_name: profile.company_name || 'ALM COLLEGE TACLOBAN',
+                company_code: profile.company_code || '',
+                purpose: request.purpose,
+                destination: request.destination,
+                travel_date: new Date(request.travel_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+                time_out: request.time_out,
+                time_in: request.time_in,
+                department_approval: request.department_approval,
+                date_filed: new Date(request.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            };
+            
+            generatePDF(data);
+        }
+
+        function generatePDF(data) {
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                showToast('PDF library not available', 'error');
+                return;
+            }
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            let yPos = margin;
+            
+            // Helper function to add text
+            const addText = (text, x, y, opts = {}) => {
+                doc.setFontSize(opts.size || 11);
+                doc.setFont(undefined, opts.style || 'normal');
+                doc.text(text, x, y, opts);
+            };
+            
+            // Header
+            doc.setFillColor(51, 51, 102);
+            doc.rect(0, 0, pageWidth, 20, 'F');
+            doc.setTextColor(255, 255, 255);
+            addText(data.company_name || 'ALM COLLEGE TACLOBAN', margin, 12, { size: 14, style: 'bold' });
+            doc.setTextColor(0, 0, 0);
+            
+            yPos = 30;
+            
+            if (data.type === 'COE') {
+                addText('CERTIFICATE OF EMPLOYMENT', margin, yPos, { size: 13, style: 'bold' });
+                yPos += 10;
+                
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+                yPos += 8;
+                
+                addText(`Request ID: COE-${String(data.request_id).padStart(5, '0')}`, margin, yPos);
+                yPos += 6;
+                addText(`Date Filed: ${data.date_filed}`, margin, yPos);
+                yPos += 10;
+                
+                addText('Employee Information:', margin, yPos, { style: 'bold' });
+                yPos += 6;
+                addText(`Name: ${data.employee_name}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Employee ID: ${data.employee_id}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Position: ${data.position}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Department: ${data.department}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Date Hired: ${data.hire_date}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Employment Status: ${data.work_status}`, margin + 2, yPos);
+                yPos += 10;
+                
+                addText('Request Details:', margin, yPos, { style: 'bold' });
+                yPos += 6;
+                addText(`Purpose: ${data.purpose}`, margin + 2, yPos, { maxWidth: pageWidth - 2 * margin - 4 });
+                yPos += 10;
+                addText(`Recipient/Use: ${data.recipient}`, margin + 2, yPos);
+                yPos += 10;
+            } else if (data.type === 'OB') {
+                addText('OFFICIAL BUSINESS (OB) REQUEST', margin, yPos, { size: 13, style: 'bold' });
+                yPos += 10;
+                
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+                yPos += 8;
+                
+                addText(`Request ID: OB-${String(data.request_id).padStart(5, '0')}`, margin, yPos);
+                yPos += 6;
+                addText(`Date Filed: ${data.date_filed}`, margin, yPos);
+                yPos += 10;
+                
+                addText('Employee Information:', margin, yPos, { style: 'bold' });
+                yPos += 6;
+                addText(`Name: ${data.employee_name}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Employee ID: ${data.employee_id}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Position: ${data.position}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Department: ${data.department}`, margin + 2, yPos);
+                yPos += 10;
+                
+                addText('Travel Details:', margin, yPos, { style: 'bold' });
+                yPos += 6;
+                addText(`Destination: ${data.destination}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Travel Date: ${data.travel_date}`, margin + 2, yPos);
+                yPos += 5;
+                addText(`Time Out: ${data.time_out} | Time In: ${data.time_in}`, margin + 2, yPos);
+                yPos += 10;
+                
+                addText(`Purpose: ${data.purpose}`, margin, yPos, { maxWidth: pageWidth - 2 * margin });
+                yPos += 10;
+                addText(`Department Approval: ${data.department_approval}`, margin, yPos);
+            }
+            
+            // Footer
+            yPos = pageHeight - 20;
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, yPos, { align: 'center' });
+            doc.text(data.company_code || '', pageWidth / 2, yPos + 5, { align: 'center' });
+            
+            const filename = data.type === 'COE' ? `COE-${data.request_id}.pdf` : `OB-${data.request_id}.pdf`;
+            doc.save(filename);
+            showToast(`PDF downloaded: ${filename}`, 'success');
         }
 
         function switchRequestTab(type, btn) {
@@ -896,8 +1243,11 @@ $position = $emp['position'] ?? 'Staff';
                 </tr>
             `).join('') || '<tr><td colspan="4" class="text-center">No recent logs</td></tr>';
 
-            // Draw Absence Chart
-            drawAbsenceChart(att.filter(a => a.check_in).length, essData.absent_days || 0);
+            absenceChartData = {
+                presentDays: att.filter(a => a.check_in).length,
+                absentDays: essData.absent_days || 0
+            };
+            drawAbsenceChart();
             
             // If faculty, load their specific data
             if (profile.position === 'Faculty') {
@@ -906,22 +1256,35 @@ $position = $emp['position'] ?? 'Staff';
         }
 
         let absenceChartInstance = null;
-        function drawAbsenceChart(presentDays, absentDays) {
+        let absenceChartData = { presentDays: 0, absentDays: 0 };
+
+        function getSelectedAbsenceChartType() {
+            const select = document.getElementById('absenceChartType');
+            return select ? (select.value === 'bar' ? 'bar' : 'doughnut') : 'doughnut';
+        }
+
+        function drawAbsenceChart() {
             const ctx = document.getElementById('attendanceChart');
             if (!ctx) return;
             
             if (absenceChartInstance) {
                 absenceChartInstance.destroy();
             }
-            
+
+            const chartType = getSelectedAbsenceChartType();
+            const labels = ['Present Days', 'Absent Days'];
+            const chartData = [absenceChartData.presentDays, absenceChartData.absentDays];
+
             absenceChartInstance = new Chart(ctx, {
-                type: 'doughnut',
+                type: chartType,
                 data: {
-                    labels: ['Present Days', 'Absent Days'],
+                    labels,
                     datasets: [{
-                        data: [presentDays, absentDays],
+                        label: 'Attendance',
+                        data: chartData,
                         backgroundColor: ['#28a745', '#dc3545'],
-                        borderWidth: 0
+                        borderColor: ['#1e7e34', '#c82333'],
+                        borderWidth: 1
                     }]
                 },
                 options: {
@@ -929,11 +1292,27 @@ $position = $emp['position'] ?? 'Staff';
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { position: 'bottom' }
-                    }
+                    },
+                    scales: chartType === 'bar' ? {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    } : {}
                 }
             });
         }
-        
+
+        function toggleAbsenceChart() {
+            const section = document.getElementById('absenceChartSection');
+            const btn = document.getElementById('toggleAbsenceChartBtn');
+            if (!section || !btn) return;
+            const isHidden = section.style.display === 'none';
+            section.style.display = isHidden ? 'block' : 'none';
+            btn.innerText = isHidden ? 'Hide Absence Chart' : 'Show Absence Chart';
+        }
+
+        function changeAbsenceChartType() {
+            drawAbsenceChart();
+        }
+
         function openSubjectLoadModal() {
             document.getElementById('subjectLoadModal').style.display = 'block';
         }
@@ -945,6 +1324,18 @@ $position = $emp['position'] ?? 'Staff';
         function closeModal(id) {
             document.getElementById(id).style.display = 'none';
         }
+
+        function setModalLoading(buttonEl, isLoading, labelWhenReady) {
+            if (!buttonEl) return;
+            if (isLoading) {
+                buttonEl.disabled = true;
+                buttonEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (labelWhenReady || 'Processing...');
+            } else {
+                buttonEl.disabled = false;
+                if (labelWhenReady) buttonEl.innerHTML = labelWhenReady;
+            }
+        }
+
 
         async function loadFacultySubjectsAndSchedules() {
             try {
@@ -1139,6 +1530,8 @@ $position = $emp['position'] ?? 'Staff';
         function renderRequests() {
             const leave = essData.leave || [];
             const loans = essData.loans || [];
+            const coes = essData.coes || [];
+            const obs = essData.obs || [];
             const resign = essData.resignations || [];
 
             document.getElementById('leave-history-body').innerHTML = leave.map(l => `
@@ -1162,6 +1555,40 @@ $position = $emp['position'] ?? 'Staff';
                 </tr>
             `).join('') || '<tr><td colspan="4" class="text-center">No cash advance requests</td></tr>';
 
+            document.getElementById('coe-history-body').innerHTML = coes.map(c => `
+                <tr>
+                    <td>${new Date(c.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td title="${c.purpose}" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${c.purpose || 'N/A'}</td>
+                    <td>${c.recipient || 'N/A'}</td>
+                    <td>
+                        <span class="status-tag status-${c.status.toLowerCase()}" style="font-weight:600;">
+                            ${c.status === 'Approved' ? '✓ Approved' : c.status === 'Rejected' ? '✗ Rejected' : '⏳ Pending'}
+                        </span>
+                    </td>
+                    <td style="white-space: nowrap; text-align: center;">
+                        <button class="btn-icon" title="View/Print" onclick="printCOERequest(${c.id})" style="margin-right:8px;"><i class="fas fa-eye"></i></button>
+                        <button class="btn-icon" title="Download PDF" onclick="downloadCOEPDF(${c.id})"><i class="fas fa-file-pdf"></i></button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center">No COE requests yet</td></tr>';
+
+            document.getElementById('ob-history-body').innerHTML = obs.map(o => `
+                <tr>
+                    <td>${new Date(o.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td>${new Date(o.travel_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td title="${o.destination}" style="max-width: 120px; overflow: hidden; text-overflow: ellipsis;">${o.destination || 'N/A'}</td>
+                    <td>
+                        <span class="status-tag status-${o.status.toLowerCase()}" style="font-weight:600;">
+                            ${o.status === 'Approved' ? '✓ Approved' : o.status === 'Rejected' ? '✗ Rejected' : '⏳ Pending'}
+                        </span>
+                    </td>
+                    <td style="white-space: nowrap; text-align: center;">
+                        <button class="btn-icon" title="View/Print" onclick="printOBRequest(${o.id})" style="margin-right:8px;"><i class="fas fa-eye"></i></button>
+                        <button class="btn-icon" title="Download PDF" onclick="downloadOBPDF(${o.id})"><i class="fas fa-file-pdf"></i></button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center">No OB requests yet</td></tr>';
+
             const latestResign = resign[0];
             if (latestResign) {
                 document.getElementById('resignation-status-container').innerHTML = `
@@ -1181,6 +1608,32 @@ $position = $emp['position'] ?? 'Staff';
             const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
             
+            // Validation
+            if (type === 'coe') {
+                if (!data.purpose || data.purpose.trim().length < 10) {
+                    return showToast('Purpose must be at least 10 characters', 'error');
+                }
+                if (!data.recipient || data.recipient.trim().length < 3) {
+                    return showToast('Recipient must be at least 3 characters', 'error');
+                }
+            } else if (type === 'ob') {
+                if (!data.purpose || data.purpose.trim().length < 10) {
+                    return showToast('Purpose must be at least 10 characters', 'error');
+                }
+                if (!data.destination || data.destination.trim().length < 3) {
+                    return showToast('Destination must be at least 3 characters', 'error');
+                }
+                if (!data.time_out || !data.time_in) {
+                    return showToast('Both departure and return times are required', 'error');
+                }
+                // Validate times
+                const timeOut = new Date(`2000-01-01 ${data.time_out}`);
+                const timeIn = new Date(`2000-01-01 ${data.time_in}`);
+                if (timeIn <= timeOut) {
+                    return showToast('Return time must be after departure time', 'error');
+                }
+            }
+            
             const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
@@ -1195,17 +1648,20 @@ $position = $emp['position'] ?? 'Staff';
                 });
                 const res = await response.json();
                 if (res.success) {
-                    showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} request submitted!`, "success");
+                    const typeLabel = type === 'coe' ? 'Certificate of Employment' : type === 'ob' ? 'Official Business' : 'Request';
+                    showToast(`${typeLabel} request submitted successfully!`, "success");
                     form.reset();
+                    await new Promise(r => setTimeout(r, 1500));
                     await loadESS();
                 } else {
-                    showToast(res.message, "error");
+                    showToast(res.message || 'Failed to submit request', "error");
                 }
             } catch (err) {
-                showToast("Connection failed.", "error");
+                console.error(err);
+                showToast("Connection failed. Please try again.", "error");
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerText = 'Submit Request';
+                submitBtn.innerHTML = 'Submit ' + (type === 'coe' ? 'COE' : type === 'ob' ? 'OB' : 'Request') + ' Request';
             }
         }
 
