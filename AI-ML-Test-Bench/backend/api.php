@@ -706,14 +706,29 @@ try {
                 $company_id = $pdo->lastInsertId();
 
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                // Assign School Director role to signup users (SD Pages admin)
-                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'School Director', ?)");
+                // Assign Admin/HR role (Admin) to new signups
+                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email, is_active) VALUES (?, ?, ?, 'Admin', ?, 1)");
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
+                $user_id = $pdo->lastInsertId();
 
                 $pdo->commit();
+
+                // Log the user in immediately so they can access the dashboard right away
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $user_id;
+                $_SESSION['company_id'] = $company_id;
+                $_SESSION['role'] = 'Admin';
+                $_SESSION['company_name'] = $company_name;
+                $_SESSION['company_code'] = $company_code;
+                $_SESSION['company_timezone'] = 'Asia/Manila';
+                $_SESSION['username'] = $username;
+                $_SESSION['full_name'] = $username;
+
                 echo json_encode([
-                    'success' => true, 
+                    'success' => true,
+                    'role' => 'Admin',
                     'company_code' => $company_code,
+                    'company_name' => $company_name,
                     'message' => 'Account created successfully. Company Code: ' . $company_code
                 ]);
             } catch (Exception $e) {

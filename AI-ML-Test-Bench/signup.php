@@ -278,22 +278,19 @@ if (isset($_SESSION['user_id'])) {
             if (result.success) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Success!',
-                    html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br><br><strong>Your Role:</strong> School Director<br>You will be redirected to login in <strong>3 seconds</strong>...`,
+                    title: 'Welcome!',
+                    html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br><br><strong>Your Role:</strong> Admin<br>Redirecting to dashboard...`,
                     customClass: {
                         popup: 'glass-modal',
                         container: 'glass-backdrop'
                     },
                     background: 'transparent',
-                    showConfirmButton: true,
-                    confirmButtonText: 'Login Now',
-                    confirmButtonColor: '#4facfe',
-                    timer: 3000,
+                    showConfirmButton: false,
+                    timer: 1500,
                     timerProgressBar: true,
                     allowOutsideClick: false
-                }).then((willRedirect) => {
-                    // Redirect to login page
-                    window.location.href = 'login.php';
+                }).then(() => {
+                    window.location.href = 'index.php';
                 });
             } else {
                 Swal.fire({
