@@ -23,7 +23,9 @@ try {
 $allowedActions = [
     // Authentication
     'login', 'logout', 'forgot_password', 'reset_password', 'reset_password_with_token', 'verify_2fa',
+    'request_otp', 'verify_otp',
     'signup', 'change_password',
+    'request_password_otp', 'verify_reset_otp', // NEW OTP endpoints
     
     // Dashboard & ESS
     'get_dashboard_stats', 'get_ess_data',
@@ -63,14 +65,14 @@ $allowedActions = [
     'get_my_subject_loads', 'save_my_subject_load', 'delete_my_subject_load',
     'get_my_subject_schedules', 'save_my_subject_schedule', 'delete_my_subject_schedule',
     
-    // Leave Management
+// Leave Management
     'get_leave_requests', 'apply_leave', 'update_leave_status',
     'approve_leave', 'reject_leave',
     'update_leave_balance', 'bulk_update_leave_balance',
-    'get_resignation_requests', 'update_resignation_status', 'decline_resignation',
+    'get_leave_requests_filtered',
     
-    // Loan Management
-    'get_loan_requests', 'apply_loan', 'update_loan_status',
+    // Loan/Cash Advance Management
+    'get_loan_requests', 'apply_loan', 'update_loan_status', 'get_cash_advance_by_tracking',
     
     // Company & Settings
     'get_companies', 'add_company', 'update_company', 'get_company_info',
@@ -101,9 +103,6 @@ $allowedActions = [
     'save_subject_load_ess', 'delete_subject_load_ess',
     'save_subject_schedule_ess', 'delete_subject_schedule_ess'
 ];
-
-
-
 
 // Get and sanitize action parameter
 $action = getParam('action', '', 'string');
@@ -512,6 +511,180 @@ try {
             }
             break;
 
+        // ============ OTP PASSWORD RESET ENDPOINTS (DEMO MODE - EMPLOYEE ID) ============
+
+case 'request_password_otp':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $employee_id = trim($data['employee_id'] ?? '');
+    $company_code = $data['company_code'] ?? '';
+    
+    // Validate inputs
+    if (empty($employee_id) || empty($company_code)) {
+        echo json_encode(['success' => false, 'message' => 'Employee ID and Company Code are required']);
+        break;
+    }
+    
+    // Find user by EMPLOYEE ID
+    $stmt = $pdo->prepare("
+        SELECT u.id, u.email, u.username, e.full_name, e.employee_id, c.name as company_name, c.id as company_id
+        FROM employees e
+        JOIN users u ON e.user_id = u.id
+        JOIN companies c ON e.company_id = c.id
+        WHERE e.employee_id = ? AND c.company_code = ?
+    ");
+    $stmt->execute([$employee_id, $company_code]);
+    $user = $stmt->fetch();
+    
+    if (!$user) {
+        echo json_encode(['success' => false, 'message' => 'No account found with this Employee ID and Company Code']);
+        break;
+    }
+    
+    // Generate 6-digit OTP
+    $otp_code = sprintf("%06d", mt_rand(1, 999999));
+    
+    // Create table if not exists
+    $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_otp (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp_code VARCHAR(6) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used TINYINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    $expires_at = date('Y-m-d H:i:s', time() + 300);
+    
+    // Delete old OTPs
+    $stmt = $pdo->prepare("UPDATE password_reset_otp SET used = 1 WHERE email = ? AND used = 0");
+    $stmt->execute([$user['email']]);
+    
+    // Insert new OTP
+    $stmt = $pdo->prepare("INSERT INTO password_reset_otp (email, otp_code, expires_at) VALUES (?, ?, ?)");
+    $stmt->execute([$user['email'], $otp_code, $expires_at]);
+    
+    // DEMO MODE: Return OTP directly
+    echo json_encode([
+        'success' => true,
+        'message' => 'OTP generated (DEMO MODE)',
+        'test_otp' => $otp_code,
+        'reset_id' => $user['id'],
+        'email' => $user['email']
+    ]);
+    break;
+    
+case 'verify_reset_otp':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $email = filter_var($data['email'] ?? '', FILTER_SANITIZE_EMAIL);
+    $otp_code = $data['otp_code'] ?? '';
+    $user_id = $data['user_id'] ?? 0;
+    
+    if (empty($email) || empty($otp_code)) {
+        echo json_encode(['success' => false, 'message' => 'Email and OTP code are required']);
+        break;
+    }
+    
+    // Verify OTP
+    $stmt = $pdo->prepare("
+        SELECT * FROM password_reset_otp 
+        WHERE email = ? AND otp_code = ? AND used = 0 AND expires_at > NOW()
+        ORDER BY id DESC LIMIT 1
+    ");
+    $stmt->execute([$email, $otp_code]);
+    $otp_record = $stmt->fetch();
+    
+    if (!$otp_record) {
+        echo json_encode(['success' => false, 'message' => 'Invalid or expired OTP code']);
+        break;
+    }
+    
+    // Mark OTP as used
+    $stmt = $pdo->prepare("UPDATE password_reset_otp SET used = 1 WHERE id = ?");
+    $stmt->execute([$otp_record['id']]);
+    
+    // Create password_resets table if not exists
+    $pdo->exec("CREATE TABLE IF NOT EXISTS password_resets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        token VARCHAR(64) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        used TINYINT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Generate temporary reset token
+    $reset_token = bin2hex(random_bytes(32));
+    $token_expires = date('Y-m-d H:i:s', time() + 900);
+    
+    // Delete existing tokens
+    $stmt = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0");
+    $stmt->execute([$user_id]);
+    
+    // Insert new reset token
+    $stmt = $pdo->prepare("INSERT INTO password_resets (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$user_id, $email, $reset_token, $token_expires]);
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'OTP verified',
+        'reset_token' => $reset_token
+    ]);
+    break;
+    
+case 'reset_password_with_token':
+    $data = json_decode(file_get_contents('php://input'), true);
+    $reset_token = $data['reset_token'] ?? '';
+    $new_password = $data['new_password'] ?? '';
+    $confirm_password = $data['confirm_password'] ?? '';
+    
+    if (empty($reset_token) || empty($new_password)) {
+        echo json_encode(['success' => false, 'message' => 'Reset token and new password are required']);
+        break;
+    }
+    
+    if ($new_password !== $confirm_password) {
+        echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
+        break;
+    }
+    
+    if (strlen($new_password) < 8) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
+        break;
+    }
+    
+    if (!preg_match('/[A-Z]/', $new_password) || 
+        !preg_match('/[a-z]/', $new_password) || 
+        !preg_match('/[0-9]/', $new_password)) {
+        echo json_encode(['success' => false, 'message' => 'Password must contain uppercase, lowercase, and numbers']);
+        break;
+    }
+    
+    // Validate reset token
+    $stmt = $pdo->prepare("
+        SELECT * FROM password_resets 
+        WHERE token = ? AND used = 0 AND expires_at > NOW()
+    ");
+    $stmt->execute([$reset_token]);
+    $reset = $stmt->fetch();
+    
+    if (!$reset) {
+        echo json_encode(['success' => false, 'message' => 'Invalid or expired reset token']);
+        break;
+    }
+    
+    // Update password
+    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare("UPDATE users SET password = ?, password_last_changed = NOW() WHERE id = ?");
+    $stmt->execute([$hashed_password, $reset['user_id']]);
+    
+    // Mark token as used
+    $stmt = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE token = ?");
+    $stmt->execute([$reset_token]);
+    
+    echo json_encode(['success' => true, 'message' => 'Password has been reset successfully']);
+    break;
+
         case 'forgot_password':
             $data = json_decode(file_get_contents('php://input'), true);
             $employee_id = $data['employee_id'] ?? '';
@@ -555,52 +728,6 @@ try {
                 'employee_name' => $employee['full_name'],
                 'username' => $employee['username']
             ]);
-            break;
-
-        case 'reset_password_with_token':
-            $data = json_decode(file_get_contents('php://input'), true);
-            $token = $data['token'] ?? '';
-            $new_password = $data['password'] ?? '';
-            
-            if (empty($token) || empty($new_password)) {
-                echo json_encode(['success' => false, 'message' => 'Token and new password are required']);
-                break;
-            }
-            
-            if (strlen($new_password) < 8) {
-                echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
-                break;
-            }
-            
-            // Password complexity check
-            if (!preg_match('/[A-Z]/', $new_password) || !preg_match('/[a-z]/', $new_password) || !preg_match('/[0-9]/', $new_password)) {
-                echo json_encode(['success' => false, 'message' => 'Password must contain uppercase, lowercase, and numbers']);
-                break;
-            }
-            
-            // Validate token
-            $stmt = $pdo->prepare("SELECT * FROM password_resets WHERE token = ? AND used = FALSE AND expires_at > NOW()");
-            $stmt->execute([$token]);
-            $reset = $stmt->fetch();
-            
-            if (!$reset) {
-                echo json_encode(['success' => false, 'message' => 'Invalid or expired token']);
-                break;
-            }
-            
-            // Update password
-            $hashed_pass = password_hash($new_password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-            $stmt->execute([$hashed_pass, $reset['user_id']]);
-            
-            // Mark token as used
-            $stmt = $pdo->prepare("UPDATE password_resets SET used = TRUE WHERE token = ?");
-            $stmt->execute([$token]);
-            
-            echo json_encode(['success' => true, 'message' => 'Password has been reset successfully']);
-            
-            // Log password reset
-            logAudit($pdo, $_SESSION['company_id'] ?? 0, $reset['user_id'], AUDIT_RESET_PASSWORD, 'user', $reset['user_id']);
             break;
 
         case 'verify_2fa':
@@ -2895,65 +3022,6 @@ try {
             }
             break;
 
-        case 'upload_profile_picture':
-            if (!isset($_FILES['profile_picture'])) {
-                echo json_encode(['success' => false, 'message' => 'No file uploaded']);
-                break;
-            }
-
-            $file = $_FILES['profile_picture'];
-            
-            // Validate file type
-            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!in_array($file['type'], $allowed_types)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed']);
-                break;
-            }
-
-            // Validate file size (max 5MB)
-            if ($file['size'] > 5 * 1024 * 1024) {
-                echo json_encode(['success' => false, 'message' => 'File size must be less than 5MB']);
-                break;
-            }
-
-            // Create upload directory if it doesn't exist
-            $upload_dir = 'uploads/profiles/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            // Generate unique filename
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'profile_' . $_SESSION['user_id'] . '_' . time() . '.' . $extension;
-            $filepath = $upload_dir . $filename;
-
-            // Delete old profile picture if exists
-            $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
-            $stmt->execute([$_SESSION['user_id']]);
-            $old_picture = $stmt->fetchColumn();
-            if ($old_picture && file_exists($old_picture)) {
-                unlink($old_picture);
-            }
-
-            // Move uploaded file
-            if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                // Update database
-                $stmt = $pdo->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
-                $success = $stmt->execute([$filepath, $_SESSION['user_id']]);
-
-                if ($success) {
-                    echo json_encode([
-                        'success' => true,
-                        'picture_url' => $filepath
-                    ]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to update database']);
-                }
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to upload file']);
-            }
-            break;
-
         case 'update_employee_profile':
             $data = json_decode(file_get_contents('php://input'), true);
             
@@ -3183,7 +3251,7 @@ try {
             $status = ($ready_count / max(1, $total_employees)) >= 0.9 ? 'ready' : 'pending';
             if ($today > $schedule['run_date']) $status = 'overdue';
             
-echo json_encode([
+            echo json_encode([
                 'success' => true,
                 'status' => $status,
                 'attendance_coverage' => round(($ready_count / max(1, $total_employees)) * 100, 1) . '%',
@@ -3193,7 +3261,6 @@ echo json_encode([
                 'cutoff_complete' => $today <= $schedule['cutoff_end']
             ]);
             break;
-
 
         case 'get_server_time':
             $cid = $_GET['company_id'] ?? $_SESSION['company_id'] ?? null;
@@ -3560,5 +3627,3 @@ echo json_encode([
     echo json_encode(['success' => false, 'message' => 'API Error: ' . $e->getMessage()]);
 }
 ?>
-
-
