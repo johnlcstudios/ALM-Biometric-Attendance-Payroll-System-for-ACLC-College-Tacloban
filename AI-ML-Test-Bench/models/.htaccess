@@ -1,0 +1,29 @@
+# Enable proper MIME types for face-api.js model files
+<IfModule mod_mime.c>
+    AddType application/json .json
+    AddType application/octet-stream .bin
+    AddType application/octet-stream .shard1
+</IfModule>
+
+# Enable CORS for local development
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# Prevent caching of model files during development
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType application/octet-stream "access plus 0 seconds"
+</IfModule>
+
+# Security: Prevent directory listing
+Options -Indexes
+
+# Security: Prevent access to hidden files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
