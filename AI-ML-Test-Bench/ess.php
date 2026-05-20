@@ -326,7 +326,10 @@ $position = $emp['position'] ?? 'Staff';
                     <button class="tab-link active" onclick="switchRequestTab('leave', this)">Leave Requests</button>
                     <button class="tab-link" onclick="switchRequestTab('loan', this)">Cash Advance</button>
                     <button class="tab-link" onclick="switchRequestTab('resignation', this)">Resignation</button>
+                    <button class="tab-link" onclick="switchRequestTab('coe', this)">COE</button>
+                    <button class="tab-link" onclick="switchRequestTab('ob', this)">Official Business (OB)</button>
                 </div>
+
 
                 <!-- Leave Request Section -->
                 <div id="request-leave" class="request-section active">
@@ -495,7 +498,9 @@ $position = $emp['position'] ?? 'Staff';
 
                 <!-- Resignation Section -->
                 <div id="request-resignation" class="request-section" style="display: none;">
+
                     <div class="ess-request-grid">
+
                         <div class="request-form-card">
                             <h3>Submit Resignation</h3>
                             <form id="resignation-form" onsubmit="submitRequest(event, 'resignation')">

@@ -18,14 +18,15 @@
                     <div class="step-counter">2</div>
                     <div class="step-name">Employment</div>
                 </div>
-                <div class="stepper-item" id="step3-indicator">
+                <div class="stepper-item" id="step3-indicator" style="display:none;">
                     <div class="step-counter">3</div>
                     <div class="step-name">Government</div>
                 </div>
-                <div class="stepper-item" id="step4-indicator">
+                <div class="stepper-item" id="step4-indicator" style="display:none;">
                     <div class="step-counter">4</div>
                     <div class="step-name">Subjects</div>
                 </div>
+
             </div>
 
             <form id="employeeForm" class="modern-form">
@@ -83,6 +84,7 @@
 
                 <!-- Step 2: Employment Details -->
                 <div class="form-step" id="step2">
+
                     <div class="step-header">
                         <i class="fas fa-briefcase"></i>
                         <h4>Employment Details</h4>
@@ -156,57 +158,38 @@
                     </div>
                 </div>
 
-                <!-- Step 3: Government Identifiers -->
-                <div class="form-step" id="step3">
+                <!-- Step 3: Government Identifiers (Removed from Employee Directory) -->
+                <div class="form-step" id="step3" style="display:none;">
                     <div class="step-header">
                         <i class="fas fa-id-card"></i>
                         <h4>Government Identifiers</h4>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>SSS Number</label>
-                            <input type="text" name="sss" placeholder="XX-XXXXXXX-X" pattern="[0-9\\-]*" title="SSS number format: 99-9999999-9">
-                        </div>
-                        <div class="form-group">
-                            <label>PhilHealth ID</label>
-                            <input type="text" name="philhealth" placeholder="XX-XXXXXXXXX-X" pattern="[0-9\\-]*" title="PhilHealth format: 99-999999999-9">
-                        </div>
-                        <div class="form-group">
-                            <label>TIN Number</label>
-                            <input type="text" name="tin" placeholder="XXX-XXX-XXX-XXX" pattern="[0-9\\-]*" title="TIN format: 999-999-999-999">
-                        </div>
-                        <div class="form-group">
-                            <label>Pag-IBIG MID</label>
-                            <input type="text" name="pagibig" placeholder="XXXX-XXXX-XXXX" pattern="[0-9\\-]*" title="Pag-IBIG format: 9999-9999-9999">
-                        </div>
-                    </div>
+                    <div class="form-grid"></div>
                 </div>
 
-                <!-- Step 4: Subject Load (Faculty Only) -->
-                <div class="form-step" id="step4">
+                <!-- Step 4: Subject Load (Faculty Only) (Removed from Employee Directory) -->
+                <div class="form-step" id="step4" style="display:none;">
                     <div class="step-header">
                         <i class="fas fa-book"></i>
                         <h4>Subject Load Allocation</h4>
                     </div>
-                    <div id="subjectRowsContainer" class="subject-rows-wrapper">
-                        <!-- Dynamic rows will be injected here -->
-                    </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm mt-3" onclick="addSubjectRow()">
-                        <i class="fas fa-plus"></i> Add Another Subject
-                    </button>
                 </div>
+
             </form>
         </div>
         <div class="modal-footer border-top-0">
-            <button class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
-                <i class="fas fa-arrow-left"></i> Previous
-            </button>
+
             <button class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
                 Next <i class="fas fa-arrow-right"></i>
             </button>
-            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
+
+            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none; margin-left: 8px;">
                 <i class="fas fa-check-circle"></i> Save Employee
             </button>
+
+
+
+
         </div>
     </div>
 </div>

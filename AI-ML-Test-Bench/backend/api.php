@@ -1059,8 +1059,8 @@ try {
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate, description) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate'], $data['description']]);
+            $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['type'], $data['rate']]);
             echo json_encode(['success' => true, 'message' => 'Category added successfully']);
             break;
 
@@ -1412,31 +1412,8 @@ try {
                 $errors[] = 'Faculty level is required for Faculty position';
             }
             
-            // Validate government ID formats if provided
-            if (!empty($data['sss'])) {
-                $sss = preg_replace('/[\s\-]/', '', $data['sss']);
-                if (!preg_match('/^\d{10,11}$/', $sss)) {
-                    $errors[] = 'Invalid SSS number format';
-                }
-            }
-            if (!empty($data['tin'])) {
-                $tin = preg_replace('/[\s\-]/', '', $data['tin']);
-                if (!preg_match('/^\d{9,12}$/', $tin)) {
-                    $errors[] = 'Invalid TIN format';
-                }
-            }
-            if (!empty($data['philhealth'])) {
-                $philhealth = preg_replace('/[\s\-]/', '', $data['philhealth']);
-                if (!preg_match('/^\d{11,12}$/', $philhealth)) {
-                    $errors[] = 'Invalid PhilHealth format';
-                }
-            }
-            if (!empty($data['pagibig'])) {
-                $pagibig = preg_replace('/[\s\-]/', '', $data['pagibig']);
-                if (!preg_match('/^\d{12}$/', $pagibig)) {
-                    $errors[] = 'Invalid Pag-IBIG format (12 digits required)';
-                }
-            }
+            // Removed Government ID validation from Employee Directory
+
             
             rejectInvalidPayload($errors);
 
@@ -1448,7 +1425,7 @@ try {
 
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
-                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
+                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
                 $stmt->execute([
                     trim($data['fullName']),
                     $data['dob'],
@@ -1459,15 +1436,12 @@ try {
                     $data['faculty_level'] ?? null,
                     $data['hire_date'] ?? date('Y-m-d'),
                     $basic_salary,
-                    trim($data['sss'] ?? ''),
-                    trim($data['philhealth'] ?? ''),
-                    trim($data['tin'] ?? ''),
-                    trim($data['pagibig'] ?? ''),
                     $status,
                     $data['work_status'] ?? null,
                     $data['id'],
                     $_SESSION['company_id']
                 ]);
+
             } else {
                 // Create new employee
                 $pdo->beginTransaction();
@@ -1518,21 +1492,8 @@ try {
                     ]);
                     $new_emp_id = $pdo->lastInsertId();
 
-                    // Handle subjects if provided
-                    if ($data['position'] === 'Faculty' && !empty($data['subjects']) && is_array($data['subjects'])) {
-                        foreach ($data['subjects'] as $sub) {
-                            if (empty($sub['description']))
-                                continue;
-                            $stmt_sub = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units) VALUES (?, ?, ?, ?, ?)");
-                            $stmt_sub->execute([
-                                $_SESSION['company_id'],
-                                $new_emp_id,
-                                'AUTO',
-                                trim($sub['description']),
-                                (float) $sub['units']
-                            ]);
-                        }
-                    }
+                // Removed Subjects handling from Employee Directory
+
 
                     $pdo->commit();
                 } catch (Exception $e) {
@@ -2892,65 +2853,6 @@ try {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
-            }
-            break;
-
-        case 'upload_profile_picture':
-            if (!isset($_FILES['profile_picture'])) {
-                echo json_encode(['success' => false, 'message' => 'No file uploaded']);
-                break;
-            }
-
-            $file = $_FILES['profile_picture'];
-            
-            // Validate file type
-            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!in_array($file['type'], $allowed_types)) {
-                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed']);
-                break;
-            }
-
-            // Validate file size (max 5MB)
-            if ($file['size'] > 5 * 1024 * 1024) {
-                echo json_encode(['success' => false, 'message' => 'File size must be less than 5MB']);
-                break;
-            }
-
-            // Create upload directory if it doesn't exist
-            $upload_dir = 'uploads/profiles/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            // Generate unique filename
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'profile_' . $_SESSION['user_id'] . '_' . time() . '.' . $extension;
-            $filepath = $upload_dir . $filename;
-
-            // Delete old profile picture if exists
-            $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
-            $stmt->execute([$_SESSION['user_id']]);
-            $old_picture = $stmt->fetchColumn();
-            if ($old_picture && file_exists($old_picture)) {
-                unlink($old_picture);
-            }
-
-            // Move uploaded file
-            if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                // Update database
-                $stmt = $pdo->prepare("UPDATE users SET profile_picture = ? WHERE id = ?");
-                $success = $stmt->execute([$filepath, $_SESSION['user_id']]);
-
-                if ($success) {
-                    echo json_encode([
-                        'success' => true,
-                        'picture_url' => $filepath
-                    ]);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to update database']);
-                }
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to upload file']);
             }
             break;
 

@@ -307,7 +307,7 @@ function openAddEmployeeModal() {
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
         const saveBtn = document.getElementById('saveBtn');
-        if (prevBtn) prevBtn.style.display = 'none';
+
         if (nextBtn) nextBtn.style.display = 'inline-block';
         if (saveBtn) saveBtn.style.display = 'none';
         

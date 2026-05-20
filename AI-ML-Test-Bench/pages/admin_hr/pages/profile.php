@@ -1,7 +1,7 @@
 <?php
 global $pdo;
-// Fetch user profile
-$stmt_user = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+// Fetch user profile with employee data (profile_picture is stored in employees table)
+$stmt_user = $pdo->prepare("SELECT u.*, e.profile_picture AS emp_profile_picture, e.position, e.work_position, e.department, e.faculty_level, e.hire_date, e.status, e.work_status, e.basic_salary, e.emp_code FROM users u LEFT JOIN employees e ON u.id = e.user_id WHERE u.id = ?");
 $stmt_user->execute([$_SESSION['user_id']]);
 $user = $stmt_user->fetch();
 
@@ -10,12 +10,13 @@ $role = $_SESSION['role'];
 $email = $user['email'];
 $username = $user['username'];
 $phone = $user['phone'] ?? '';
-$profile_picture = $user['profile_picture'] ?? '';
 
-// Fetch employee data
-$stmt_emp = $pdo->prepare("SELECT position, work_position, department, faculty_level, hire_date, status, work_status, basic_salary, emp_code FROM employees WHERE user_id = ?");
-$stmt_emp->execute([$_SESSION['user_id']]);
-$emp = $stmt_emp->fetch();
+// Use profile_picture from employees table (where upload_profile_picture saves it)
+$profile_picture = $user['emp_profile_picture'] ?? $user['profile_picture'] ?? '';
+
+// Determine if there's an actual employee record linked to this user
+$has_employee = $user['emp_code'] !== null;
+$emp = $has_employee ? $user : null;
 
 // Check if profile picture exists
 if (!empty($profile_picture) && file_exists($profile_picture)) {
