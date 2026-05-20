@@ -25,6 +25,10 @@
             padding: 0;
             box-sizing: border-box;
             font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         body {
@@ -60,7 +64,8 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 20px 50px rgba(30, 1, 120, 0.3);
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+            will-change: border-color, box-shadow;
         }
 
         /* Scanning Effect */
@@ -380,10 +385,11 @@
             background: #f8f9fa;
             border-radius: 20px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.15s ease-out;
             font-weight: 700;
             color: var(--primary-blue);
             border: 2px solid #e9ecef;
+            touch-action: manipulation;
         }
 
         .company-item:hover {
@@ -407,6 +413,8 @@
             z-index: 100;
             font-weight: 600;
             backdrop-filter: blur(5px);
+            touch-action: manipulation;
+            transition: all 0.15s ease-out;
         }
 
         .change-company-btn:hover {
@@ -869,26 +877,13 @@
                     const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
                     const isFrontal = frontalCheck.isFrontal;
 
-                    // Verify that the detected face shows natural facial motion across frames
-                    const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
-                    
-                    // Passive Anti-Spoofing: Rigidity Analysis
-                    const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
-
-                    // Active Liveness action handling
-                    if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
-                        // Assign a random liveness task when face is frontal
-                        const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
-                        const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
-                        faceManager.setLivenessAction(randomTask);
-                    }
-                    
-                    const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
+                    // Passive-only liveness check (no active actions needed)
+                    const isPassiveLive = faceManager.checkAllLiveness(detection.landmarks, detection.detection.box);
 
                     // Determine status message and color
                     let status, color, hint;
                     
-                    if (!isLive || !isRealFace) {
+                    if (!isPassiveLive) {
                         status = "NO PHOTO/IMAGE ACCEPTED";
                         hint = "Live face required. Please step back and try again.";
                         color = "#db261f"; // Red error
@@ -942,27 +937,8 @@
                         hint = "✓ Good! Hold still...";
                         color = "#f39c12"; // Orange
                         guideCircle.className = 'face-guide-circle warning';
-                    } else if (!isActiveLivenessPassed) {
-                        // Waiting for liveness action
-                        if (faceManager.framesProcessed <= 15) {
-                            status = "HOLD STILL FOR BASELINE...";
-                            hint = "Analyzing your neutral face structure...";
-                        } else {
-                            if (faceManager.livenessAction === 'turn_left') {
-                                status = "TURN HEAD LEFT";
-                                hint = "Slightly turn your head to the left";
-                            } else if (faceManager.livenessAction === 'turn_right') {
-                                status = "TURN HEAD RIGHT";
-                                hint = "Slightly turn your head to the right";
-                            } else {
-                                status = faceManager.livenessAction === 'blink' ? "PLEASE BLINK TWICE" : "PLEASE SMILE";
-                                hint = faceManager.livenessAction === 'blink' ? `Blinks detected: ${faceManager.blinkCount}/2` : "Smile widely to verify";
-                            }
-                        }
-                        color = "#3498db"; // Blue action
-                        guideCircle.className = 'face-guide-circle border-primary';
                     } else {
-                        // Frontal, stable, and liveness verified - ready to scan!
+                        // Frontal, stable, and passive liveness verified - ready to scan!
                         status = "✓ PERFECT! SCANNING...";
                         hint = "✓ Perfect! Scanning now...";
                         color = "#27ae60"; // Green
@@ -972,8 +948,8 @@
                     positionHint.textContent = hint;
                     faceManager.drawDetection(canvas, video, detection, status, color);
 
-                    // Only scan if face is frontal, stable, AND active liveness verified
-                    if (isFrontal && isStable && isActiveLivenessPassed) {
+                    // Only scan if face is frontal, stable, AND passive liveness verified
+                    if (isFrontal && isStable && isPassiveLive) {
                         faceManager.isProcessing = true;
                         cameraCircle.classList.add('scanning');
                         processScan();
@@ -981,9 +957,6 @@
                 } else {
                     faceManager.stabilityCounter = 0;
                     faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
-                    if (faceManager.lostFaceCount > 15) {
-                        faceManager.setLivenessAction('none'); // Reset active liveness
-                    }
                     cameraCircle.classList.remove('scanning');
                     faceGuide.classList.remove('active');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);

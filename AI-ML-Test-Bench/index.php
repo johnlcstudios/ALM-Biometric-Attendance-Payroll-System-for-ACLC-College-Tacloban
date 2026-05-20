@@ -37,7 +37,6 @@ if ($showSplash) {
 $allowed_pages = [
     'dashboard',
     'employees',
-    'subject_loads',
     'biometrics',
     'attendance',
     'payroll',
@@ -285,9 +284,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'employees' ? 'active' : ''; ?>" data-page="employees" onclick="window.location.href='index.php?page=employees'">
                     <i class="fas fa-users"></i> <span>Employees</span>
                 </button>
-                <button class="nav-btn <?php echo $page === 'subject_loads' ? 'active' : ''; ?>" data-page="subject_loads" onclick="window.location.href='index.php?page=subject_loads'">
-                    <i class="fas fa-book"></i> <span>Subject Loads</span>
-                </button>
+
                 <?php endif; ?>
 
                 <!-- Role: Admin / HR / Payroll Officer -->

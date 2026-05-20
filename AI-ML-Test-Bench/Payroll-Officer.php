@@ -28,7 +28,6 @@ $full_name = $_SESSION['full_name'] ?? 'Payroll Officer';
 $allowed_pages = [
     'dashboard',
     'employees',
-    'subject_loads',
     'biometrics',
     'assign_payroll',
     'attendance',

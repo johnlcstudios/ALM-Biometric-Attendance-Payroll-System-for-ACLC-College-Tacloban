@@ -4345,24 +4345,12 @@ async function initFaceRegistration() {
                         const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
                         const isFrontal = frontalCheck.isFrontal;
 
-                        // Verify that the detected face shows natural facial motion across frames
-                        const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
-                        
-                        // Passive Anti-Spoofing: Rigidity Analysis
-                        const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
-                        
-                        // Active Liveness handling for registration
-                        if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
-                            const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
-                            const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
-                            faceManager.setLivenessAction(randomTask);
-                        }
-                        
-                        const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
+                        // Passive-only liveness check (no active actions needed)
+                        const isPassiveLive = faceManager.checkAllLiveness(detection.landmarks, detection.detection.box);
 
                         let status, color;
                         
-                        if (!isLive || !isRealFace) {
+                        if (!isPassiveLive) {
                             status = "NO PHOTO/IMAGE ACCEPTED";
                             color = "#db261f"; // Red error
                             captureBtn.disabled = true;
@@ -4405,23 +4393,8 @@ async function initFaceRegistration() {
                         } else if (!isStable) {
                             status = "HOLD STILL...";
                             color = "#f39c12"; // Orange
-                        } else if (!isActiveLivenessPassed) {
-                            // Prompt for liveness action
-                            if (faceManager.framesProcessed <= 15) {
-                                status = "HOLD STILL FOR BASELINE...";
-                            } else {
-                                if (faceManager.livenessAction === 'turn_left') {
-                                    status = "TURN HEAD LEFT";
-                                } else if (faceManager.livenessAction === 'turn_right') {
-                                    status = "TURN HEAD RIGHT";
-                                } else {
-                                    status = faceManager.livenessAction === 'blink' ? `PLEASE BLINK (${faceManager.blinkCount}/2)` : "PLEASE SMILE";
-                                }
-                            }
-                            color = "#3498db"; // Blue action
-                            captureBtn.disabled = true; // Wait for liveness
                         } else {
-                            // Frontal, stable, and active liveness verified
+                            // Frontal, stable, and passive liveness verified
                             status = "✓ PERFECT! CAPTURING...";
                             color = "#27ae60"; // Green
                             captureBtn.disabled = false; // Enabled
@@ -4429,8 +4402,8 @@ async function initFaceRegistration() {
 
                         faceManager.drawDetection(canvas, video, detection, status, color);
 
-                        // Only capture automatically if face is frontal, stable, AND active liveness is verified
-                        if (isFrontal && isStable && isActiveLivenessPassed) {
+                        // Only capture automatically if face is frontal, stable, AND passive liveness verified
+                        if (isFrontal && isStable && isPassiveLive) {
                             faceManager.isProcessing = true;
                             setTimeout(() => saveFaceRegistration(), 300);
                         }
@@ -4438,9 +4411,6 @@ async function initFaceRegistration() {
                         noFaceCount++;
                         faceManager.stabilityCounter = 0;
                         faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
-                        if (faceManager.lostFaceCount > 15) {
-                            faceManager.setLivenessAction('none'); // Reset active liveness
-                        }
                         captureBtn.disabled = true;
                         
                         // Show helpful message if no face detected for too long
