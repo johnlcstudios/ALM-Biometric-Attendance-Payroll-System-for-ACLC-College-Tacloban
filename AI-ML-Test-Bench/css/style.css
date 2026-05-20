@@ -41,7 +41,7 @@
     display: inline-block;
     padding: 4px 10px;
     background: white;
-    color: white;
+    color: #333;
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -1784,6 +1784,193 @@ tr:last-child td {
 
 .table-filter-item select:focus,
 .table-filter-item input[type="date"]:focus {
+    outline: none;
+    border-color: #1e0178;
+    box-shadow: 0 0 0 3px rgba(30, 1, 120, 0.1);
+}
+
+/* Mother Filter (Customize Filter) */
+.mother-filter-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.mother-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.mother-filter-btn:hover {
+    border-color: #1e0178;
+    color: #1e0178;
+}
+
+.mother-filter-btn i {
+    font-size: 14px;
+}
+
+.mother-filter-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 260px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: all 0.25s ease;
+}
+
+.mother-filter-panel.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.mother-filter-panel-inner {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.filter-group {
+    border-bottom: 1px solid #eee;
+}
+
+.filter-group:last-child {
+    border-bottom: none;
+}
+
+.filter-group-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1e0178;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.filter-group-title:hover {
+    background: #f5f3ff;
+}
+
+.filter-group-arrow {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    color: #999;
+}
+
+.filter-group-arrow.open {
+    transform: rotate(180deg);
+}
+
+.filter-group-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    opacity: 0;
+}
+
+.filter-group-body.open {
+    max-height: 300px;
+    opacity: 1;
+}
+
+.filter-check-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px 7px 28px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.filter-check-label:hover {
+    background: #f5f3ff;
+}
+
+.filter-check-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #1e0178;
+    cursor: pointer;
+}
+
+.mother-filter-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid #eee;
+}
+
+.filter-btn {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-btn-find {
+    background: #1e0178;
+    color: white;
+}
+
+.filter-btn-find:hover {
+    background: #2c02a8;
+}
+
+.filter-btn-clear {
+    background: #f0f0f0;
+    color: #555;
+}
+
+.filter-btn-clear:hover {
+    background: #e0e0e0;
+}
+
+/* Payroll Type Dropdown */
+.payroll-type-dropdown {
+    padding: 8px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.payroll-type-dropdown:hover {
+    border-color: #1e0178;
+}
+
+.payroll-type-dropdown:focus {
     outline: none;
     border-color: #1e0178;
     box-shadow: 0 0 0 3px rgba(30, 1, 120, 0.1);
