@@ -306,6 +306,37 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+@media (max-width: 700px) {
+    body {
+        align-items: flex-start;
+        padding: 24px 0 40px;
+    }
+    .login-card {
+        width: min(92vw, 420px);
+        padding: 28px 24px;
+    }
+    .login-card h2,
+    .login-card p {
+        text-align: center;
+    }
+    .login-card .form-group {
+        margin-bottom: 18px;
+    }
+    .login-btn,
+    .kiosk-btn {
+        padding: 14px 16px;
+    }
+}
+
+@media (max-width: 520px) {
+    .input-wrapper input {
+        padding: 12px 16px;
+    }
+    .input-wrapper i {
+        right: 12px;
+    }
+}
 </style>
 
 <script>

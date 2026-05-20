@@ -16,6 +16,9 @@ let resignationRequests = [];
 let masterSubjects = [];
 let subjectLoads = [];
 let currentPage = 'dashboard';
+let currentPayrollType = 'faculty';
+let currentPayrollTableId = 'facultyPayrollTable';
+let currentPayrollTitle = 'FACULTY PAYROLL';
 
 // --- Helper Functions ---
 function escapeHTML(str) {
@@ -100,9 +103,6 @@ function showToast(message, type = 'info') {
             container: 'swal2-toast-container'
         },
         didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-            // Ensure toast doesn't block interactions with elements behind it when closed
             toast.style.pointerEvents = 'auto';
         }
     });
@@ -229,11 +229,15 @@ function generateTableControlsHTML(tableName, options) {
     
     // Filters
     if (showFilters && options.filters) {
-        html += '<div class="table-filters">';
-        options.filters.forEach(filter => {
-            html += generateFilterHTML(tableName, filter);
-        });
-        html += '</div>';
+        if (options.useMotherFilter) {
+            html += generateMotherFilterHTML(tableName, options.filters);
+        } else {
+            html += '<div class="table-filters">';
+            options.filters.forEach(filter => {
+                html += generateFilterHTML(tableName, filter);
+            });
+            html += '</div>';
+        }
     }
     
     html += '</div>';
@@ -264,9 +268,8 @@ function generateFilterHTML(tableName, filter) {
         case 'select':
             return `
                 <div class="table-filter-item">
-                    <label>${filter.label}</label>
                     <select id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
-                        <option value="">All</option>
+                        <option value="">${filter.label}</option>
                         ${filter.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
                 </div>
@@ -280,6 +283,51 @@ function generateFilterHTML(tableName, filter) {
             `;
         default:
             return '';
+    }
+}
+
+// Generate combined mother filter HTML with accordion checkboxes
+function generateMotherFilterHTML(tableName, filters) {
+    let html = `<div class="mother-filter-wrap">
+        <button class="mother-filter-btn" onclick="toggleFilterPanel('${tableName}')" type="button">
+            <i class="fas fa-sliders-h"></i> Customize Filter
+        </button>
+        <div class="mother-filter-panel" id="${tableName}-filter-panel">
+            <div class="mother-filter-panel-inner">`;
+    filters.forEach(filter => {
+        if (filter.type === 'select' && filter.options) {
+            html += `<div class="filter-group">
+                <div class="filter-group-title" onclick="toggleFilterGroup(this)">
+                    <span>${filter.label}</span>
+                    <i class="fas fa-chevron-down filter-group-arrow"></i>
+                </div>
+                <div class="filter-group-body">`;
+            filter.options.forEach(opt => {
+                html += `<label class="filter-check-label">
+                    <input type="checkbox" data-filter-id="${filter.id}" value="${opt.value}">
+                    <span>${opt.label}</span>
+                </label>`;
+            });
+            html += `</div></div>`;
+        }
+    });
+    html += `</div>
+            <div class="mother-filter-actions">
+                <button class="filter-btn filter-btn-find" onclick="applyCustomFilters('${tableName}')" type="button">Find</button>
+                <button class="filter-btn filter-btn-clear" onclick="clearCustomFilters('${tableName}')" type="button">Clear</button>
+            </div>
+        </div>
+    </div>`;
+    return html;
+}
+
+// Toggle accordion section open/closed
+function toggleFilterGroup(titleEl) {
+    const body = titleEl.nextElementSibling;
+    const arrow = titleEl.querySelector('.filter-group-arrow');
+    if (body) {
+        body.classList.toggle('open');
+        if (arrow) arrow.classList.toggle('open');
     }
 }
 
@@ -303,6 +351,50 @@ function handleTableSearch(tableName, searchTerm) {
 function handleTableFilter(tableName, filterId, value) {
     TableState[tableName].filters[filterId] = value;
     TableState[tableName].currentPage = 1; // Reset to first page on filter change
+    refreshTable(tableName);
+}
+
+// Toggle filter panel visibility
+function toggleFilterPanel(tableName) {
+    const panel = document.getElementById(`${tableName}-filter-panel`);
+    if (panel) panel.classList.toggle('open');
+}
+
+// Apply selected checkboxes as filters
+function applyCustomFilters(tableName) {
+    const panel = document.getElementById(`${tableName}-filter-panel`);
+    if (!panel) return;
+
+    const checked = panel.querySelectorAll('input[type="checkbox"]:checked');
+    const filters = {};
+    checked.forEach(cb => {
+        const id = cb.dataset.filterId;
+        if (!filters[id]) filters[id] = [];
+        filters[id].push(cb.value);
+    });
+
+    const allIds = [...new Set([...panel.querySelectorAll('input[type="checkbox"]')].map(cb => cb.dataset.filterId))];
+    const state = TableState[tableName];
+    allIds.forEach(id => { state.filters[id] = filters[id] || []; });
+
+    state.currentPage = 1;
+    panel.classList.remove('open');
+    refreshTable(tableName);
+}
+
+// Clear all checkboxes and filters
+function clearCustomFilters(tableName) {
+    const panel = document.getElementById(`${tableName}-filter-panel`);
+    if (!panel) return;
+
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+    const allIds = [...new Set([...panel.querySelectorAll('input[type="checkbox"]')].map(cb => cb.dataset.filterId))];
+    const state = TableState[tableName];
+    allIds.forEach(id => { state.filters[id] = []; });
+
+    state.currentPage = 1;
+    panel.classList.remove('open');
     refreshTable(tableName);
 }
 
@@ -331,7 +423,16 @@ function applyTableFilters(tableName, data, searchFields = ['full_name', 'employ
     // Apply filters
     Object.keys(state.filters).forEach(filterId => {
         const filterValue = state.filters[filterId];
-        if (filterValue) {
+        if (Array.isArray(filterValue)) {
+            if (filterValue.length > 0) {
+                filtered = filtered.filter(item => {
+                    if (filterId === 'position') return filterValue.includes(item.position);
+                    if (filterId === 'department') return filterValue.includes(item.department);
+                    if (filterId === 'status') return filterValue.includes(item.status);
+                    return true;
+                });
+            }
+        } else if (filterValue) {
             filtered = filtered.filter(item => {
                 if (filterId === 'position') return item.position === filterValue;
                 if (filterId === 'department') return item.department === filterValue;
@@ -340,7 +441,6 @@ function applyTableFilters(tableName, data, searchFields = ['full_name', 'employ
                 if (filterId === 'dateFrom') return item.log_date >= filterValue;
                 if (filterId === 'dateTo') return item.log_date <= filterValue;
                 if (filterId === 'period') return item.period === filterValue;
-                // Add more filter logic as needed
                 return true;
             });
         }
@@ -440,6 +540,9 @@ function refreshTable(tableName) {
         case 'utilityPayroll':
             loadUtilityPayroll('latest');
             break;
+        case 'specializedPayroll':
+            loadSpecializedPayroll(currentPayrollType || 'faculty', 'latest');
+            break;
     }
 }
 
@@ -463,8 +566,7 @@ function showGlassModal(options = {}) {
         hideClass: {
             popup: 'swal2-hide'
         }
-    };
-    
+    };  
     const mergedOptions = { ...defaultOptions, ...options };
     return Swal.fire(mergedOptions);
 }
@@ -488,9 +590,12 @@ if (!document.getElementById('toast-styles')) {
             padding: 16px 20px !important;
             min-width: 320px !important;
             max-width: 400px !important;
-            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
             z-index: 100001 !important;
             position: relative !important;
+        }
+        
+        .glass-toast-popup.swal2-show {
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
         
         /* Toast container - highest z-index */
@@ -526,9 +631,8 @@ if (!document.getElementById('toast-styles')) {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             font-size: 14px !important;
             font-weight: 600 !important;
-            letter-spacing: 0.3px !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
-            padding: 0 8px !important;
+            letter-spacing: 1px !important;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.9) !important;
         }
         
         .swal2-glass-toast .swal2-icon {
@@ -790,7 +894,7 @@ async function fetchData(specificPage = null) {
             payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
         } else if (page === 'attendance') {
             attendanceLogs = getArray(await fetchJSON('backend/api.php?action=get_attendance'));
-        } else if (page === 'payroll' || page === 'faculty_payroll' || page === 'utility_payroll') {
+        } else if (page === 'payroll' || page === 'payroll_specialized') {
             payrollHistory = getArray(await fetchJSON('backend/api.php?action=get_payroll'));
         } else if (page === 'leave') {
             leaveRequests = getArray(await fetchJSON('backend/api.php?action=get_leave_requests'));
@@ -885,8 +989,7 @@ function showPage(pageId) {
         'employees': 'Employee Directory',
         'attendance': 'Attendance Tracking',
         'payroll': 'Payroll Processing',
-        'faculty_payroll': 'Faculty Payroll',
-        'utility_payroll': 'Utility Payroll',
+        'payroll_specialized': 'Specialized Payroll',
         'allowances': 'Allowances & Benefits',
         'deductions': 'Deductions Management',
         'leave': 'Leave Management',
@@ -904,8 +1007,7 @@ function showPage(pageId) {
     if (pageId === 'employees') renderEmployeeTable();
     if (pageId === 'attendance') renderAttendanceTable();
     if (pageId === 'payroll') renderPayrollTable();
-    if (pageId === 'faculty_payroll') loadFacultyPayroll('latest');
-    if (pageId === 'utility_payroll') loadUtilityPayroll('latest');
+    if (pageId === 'payroll_specialized') loadSpecializedPayroll('faculty', 'latest');
     if (pageId === 'allowances') renderAllowances();
     if (pageId === 'deductions') renderDeductions();
     if (pageId === 'leave') renderLeaveTable();
@@ -935,6 +1037,7 @@ function renderEmployeeTable() {
             rowsPerPage: 10,
             showSearch: true,
             showFilters: true,
+            useMotherFilter: true,
             filters: [
                 {
                     id: 'position',
@@ -1428,13 +1531,11 @@ function editEmployee(id) {
     
     // Set work status if exists
     if (form.work_status) form.work_status.value = emp.work_status || '';
-    form.sss.value = emp.sss || '';
-    form.philhealth.value = emp.philhealth || '';
-    form.tin.value = emp.tin || '';
-    form.pagibig.value = emp.pagibig || '';
+    // Government identifiers removed from Employee Directory UI
 
     // Toggle faculty level visibility
     toggleSubjectStep();
+
 
     document.querySelector('#employeeModal h3').innerText = 'Edit Employee';
     document.getElementById('saveBtn').innerText = 'Update Employee';
@@ -1531,12 +1632,8 @@ async function saveEmployee() {
     // Add editing ID if exists
     if (editingEmployeeId) data.id = editingEmployeeId;
 
-    // Handle subject rows if Faculty
-    if (data.position === 'Faculty') {
-        const subDescs = Array.from(document.querySelectorAll('input[name="subDesc[]"]')).map(i => i.value);
-        const subUnits = Array.from(document.querySelectorAll('input[name="subUnits[]"]')).map(i => i.value);
-        data.subjects = subDescs.map((desc, i) => ({ description: desc, units: subUnits[i] }));
-    }
+    // Removed Subjects handling from Employee Directory (Faculty subject-load allocation handled elsewhere)
+
 
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn) {
@@ -1601,13 +1698,21 @@ function goEmpStep(n) {
 
     let nextStep = currentStep + n;
 
-    // Skip Step 4 (Subjects) if not Faculty
-    if (nextStep === 4 && position !== 'Faculty') {
-        if (n > 0) {
-            saveEmployee(); // Finalize at step 3 for non-faculty
-            return;
-        }
+// Skip Steps 3 and 4 (Government + Subjects) in Employee Directory
+    if ((nextStep === 3 || nextStep === 4) && n > 0) {
+        saveEmployee(); // Finalize immediately
+        return;
     }
+
+    // Personal(1): no Previous. Employment(2): change Next to Save Employee behavior.
+    if (currentStep === 2 && n > 0) {
+        saveEmployee();
+        return;
+    }
+
+
+
+
 
     // Update visibility
     steps[currentStep - 1].classList.remove('active');
@@ -1621,8 +1726,6 @@ function goEmpStep(n) {
     indicators[currentStep - 1].classList.remove('completed');
 
     // Button states
-    document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-block';
-
     const isLastStep = (position === 'Faculty' && currentStep === 4) || (position !== 'Faculty' && currentStep === 3);
 
     document.getElementById('nextBtn').style.display = isLastStep ? 'none' : 'inline-block';
@@ -1672,21 +1775,8 @@ function validateCurrentStep() {
             }
         }
         
-        // Government ID validation (optional fields)
-        if (!fieldError && input.value) {
-            if (input.name === 'sss' && !validateGovernmentID(input.value, 'sss')) {
-                fieldError = "Invalid SSS format. Use: XX-XXXXXXX-X (10-11 digits)";
-            }
-            if (input.name === 'tin' && !validateGovernmentID(input.value, 'tin')) {
-                fieldError = "Invalid TIN format. Use: XXX-XXX-XXX-XXX (9-12 digits)";
-            }
-            if (input.name === 'philhealth' && !validateGovernmentID(input.value, 'philhealth')) {
-                fieldError = "Invalid PhilHealth format (11-12 digits)";
-            }
-            if (input.name === 'pagibig' && !validateGovernmentID(input.value, 'pagibig')) {
-                fieldError = "Invalid Pag-IBIG format (12 digits)";
-            }
-        }
+        // Removed Government ID validation from Employee Directory (Government identifiers hidden)
+
 
         // Apply error styling
         if (fieldError) {
@@ -1738,7 +1828,9 @@ function resetEmpModal() {
         s.classList.remove('completed');
     });
     document.getElementById('employeeForm').reset();
-    document.getElementById('subjectRowsContainer').innerHTML = '';
+    const subjectRowsContainer = document.getElementById('subjectRowsContainer');
+    if (subjectRowsContainer) subjectRowsContainer.innerHTML = '';
+
     document.getElementById('prevBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').style.display = 'none';
@@ -2157,6 +2249,48 @@ async function loadUtilityPayroll(period = 'latest') {
     makePayrollCellsEditable('utility');
 }
 
+// Switch between Faculty and Utility payroll
+function switchPayrollType(type) {
+    currentPayrollType = type;
+    loadSpecializedPayroll(type, 'latest');
+}
+
+// Load specialized payroll for the given type
+async function loadSpecializedPayroll(type, period = 'latest') {
+    currentPayrollType = type;
+
+    const facultySection = document.getElementById('faculty-payroll-section');
+    const utilitySection = document.getElementById('utility-payroll-section');
+    const periodDisplay = document.getElementById('specialized-payroll-period');
+
+    if (type === 'faculty') {
+        if (facultySection) facultySection.style.display = '';
+        if (utilitySection) utilitySection.style.display = 'none';
+        currentPayrollTableId = 'facultyPayrollTable';
+        currentPayrollTitle = 'FACULTY PAYROLL';
+        await loadFacultyPayroll(period);
+    } else {
+        if (facultySection) facultySection.style.display = 'none';
+        if (utilitySection) utilitySection.style.display = '';
+        currentPayrollTableId = 'utilityPayrollTable';
+        currentPayrollTitle = 'UTILITY PAYROLL';
+        await loadUtilityPayroll(period);
+    }
+
+    const periodEl = document.getElementById(type === 'faculty' ? 'faculty-payroll-period' : 'utility-payroll-period');
+    const periodText = periodEl?.innerText || '---';
+    if (periodDisplay) periodDisplay.innerText = periodText;
+}
+
+// Export the currently visible payroll
+function exportCurrentPayroll() {
+    if (currentPayrollType === 'faculty') {
+        exportFacultyPayroll();
+    } else {
+        exportUtilityPayroll();
+    }
+}
+
 // --- Payroll ---
 
 // Make payroll cells editable with auto-calculation
@@ -2387,13 +2521,17 @@ function renderPayrollTable() {
     fetch('backend/api.php?action=get_payroll_batches')
         .then(res => res.json())
         .then(batchList => {
-            // Update stats
+            // Update stats (elements may not exist on all pages)
             if (batchList.length > 0) {
-                document.getElementById('stat-total-batches').innerText = batchList.length;
+                const elBatches = document.getElementById('stat-total-batches');
+                if (elBatches) elBatches.innerText = batchList.length;
                 const totalDisbursed = batchList.reduce((sum, b) => sum + parseFloat(b.total_disbursed), 0);
-                document.getElementById('stat-total-disbursed').innerText = `₱${totalDisbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-                document.getElementById('stat-last-run').innerText = batchList[0].period;
-                document.getElementById('stat-last-staff-count').innerText = batchList[0].staff_count;
+                const elDisbursed = document.getElementById('stat-total-disbursed');
+                if (elDisbursed) elDisbursed.innerText = `₱${totalDisbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+                const elLastRun = document.getElementById('stat-last-run');
+                if (elLastRun) elLastRun.innerText = batchList[0].period;
+                const elStaffCount = document.getElementById('stat-last-staff-count');
+                if (elStaffCount) elStaffCount.innerText = batchList[0].staff_count;
             }
 
             tbody.innerHTML = batchList.map((b, index) => `
@@ -2405,8 +2543,8 @@ function renderPayrollTable() {
                     <td>Admin</td>
                     <td><span class="status-badge status-active">Completed</span></td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye"></i> View</button>
-                        <button class="btn btn-primary btn-sm" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print"></i> Print All</button>
+                        <button class="btn btn-secondary btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye" style="font-size:8px"></i> View</button>
+                        <button class="btn btn-danger btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print" style="font-size:8px"></i> Print All</button>
                     </td>
                 </tr>
             `).join('');
@@ -2832,15 +2970,169 @@ async function printBatchPayslips(period) {
 
         showToast(`Generating ${employees.length} payslips...`, 'info');
 
-        // Generate PDFs one by one
-        for (const emp of employees) {
-            await printIndividualPayslip(emp.employee_id, period);
-            // Small delay to prevent browser blocking
-            await new Promise(resolve => setTimeout(resolve, 300));
+        const periodText = period.replace(/[^a-zA-Z0-9]/g, '_');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        for (let idx = 0; idx < employees.length; idx++) {
+            const emp = employees[idx];
+            if (idx > 0) doc.addPage();
+
+            const pRes = await fetch(`backend/api.php?action=get_payslip&employee_id=${emp.employee_id}&period=${encodeURIComponent(period)}`);
+            const p = await pRes.json();
+            if (!p || p.error) continue;
+
+            let breakdown = {};
+            try {
+                breakdown = p.breakdown ? (typeof p.breakdown === 'string' ? JSON.parse(p.breakdown) : p.breakdown) : {};
+            } catch (e) {}
+
+            const basicPay = parseFloat(p.basic_pay) || 0;
+            const netPay = parseFloat(p.net_pay) || 0;
+            const fullName = p.full_name || 'N/A';
+            const empCode = p.emp_code || 'N/A';
+            const position = p.position || 'N/A';
+
+            // Header
+            doc.setFillColor(30, 1, 120);
+            doc.rect(0, 0, 210, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text('OFFICIAL PAYSLIP', 105, 20, { align: 'center' });
+            doc.setFontSize(10);
+            const companyName = p.company_name || 'Company';
+            doc.text(companyName, 105, 30, { align: 'center' });
+
+            // Employee Info
+            doc.setTextColor(0);
+            doc.setFontSize(12);
+            doc.text('EMPLOYEE DETAILS', 20, 55);
+            doc.line(20, 57, 190, 57);
+            doc.setFontSize(10);
+            doc.text(`Name: ${fullName}`, 20, 65);
+            doc.text(`ID: ${empCode}`, 20, 72);
+            doc.text(`Position: ${position}`, 20, 79);
+            doc.text(`Period: ${p.period || period}`, 130, 65);
+
+            const earnings = [];
+            const deductionsList = [];
+
+            earnings.push(['Basic Pay', `PHP ${basicPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+
+            if (breakdown.total_allowances && parseFloat(breakdown.total_allowances) > 0) {
+                earnings.push(['Total Allowances', `PHP ${parseFloat(breakdown.total_allowances).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.load_pay && parseFloat(breakdown.load_pay) > 0) {
+                earnings.push(['Load Pay', `PHP ${parseFloat(breakdown.load_pay).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.overtime && parseFloat(breakdown.overtime) > 0) {
+                earnings.push(['Overtime', `PHP ${parseFloat(breakdown.overtime).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.differential && parseFloat(breakdown.differential) > 0) {
+                earnings.push(['Differential', `PHP ${parseFloat(breakdown.differential).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.substitution && parseFloat(breakdown.substitution) > 0) {
+                earnings.push(['Substitution', `PHP ${parseFloat(breakdown.substitution).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.adj_plus && parseFloat(breakdown.adj_plus) > 0) {
+                earnings.push(['Adjustments (+)', `PHP ${parseFloat(breakdown.adj_plus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.ot_holiday && parseFloat(breakdown.ot_holiday) > 0) {
+                earnings.push(['OT/Holiday Pay', `PHP ${parseFloat(breakdown.ot_holiday).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.honorarium && parseFloat(breakdown.honorarium) > 0) {
+                earnings.push(['Honorarium', `PHP ${parseFloat(breakdown.honorarium).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+
+            if (breakdown.absences && parseFloat(breakdown.absences) > 0) {
+                deductionsList.push(['Absences', `- PHP ${parseFloat(breakdown.absences).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.late_ut && parseFloat(breakdown.late_ut) > 0) {
+                deductionsList.push(['Late/Undertime', `- PHP ${parseFloat(breakdown.late_ut).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_cont && parseFloat(breakdown.hdmf_cont) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Contribution', `- PHP ${parseFloat(breakdown.hdmf_cont).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_loans && parseFloat(breakdown.hdmf_loans) > 0) {
+                deductionsList.push(['HDMF (Pag-IBIG) Cash Advance', `- PHP ${parseFloat(breakdown.hdmf_loans).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.hdmf_mp2 && parseFloat(breakdown.hdmf_mp2) > 0) {
+                deductionsList.push(['HDMF MP2', `- PHP ${parseFloat(breakdown.hdmf_mp2).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+            if (breakdown.cash_advance && parseFloat(breakdown.cash_advance) > 0) {
+                deductionsList.push(['Cash Advance', `- PHP ${parseFloat(breakdown.cash_advance).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+
+            if (breakdown.employee_deductions_details && breakdown.employee_deductions_details.length > 0) {
+                breakdown.employee_deductions_details.forEach(function(deduction) {
+                    const amount = parseFloat(deduction.amount);
+                    if (amount > 0) {
+                        deductionsList.push([deduction.name, `- PHP ${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+                    }
+                });
+            } else if (breakdown.employee_deductions && parseFloat(breakdown.employee_deductions) > 0) {
+                deductionsList.push(['Employee-Specific Deductions', `- PHP ${parseFloat(breakdown.employee_deductions).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+
+            if (breakdown.adj_minus && parseFloat(breakdown.adj_minus) > 0) {
+                deductionsList.push(['Adjustments (-)', `- PHP ${parseFloat(breakdown.adj_minus).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+
+            if (deductionsList.length === 0) {
+                const deductions = parseFloat(p.deductions) || 0;
+                deductionsList.push(['Total Deductions', `- PHP ${deductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`]);
+            }
+
+            const totalEarnings = earnings.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+
+            const totalDeductions = deductionsList.reduce((sum, item) => {
+                const amount = parseFloat(item[1].replace('- PHP ', '').replace(/,/g, ''));
+                return sum + (isNaN(amount) ? 0 : amount);
+            }, 0);
+
+            const maxRows = Math.max(earnings.length, deductionsList.length);
+            const tableBody = [];
+            for (let i = 0; i < maxRows; i++) {
+                const earning = earnings[i] || ['', ''];
+                const deduction = deductionsList[i] || ['', ''];
+                tableBody.push([earning[0], earning[1], deduction[0], deduction[1]]);
+            }
+            tableBody.push([
+                'TOTAL EARNINGS',
+                `PHP ${totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                'TOTAL DEDUCTIONS',
+                `- PHP ${totalDeductions.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            ]);
+
+            doc.autoTable({
+                startY: 90,
+                head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
+                body: tableBody,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 1, 120] },
+                styles: { fontSize: 9 },
+                columnStyles: {
+                    0: { fontStyle: 'bold' },
+                    2: { fontStyle: 'bold' }
+                }
+            });
+
+            const netY = doc.lastAutoTable.finalY + 20;
+            doc.setFillColor(232, 232, 232);
+            doc.rect(20, netY - 10, 170, 20, 'F');
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text('NET PAY:', 30, netY + 3);
+            doc.text(`PHP ${netPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 180, netY + 3, { align: 'right' });
+            doc.setFont(undefined, 'normal');
         }
 
+        doc.save(`Batch_Payslips_${periodText}.pdf`);
         showToast(`Successfully generated ${employees.length} payslips!`, 'success');
-        
+
     } catch (err) {
         console.error('Error printing batch payslips:', err);
         showToast("Failed to generate batch payslips.", 'error');
@@ -3173,24 +3465,22 @@ async function editDeduction(id) {
 
 // --- Allowances ---
 async function addAllowanceCategory() {
-    const name = document.getElementById('allowanceName').value;
-    const type = document.getElementById('allowanceType').value;
-    const rate = document.getElementById('allowanceRate').value;
-    const description = document.getElementById('allowanceDesc').value;
+    const name = document.getElementById('allowanceName')?.value || '';
+    const type = document.getElementById('allowanceType')?.value || '';
+    const rate = document.getElementById('allowanceRate')?.value || '';
 
     if (!name || !rate) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=add_allowance_category', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, rate, description })
+        body: JSON.stringify({ name, type, rate })
     });
     const result = await response.json();
     showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('allowanceName').value = '';
         document.getElementById('allowanceRate').value = '';
-        document.getElementById('allowanceDesc').value = '';
         renderAllowances();
     }
 }
@@ -3358,10 +3648,10 @@ document.addEventListener('click', function(e) {
 });
 
 async function assignAllowance() {
-    const employee_id = document.getElementById('assignEmployeeSelect').value;
+    const employee_id = document.getElementById('assignEmployeeSelect')?.value || '';
     const selectedCategories = getSelectedMultiSelectIds('allowance');
-    const override_amount = document.getElementById('overrideAmount').value;
-    const effective_date = document.getElementById('effectiveDate').value;
+    const override_amount = document.getElementById('allowanceOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('EffectiveDate')?.value || '';
 
     if (!employee_id) return showToast("Please select an employee.", 'error');
     if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
@@ -3399,8 +3689,8 @@ async function assignAllowance() {
 
 async function applyAllowanceToAll() {
     const selectedCategories = getSelectedMultiSelectIds('allowance');
-    const override_amount = document.getElementById('overrideAmount').value;
-    const effective_date = document.getElementById('effectiveDate').value;
+    const override_amount = document.getElementById('allowanceOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('EffectiveDate')?.value || '';
 
     if (selectedCategories.length === 0) return showToast("Please select at least one allowance category.", 'error');
     
@@ -3457,12 +3747,11 @@ async function renderAllowances() {
                 <td>${c.name}</td>
                 <td>₱${parseFloat(c.rate).toLocaleString()}</td>
                 <td>${c.type}</td>
-                <td>Yes</td>
                 <td>
                     <button class="btn-icon delete" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
+        `).join('') || '<tr><td colspan="4" class="text-center">No categories found.</td></tr>';
     }
 
     // 2. Render Assignment List for Multi-Select
@@ -3493,7 +3782,8 @@ async function renderAllowances() {
     }
 
     // 4. Render Breakdown Table
-    const breakdownResponse = await fetch('backend/api.php?action=get_allowance_breakdown');
+    // Correct backend action is 'get_employee_allowances' (was incorrectly calling 'get_allowance_breakdown')
+    const breakdownResponse = await fetch('backend/api.php?action=get_employee_allowances');
     const breakdown = await breakdownResponse.json();
     const breakdownBody = document.getElementById('allowanceBreakdownBody');
     if (breakdownBody) {
@@ -3555,33 +3845,31 @@ async function deleteAllowanceCategory(id) {
 
 // --- Deductions ---
 async function addDeductionCategory() {
-    const name = document.getElementById('deductionName').value;
-    const type = document.getElementById('deductionType').value;
-    const value = document.getElementById('deductionRate').value;
-    const description = document.getElementById('deductionDesc').value;
+    const name = document.getElementById('deductionName')?.value || '';
+    const type = document.getElementById('deductionType')?.value || '';
+    const value = document.getElementById('deductionRate')?.value || '';
 
     if (!name || !value) return showToast("Please enter a name and rate.", 'error');
 
     const response = await fetch('backend/api.php?action=save_deduction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type, value, description, is_active: true, is_government: false })
+        body: JSON.stringify({ name, type, value, is_active: true, is_government: false })
     });
     const result = await response.json();
     showToast(result.message, result.success ? 'success' : 'error');
     if (result.success) {
         document.getElementById('deductionName').value = '';
         document.getElementById('deductionRate').value = '';
-        document.getElementById('deductionDesc').value = '';
         renderDeductions();
     }
 }
 
 async function assignDeduction() {
-    const employee_id = document.getElementById('assignDeductionEmployeeSelect').value;
+    const employee_id = document.getElementById('assignDeductionEmployeeSelect')?.value || '';
     const selectedDeductions = getSelectedMultiSelectIds('deduction');
-    const override_amount = document.getElementById('deductionOverrideAmount').value;
-    const effective_date = document.getElementById('deductionEffectiveDate').value;
+    const override_amount = document.getElementById('deductionOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('deductionEffectiveDate')?.value || '';
 
     if (!employee_id) return showToast("Please select an employee.", 'error');
     if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
@@ -3619,8 +3907,8 @@ async function assignDeduction() {
 
 async function applyDeductionToAll() {
     const selectedDeductions = getSelectedMultiSelectIds('deduction');
-    const override_amount = document.getElementById('deductionOverrideAmount').value;
-    const effective_date = document.getElementById('deductionEffectiveDate').value;
+    const override_amount = document.getElementById('deductionOverrideAmount')?.value || '';
+    const effective_date = document.getElementById('deductionEffectiveDate')?.value || '';
 
     if (selectedDeductions.length === 0) return showToast("Please select at least one deduction category.", 'error');
     
@@ -3677,12 +3965,11 @@ async function renderDeductions() {
                 <td>${c.name}</td>
                 <td>₱${parseFloat(c.value).toLocaleString()}</td>
                 <td>${c.type}</td>
-                <td>${c.is_active ? 'Yes' : 'No'}</td>
                 <td>
                     <button class="btn-icon delete" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
+        `).join('') || '<tr><td colspan="4" class="text-center">No categories found.</td></tr>';
     }
 
     // 2. Multi-Select List
@@ -4345,24 +4632,12 @@ async function initFaceRegistration() {
                         const frontalCheck = faceManager.checkFrontalFace(detection.landmarks);
                         const isFrontal = frontalCheck.isFrontal;
 
-                        // Verify that the detected face shows natural facial motion across frames
-                        const isLive = faceManager.checkLiveness(detection.landmarks, detection.detection.box);
-                        
-                        // Passive Anti-Spoofing: Rigidity Analysis
-                        const isRealFace = faceManager.checkSpoofing(detection.landmarks, detection.detection.box);
-                        
-                        // Active Liveness handling for registration
-                        if (isFrontal && isLive && isRealFace && faceManager.livenessAction === 'none') {
-                            const tasks = ['blink', 'smile', 'turn_left', 'turn_right'];
-                            const randomTask = tasks[Math.floor(Math.random() * tasks.length)];
-                            faceManager.setLivenessAction(randomTask);
-                        }
-                        
-                        const isActiveLivenessPassed = faceManager.checkActiveLiveness(detection.landmarks);
+                        // Passive-only liveness check (no active actions needed)
+                        const isPassiveLive = faceManager.checkAllLiveness(detection.landmarks, detection.detection.box);
 
                         let status, color;
                         
-                        if (!isLive || !isRealFace) {
+                        if (!isPassiveLive) {
                             status = "NO PHOTO/IMAGE ACCEPTED";
                             color = "#db261f"; // Red error
                             captureBtn.disabled = true;
@@ -4405,23 +4680,8 @@ async function initFaceRegistration() {
                         } else if (!isStable) {
                             status = "HOLD STILL...";
                             color = "#f39c12"; // Orange
-                        } else if (!isActiveLivenessPassed) {
-                            // Prompt for liveness action
-                            if (faceManager.framesProcessed <= 15) {
-                                status = "HOLD STILL FOR BASELINE...";
-                            } else {
-                                if (faceManager.livenessAction === 'turn_left') {
-                                    status = "TURN HEAD LEFT";
-                                } else if (faceManager.livenessAction === 'turn_right') {
-                                    status = "TURN HEAD RIGHT";
-                                } else {
-                                    status = faceManager.livenessAction === 'blink' ? `PLEASE BLINK (${faceManager.blinkCount}/2)` : "PLEASE SMILE";
-                                }
-                            }
-                            color = "#3498db"; // Blue action
-                            captureBtn.disabled = true; // Wait for liveness
                         } else {
-                            // Frontal, stable, and active liveness verified
+                            // Frontal, stable, and passive liveness verified
                             status = "✓ PERFECT! CAPTURING...";
                             color = "#27ae60"; // Green
                             captureBtn.disabled = false; // Enabled
@@ -4429,8 +4689,8 @@ async function initFaceRegistration() {
 
                         faceManager.drawDetection(canvas, video, detection, status, color);
 
-                        // Only capture automatically if face is frontal, stable, AND active liveness is verified
-                        if (isFrontal && isStable && isActiveLivenessPassed) {
+                        // Only capture automatically if face is frontal, stable, AND passive liveness verified
+                        if (isFrontal && isStable && isPassiveLive) {
                             faceManager.isProcessing = true;
                             setTimeout(() => saveFaceRegistration(), 300);
                         }
@@ -4438,9 +4698,6 @@ async function initFaceRegistration() {
                         noFaceCount++;
                         faceManager.stabilityCounter = 0;
                         faceManager.lostFaceCount = (faceManager.lostFaceCount || 0) + 1;
-                        if (faceManager.lostFaceCount > 15) {
-                            faceManager.setLivenessAction('none'); // Reset active liveness
-                        }
                         captureBtn.disabled = true;
                         
                         // Show helpful message if no face detected for too long

@@ -13,7 +13,6 @@
                                 <th>NAME</th>
                                 <th>STD. RATE</th>
                                 <th>TYPE</th>
-                                <th>RECURRING</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
@@ -33,7 +32,6 @@
                         <input type="number" id="deductionRate" placeholder="Rate" class="form-control-gray">
                     </div>
                     <div class="allowance-form-row">
-                        <input type="text" id="deductionDesc" placeholder="Description" class="form-control-gray">
                         <button class="btn-dark-purple" onclick="addDeductionCategory()">Add Category</button>
                     </div>
                 </div>

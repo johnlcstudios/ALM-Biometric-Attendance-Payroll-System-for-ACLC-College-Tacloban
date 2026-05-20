@@ -31,10 +31,6 @@
     </div>
 
     <div class="charts-container">
-        <div class="chart-card">
-            <h3>Payroll Expenditure (Last 6 Months)</h3>
-            <canvas id="payrollChart"></canvas>
-        </div>
         <div class="chart-card doughnut">
             <h3>Attendance Breakdown</h3>
             <canvas id="attendanceChart"></canvas>

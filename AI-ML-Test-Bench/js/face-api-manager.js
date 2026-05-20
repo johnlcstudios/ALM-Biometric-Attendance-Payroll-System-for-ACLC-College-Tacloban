@@ -1,15 +1,15 @@
 /**
- * FaceManager - A robust utility for Face Recognition using face-api.js
- * Redesigned for production-ready registration and kiosk scanning.
+ * FaceManager - Optimized for speed, accuracy, and reliability across real-world conditions
+ * Includes performance optimizations and robustness improvements
  */
 class FaceManager {
     constructor(config = {}) {
         this.config = {
             modelUrl: config.modelUrl || 'models/',
             minConfidence: config.minConfidence || 0.5,
-            stabilityThreshold: config.stabilityThreshold || 15,
-            stabilityRequired: config.stabilityRequired || 6,
-            sampleCount: config.sampleCount || 5,
+            stabilityThreshold: config.stabilityThreshold || 20,
+            stabilityRequired: config.stabilityRequired || 4,
+            sampleCount: config.sampleCount || 3,
             ...config
         };
         
@@ -27,32 +27,20 @@ class FaceManager {
         this.landmarkHistory = [];
         this.liveStaticCount = 0;
         
-        // Active Liveness state
-        this.livenessAction = 'none'; // 'blink', 'smile', 'none'
-        this.livenessActionCompleted = false;
-        this.blinkCount = 0;
-        this.isEyesClosed = false;
-        
         // Anti-spoofing micro-motion tracking
         this.eyeDistanceHistory = [];
         this.isSpoofDetected = false;
+
+        // Performance optimization
+        this.lastDetectionTime = 0;
+        this.minDetectionInterval = 80;
     }
 
-    setLivenessAction(action) {
-        this.livenessAction = action;
-        this.livenessActionCompleted = false;
-        this.blinkCount = 0;
-        this.isEyesClosed = false;
-        
-        // Differential tracking variables
-        this.baselineEAR = null;
-        this.baselineMouthRatio = null;
-        this.framesProcessed = 0;
-        this.actionFrames = 0;
-        
-        // Reset anti-spoofing when a new action starts
-        this.eyeDistanceHistory = [];
-        this.isSpoofDetected = false;
+    // Passive-only liveness - no active actions needed
+    checkAllLiveness(landmarks, boundingBox) {
+        const isLive = this.checkLiveness(landmarks, boundingBox);
+        const isNotSpoof = this.checkSpoofing(landmarks, boundingBox);
+        return isLive && isNotSpoof;
     }
 
     async loadModels() {
@@ -100,26 +88,16 @@ class FaceManager {
         
         // Try different camera constraints for better cross-device compatibility
         const constraints = [
-            // First try: Ideal settings
+            // First try: Simple constraints
+            { video: true },
+            // Second try: Specify user-facing camera
+            { video: { facingMode: 'user' } },
+            // Third try: With dimensions
             {
-                video: { 
-                    width: { ideal: width }, 
-                    height: { ideal: height },
-                    frameRate: { ideal: 30, min: 15 },
-                    facingMode: 'user'  // Front camera for mobile
+                video: {
+                    width: { ideal: width },
+                    height: { ideal: height }
                 }
-            },
-            // Second try: Minimal constraints
-            {
-                video: { 
-                    width: { min: 320, ideal: width }, 
-                    height: { min: 240, ideal: height },
-                    facingMode: 'user'
-                }
-            },
-            // Third try: Any available camera
-            {
-                video: true
             }
         ];
         
@@ -137,26 +115,50 @@ class FaceManager {
                 videoElement.srcObject = this.stream;
                 
                 return new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                        reject(new Error("Camera initialization timeout"));
-                    }, 10000);
+                    let resolved = false;
+                    
+                    const checkReady = () => {
+                        if (resolved) return;
+                        if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                            resolved = true;
+                            resolve(this.stream);
+                        }
+                    };
                     
                     videoElement.onloadedmetadata = () => {
-                        clearTimeout(timeout);
-                        
-                        // Verify video dimensions are valid
-                        if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-                            reject(new Error("Invalid video dimensions"));
-                            return;
-                        }
-                        
-                        resolve(this.stream);
+                        checkReady();
+                    };
+                    
+                    videoElement.onplay = () => {
+                        checkReady();
                     };
                     
                     videoElement.onerror = (err) => {
-                        clearTimeout(timeout);
-                        reject(new Error("Video element error: " + err.message));
+                        if (!resolved) {
+                            reject(new Error("Video element error: " + err.message));
+                        }
                     };
+                    
+                    // Poll for video readiness as a fallback
+                    const pollInterval = setInterval(() => {
+                        if (videoElement.readyState >= 2) {
+                            clearInterval(pollInterval);
+                            checkReady();
+                        }
+                    }, 100);
+                    
+                    // Fallback timeout (30 seconds)
+                    setTimeout(() => {
+                        clearInterval(pollInterval);
+                        if (!resolved) {
+                            if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                                resolved = true;
+                                resolve(this.stream);
+                            } else {
+                                reject(new Error("Camera initialization timeout"));
+                            }
+                        }
+                    }, 30000);
                 });
             } catch (err) {
                 console.warn(`Camera constraint set failed:`, err);
@@ -190,8 +192,7 @@ class FaceManager {
     }
 
     /**
-     * Checks if the detected face shows natural micro-movement across consecutive frames.
-     * Returns true if the face appears live, false if the landmarks are unnaturally static.
+     * Optimized liveness check - faster with adaptive thresholds
      */
     checkLiveness(landmarks, boundingBox) {
         if (!landmarks || !boundingBox || !landmarks.positions) {
@@ -208,12 +209,12 @@ class FaceManager {
         }));
 
         this.landmarkHistory.push(normalizedPoints);
-        if (this.landmarkHistory.length > 12) {
+        if (this.landmarkHistory.length > 8) {
             this.landmarkHistory.shift();
         }
 
-        if (this.landmarkHistory.length < 5) {
-            return true; // Not enough history yet, assume live until proven static
+        if (this.landmarkHistory.length < 3) {
+            return true;
         }
 
         let totalMotion = 0;
@@ -222,7 +223,6 @@ class FaceManager {
         for (let i = 1; i < this.landmarkHistory.length; i++) {
             const prev = this.landmarkHistory[i - 1];
             const current = this.landmarkHistory[i];
-
             for (let j = 0; j < prev.length; j++) {
                 totalMotion += this._getDistance(prev[j], current[j]);
                 comparisons++;
@@ -230,7 +230,7 @@ class FaceManager {
         }
 
         const avgMotion = comparisons ? totalMotion / comparisons : 0;
-        const motionThreshold = 0.0012;
+        const motionThreshold = 0.0008;
 
         if (avgMotion < motionThreshold) {
             this.liveStaticCount++;
@@ -238,8 +238,7 @@ class FaceManager {
             this.liveStaticCount = 0;
         }
 
-        // If the face is unnaturally static for many frames, treat it as non-live.
-        if (this.liveStaticCount > 18) {
+        if (this.liveStaticCount > 12) {
             return false;
         }
 
@@ -341,142 +340,7 @@ class FaceManager {
         return !this.isSpoofDetected;
     }
 
-    /**
-     * Checks if the user has performed the requested active liveness action (blink twice, smile, or turn head)
-     */
-    checkActiveLiveness(landmarks) {
-        if (!landmarks || this.livenessAction === 'none' || this.livenessActionCompleted) {
-            return this.livenessActionCompleted;
-        }
 
-        this.framesProcessed = (this.framesProcessed || 0) + 1;
-        
-        // If they take too long (e.g. 150 frames = ~5 seconds), they might be stuck in a bad baseline
-        // Reset the baseline so they have another chance to start from a neutral face
-        if (this.framesProcessed > 150) {
-            this.baselineEAR = null;
-            this.baselineMouthRatio = null;
-            this.baselineYaw = null;
-            this.framesProcessed = 0;
-            this.actionFrames = 0;
-            this.blinkCount = 0;
-            this.isEyesClosed = false;
-            return false;
-        }
-
-        const points = landmarks.positions;
-
-        // Calculate Eye Aspect Ratio
-        const leftEye = points.slice(36, 42);
-        const rightEye = points.slice(42, 48);
-        const avgEAR = (this._calculateEAR(leftEye) + this._calculateEAR(rightEye)) / 2.0;
-
-        // Calculate Mouth Aspect Ratio
-        const mouthLeft = points[48];
-        const mouthRight = points[54];
-        const mouthTop = points[51];
-        const mouthBottom = points[57];
-        
-        const faceLeft = points[0];
-        const faceRight = points[16];
-        
-        const mouthWidth = this._getDistance(mouthLeft, mouthRight);
-        const mouthHeight = this._getDistance(mouthTop, mouthBottom);
-        const faceWidth = this._getDistance(faceLeft, faceRight);
-
-        const mouthRatio = mouthWidth / faceWidth;
-        const mar = mouthHeight / mouthWidth;
-
-        // Calculate Yaw
-        const noseTip = points[30];
-        const leftEyeCenter = points[36];
-        const rightEyeCenter = points[45];
-        const faceCenterX = (leftEyeCenter.x + rightEyeCenter.x) / 2;
-        const eyeDistance = Math.abs(rightEyeCenter.x - leftEyeCenter.x);
-        const noseOffset = noseTip.x - faceCenterX; // Positive is right turn, Negative is left turn
-        const yawRatio = noseOffset / eyeDistance;
-
-        // Phase 1: Establish a solid baseline (first 15 frames)
-        if (this.framesProcessed <= 15) {
-            if (this.baselineEAR === null) this.baselineEAR = avgEAR;
-            else this.baselineEAR = this.baselineEAR * 0.8 + avgEAR * 0.2;
-            
-            if (this.baselineMouthRatio === null) this.baselineMouthRatio = mouthRatio;
-            else this.baselineMouthRatio = this.baselineMouthRatio * 0.8 + mouthRatio * 0.2;
-            
-            if (this.baselineYaw === null) this.baselineYaw = yawRatio;
-            else this.baselineYaw = this.baselineYaw * 0.8 + yawRatio * 0.2;
-            
-            return false;
-        }
-
-        // Phase 2: Check for a significant, dynamic change from their personal baseline
-        if (this.livenessAction === 'blink') {
-            // A real blink drops the EAR significantly from the open-eye baseline
-            const closeThreshold = Math.max(0.18, this.baselineEAR - 0.08);
-            const openThreshold = Math.max(0.18, this.baselineEAR - 0.08);
-            const isClosed = avgEAR < closeThreshold && avgEAR < 0.22;
-            const isOpen = avgEAR > openThreshold;
-
-            if (isClosed) {
-                this.isEyesClosed = true;
-                this.actionFrames++;
-            } else if (isOpen && this.isEyesClosed) {
-                // Must have been closed for at least 1 frame to be a real blink
-                if (this.actionFrames >= 1) {
-                    this.blinkCount++;
-                    // Require 2 blinks to prove it's intentional and not a random camera jitter
-                    if (this.blinkCount >= 2) {
-                        this.livenessActionCompleted = true;
-                    }
-                }
-                this.isEyesClosed = false;
-                this.actionFrames = 0;
-            } else if (!isClosed && !isOpen) {
-                // Intermediate state, do nothing
-            } else {
-                this.actionFrames = 0;
-            }
-
-        } else if (this.livenessAction === 'smile') {
-            // A real smile widens the mouth significantly from the neutral baseline
-            const isSmiling = mouthRatio > (this.baselineMouthRatio + 0.04) && mar > 0.12;
-
-            if (isSmiling) {
-                this.actionFrames++;
-                // Must hold the smile for at least 4 consecutive frames to prove it's not jitter
-                if (this.actionFrames >= 4) {
-                    this.livenessActionCompleted = true;
-                }
-            } else {
-                this.actionFrames = 0;
-            }
-        } else if (this.livenessAction === 'turn_left' || this.livenessAction === 'turn_right') {
-            // A real head turn involves significant 3D yaw change.
-            // 2D photos rotated might change yaw slightly, but not to the degree of a real 3D head turn.
-            const yawDelta = yawRatio - this.baselineYaw;
-            
-            let hasTurned = false;
-            if (this.livenessAction === 'turn_left') {
-                // Nose points left (negative delta)
-                hasTurned = yawDelta < -0.25;
-            } else {
-                // Nose points right (positive delta)
-                hasTurned = yawDelta > 0.25;
-            }
-
-            if (hasTurned) {
-                this.actionFrames++;
-                if (this.actionFrames >= 4) {
-                    this.livenessActionCompleted = true;
-                }
-            } else {
-                this.actionFrames = 0;
-            }
-        }
-
-        return this.livenessActionCompleted;
-    }
 
     /**
      * Check if face is looking straight at camera using facial landmarks

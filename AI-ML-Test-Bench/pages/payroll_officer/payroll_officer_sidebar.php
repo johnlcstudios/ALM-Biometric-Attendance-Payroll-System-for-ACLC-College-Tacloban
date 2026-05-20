@@ -24,11 +24,8 @@
         <button class="nav-btn <?php echo $page === 'payroll' ? 'active' : ''; ?>" data-page="payroll" onclick="window.location.href='index.php?page=payroll'">
             <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
         </button>
-        <button class="nav-btn <?php echo $page === 'faculty_payroll' ? 'active' : ''; ?>" data-page="faculty_payroll" onclick="window.location.href='index.php?page=faculty_payroll'">
-            <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
-        </button>
-        <button class="nav-btn <?php echo $page === 'utility_payroll' ? 'active' : ''; ?>" data-page="utility_payroll" onclick="window.location.href='index.php?page=utility_payroll'">
-            <i class="fas fa-tools"></i> <span>Utility Payroll</span>
+        <button class="nav-btn <?php echo $page === 'payroll_specialized' ? 'active' : ''; ?>" data-page="payroll_specialized" onclick="window.location.href='index.php?page=payroll_specialized'">
+            <i class="fas fa-file-invoice"></i> <span>Specialized Payroll</span>
         </button>
         <button class="nav-btn <?php echo $page === 'allowances' ? 'active' : ''; ?>" data-page="allowances" onclick="window.location.href='index.php?page=allowances'">
             <i class="fas fa-coins"></i> <span>Allowances</span>

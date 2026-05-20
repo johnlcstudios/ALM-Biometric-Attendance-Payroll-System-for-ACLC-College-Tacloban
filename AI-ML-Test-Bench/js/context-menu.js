@@ -307,7 +307,7 @@ function openAddEmployeeModal() {
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
         const saveBtn = document.getElementById('saveBtn');
-        if (prevBtn) prevBtn.style.display = 'none';
+
         if (nextBtn) nextBtn.style.display = 'inline-block';
         if (saveBtn) saveBtn.style.display = 'none';
         
@@ -552,7 +552,7 @@ function showPayrollSettings() {
 }
 
 function calculateFacultyPayroll() {
-    navigateTo('faculty_payroll');
+    navigateTo('payroll_specialized');
 }
 
 function exportFacultyPayslips() {
@@ -600,7 +600,7 @@ function recalculateFacultyPayroll() {
 }
 
 function calculateUtilityPayroll() {
-    navigateTo('utility_payroll');
+    navigateTo('payroll_specialized');
 }
 
 function exportUtilityPayslips() {

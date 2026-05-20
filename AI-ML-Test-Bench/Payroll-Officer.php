@@ -28,13 +28,11 @@ $full_name = $_SESSION['full_name'] ?? 'Payroll Officer';
 $allowed_pages = [
     'dashboard',
     'employees',
-    'subject_loads',
     'biometrics',
     'assign_payroll',
     'attendance',
     'payroll',
-    'faculty_payroll',
-    'utility_payroll',
+    'payroll_specialized',
     'allowances',
     'deductions',
     'leave',
@@ -63,7 +61,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script src="js/face-api-manager.js"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.4">
 </head>
 <body class="role-payroll">
     <div class="app-container">
@@ -97,11 +95,8 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'payroll' ? 'active' : ''; ?>" data-page="payroll" onclick="window.location.href='Payroll-Officer.php?page=payroll'">
                     <i class="fas fa-file-invoice-dollar"></i> <span>Payroll</span>
                 </button>
-                <button class="nav-btn <?php echo $page === 'faculty_payroll' ? 'active' : ''; ?>" data-page="faculty_payroll" onclick="window.location.href='Payroll-Officer.php?page=faculty_payroll'">
-                    <i class="fas fa-chalkboard-teacher"></i> <span>Faculty Payroll</span>
-                </button>
-                <button class="nav-btn <?php echo $page === 'utility_payroll' ? 'active' : ''; ?>" data-page="utility_payroll" onclick="window.location.href='Payroll-Officer.php?page=utility_payroll'">
-                    <i class="fas fa-tools"></i> <span>Utility Payroll</span>
+                <button class="nav-btn <?php echo $page === 'payroll_specialized' ? 'active' : ''; ?>" data-page="payroll_specialized" onclick="window.location.href='Payroll-Officer.php?page=payroll_specialized'">
+                    <i class="fas fa-file-invoice"></i> <span>Specialized Payroll</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'allowances' ? 'active' : ''; ?>" data-page="allowances" onclick="window.location.href='Payroll-Officer.php?page=allowances'">
                     <i class="fas fa-coins"></i> <span>Allowances</span>
@@ -172,7 +167,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
-    <script src="js/script.js"></script>
+    <script src="js/script.js?v=2.4"></script>
     <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>

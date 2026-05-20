@@ -13,7 +13,6 @@ CREATE TABLE `allowance_categories` (
   `name` varchar(255) NOT NULL,
   `type` enum('Fixed','Percentage') NOT NULL,
   `rate` decimal(10,2) NOT NULL,
-  `description` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -21,8 +20,8 @@ CREATE TABLE `allowance_categories` (
 -- Dumping data for table `allowance_categories`
 --
 
-INSERT INTO `allowance_categories` (`id`, `company_id`, `name`, `type`, `rate`, `description`, `created_at`) VALUES
-(2, 5, 'fsafa', 'Fixed', 131.00, '', '2026-04-12 11:11:19');
+INSERT INTO `allowance_categories` (`id`, `company_id`, `name`, `type`, `rate`, `created_at`) VALUES
+(2, 5, 'fsafa', 'Fixed', 131.00, '2026-04-12 11:11:19');
 
 -- --------------------------------------------------------
 
