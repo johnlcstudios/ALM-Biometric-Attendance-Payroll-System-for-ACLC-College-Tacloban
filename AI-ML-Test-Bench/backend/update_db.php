@@ -209,6 +209,20 @@ try {
         if (!$silent) echo "DONE\n";
     }
 
+    // Ensure existing installations do not have legacy 'recurring' or 'description' columns
+    $stmt = $pdo->query("SHOW COLUMNS FROM allowance_categories LIKE 'recurring'");
+    if ($stmt->fetch()) {
+        if (!$silent) echo "Dropping 'recurring' column from 'allowance_categories'... ";
+        $pdo->exec("ALTER TABLE allowance_categories DROP COLUMN recurring");
+        if (!$silent) echo "DONE\n";
+    }
+    $stmt = $pdo->query("SHOW COLUMNS FROM allowance_categories LIKE 'description'");
+    if ($stmt->fetch()) {
+        if (!$silent) echo "Dropping 'description' column from 'allowance_categories'... ";
+        $pdo->exec("ALTER TABLE allowance_categories DROP COLUMN description");
+        if (!$silent) echo "DONE\n";
+    }
+
     // 6. Check for 'lunch_start', 'lunch_end' columns in 'companies' table
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'lunch_start'");
     if (!$stmt->fetch()) {
@@ -289,7 +303,6 @@ try {
             name VARCHAR(255) NOT NULL,
             type ENUM('Fixed', 'Percentage') NOT NULL,
             rate DECIMAL(10, 2) NOT NULL,
-            description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
         )";

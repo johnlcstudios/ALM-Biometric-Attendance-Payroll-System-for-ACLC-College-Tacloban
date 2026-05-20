@@ -13,7 +13,6 @@
                                 <th>NAME</th>
                                 <th>STD. RATE</th>
                                 <th>TYPE</th>
-                                <th>RECURRING</th>
                                 <th>ACTIONS</th>
                             </tr>
                         </thead>
@@ -33,7 +32,6 @@
                         <input type="number" id="allowanceRate" placeholder="Rate" class="form-control-gray">
                     </div>
                     <div class="allowance-form-row">
-                        <input type="text" id="allowanceDesc" placeholder="Description" class="form-control-gray">
                         <button class="btn-dark-purple" onclick="addAllowanceCategory()">Add Category</button>
                     </div>
                 </div>
@@ -76,11 +74,11 @@
                     <div class="form-row-custom">
                         <div class="form-group-custom">
                             <label>Override Amount</label>
-                            <input type="number" id="overrideAmount" class="form-control-gray">
+                            <input type="number" id="allowanceOverrideAmount" class="form-control-gray">
                         </div>
                         <div class="form-group-custom">
                             <label>Effective Date</label>
-                            <input type="date" id="effectiveDate" class="form-control-gray">
+                            <input type="date" id="EffectiveDate" class="form-control-gray">
                         </div>
                     </div>
 
