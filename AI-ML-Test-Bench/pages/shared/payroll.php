@@ -1,8 +1,7 @@
 <section id="payroll" class="page">
     <div class="payroll-header">
         <div class="header-left">
-            <h2>Payroll History</h2>
-            <p>View and manage past payroll disbursements and processing runs.</p>
+
         </div>
 <div class="header-right">
 

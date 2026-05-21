@@ -38,6 +38,7 @@ $allowed_pages = [
     'leave',
     'loans',
     'resignations',
+    'archived_employees',
     'reports',
     'settings',
     'profile'
@@ -115,6 +116,9 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'resignations' ? 'active' : ''; ?>" data-page="resignations" onclick="window.location.href='Payroll-Officer.php?page=resignations'">
                     <i class="fas fa-user-minus"></i> <span>Resignations</span>
                 </button>
+                <button class="nav-btn <?php echo $page === 'archived_employees' ? 'active' : ''; ?>" data-page="archived_employees" onclick="window.location.href='Payroll-Officer.php?page=archived_employees'">
+                    <i class="fas fa-archive"></i> <span>Archived</span>
+                </button>
                 <button class="nav-btn <?php echo $page === 'reports' ? 'active' : ''; ?>" data-page="reports" onclick="window.location.href='Payroll-Officer.php?page=reports'">
                     <i class="fas fa-chart-bar"></i> <span>Reports</span>
                 </button>
@@ -167,7 +171,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
-    <script src="js/script.js?v=2.4"></script>
+    <script src="js/script.js?v=2.5"></script>
     <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>

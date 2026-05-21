@@ -15,12 +15,15 @@ let loanRequests = [];
 let resignationRequests = [];
 let masterSubjects = [];
 let subjectLoads = [];
+let archivedEmployees = [];
 let currentPage = 'dashboard';
 let currentPayrollType = 'faculty';
 let currentPayrollTableId = 'facultyPayrollTable';
 let currentPayrollTitle = 'FACULTY PAYROLL';
 
 // --- Helper Functions ---
+const getArray = (data) => Array.isArray(data) ? data : [];
+
 function escapeHTML(str) {
     if (!str || typeof str !== 'string') return str || '';
     return str.replace(/[&<>"']/g, function (m) {
@@ -153,6 +156,13 @@ const TableState = {
         searchTerm: '',
         filters: {},
         filteredData: []
+    },
+    archived: {
+        currentPage: 1,
+        rowsPerPage: 10,
+        searchTerm: '',
+        filters: {},
+        filteredData: []
     }
 };
 
@@ -167,7 +177,8 @@ function initializeTable(tableName, options = {}) {
     const tableSection = document.getElementById(tableName === 'employees' ? 'employees' : 
                                                   tableName === 'attendance' ? 'attendance' : 
                                                   tableName === 'payroll' ? 'payroll' :
-                                                  tableName === 'facultyPayroll' ? 'faculty_payroll' : 'utility_payroll');
+                                                  tableName === 'facultyPayroll' ? 'faculty_payroll' : 
+                                                  tableName === 'archived' ? 'archived_employees' : 'utility_payroll');
     
     if (!tableSection) return;
     
@@ -862,8 +873,6 @@ async function fetchData(specificPage = null) {
     const page = specificPage || urlParams.get('page') || 'dashboard';
 
     try {
-        const getArray = (data) => Array.isArray(data) ? data : [];
-
         // Always fetch employees as they are used globally
         if (employees.length === 0 || page === 'employees') {
             employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
@@ -902,6 +911,8 @@ async function fetchData(specificPage = null) {
             loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
         } else if (page === 'resignations') {
             resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
+        } else if (page === 'archived_employees') {
+            archivedEmployees = getArray(await fetchJSON('backend/api.php?action=get_archived_employees'));
         } else if (page === 'subject_loads' || page === 'employees') {
             masterSubjects = getArray(await fetchJSON('backend/api.php?action=get_subjects'));
             subjectLoads = getArray(await fetchJSON('backend/api.php?action=get_subject_loads'));
@@ -995,6 +1006,7 @@ function showPage(pageId) {
         'leave': 'Leave Management',
         'loans': 'Cash Advance',
         'resignations': 'Resignations',
+        'archived_employees': 'Archived Employees',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
         'settings': 'Company Settings',
@@ -1013,6 +1025,7 @@ function showPage(pageId) {
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
+    if (pageId === 'archived_employees') renderArchivedEmployeesTable();
     if (pageId === 'subject_loads') renderMasterSubjects();
     if (pageId === 'biometrics') populateRegistrationSelect();
     if (pageId === 'dashboard') initCharts();
@@ -1085,18 +1098,11 @@ function renderEmployeeTable() {
     // Render table rows
     tbody.innerHTML = paginatedEmployees.map(emp => {
         const isFaculty = (emp.position || '').toLowerCase() === 'faculty';
-        const loadCount = subjectLoads.filter(load => load.faculty_id == emp.id).length;
         const facultyLevel = (isFaculty && emp.faculty_level) ? emp.faculty_level : '---';
         const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '---';
         const isResigned = (emp.status || 'Active') === 'Resigned';
         const statusLabel = emp.status || 'Active';
         const statusClass = statusLabel.toLowerCase().replace(/\s+/g, '-');
-
-        const actionHtml = isFaculty ? `
-            <button class="btn btn-info btn-sm" onclick="viewFacultyLoads('${emp.id}')" title="View Subject Loads">
-                <i class="fas fa-book"></i> <span class="badge">${loadCount}</span>
-            </button>
-        ` : '<span class="text-muted">---</span>';
 
         const buttonsHtml = isResigned ? `
             <div class="action-buttons">
@@ -1106,7 +1112,7 @@ function renderEmployeeTable() {
         ` : `
             <div class="action-buttons">
                 <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon text-danger" title="Delete Employee" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon text-danger" title="Archive Employee" onclick="archiveEmployee('${emp.id}')"><i class="fas fa-archive"></i></button>
             </div>
         `;
 
@@ -1129,16 +1135,160 @@ function renderEmployeeTable() {
                 <td>${escapeHTML(emp.department || '---')}</td>
                 <td>${isFaculty ? `<span class="faculty-badge faculty-${facultyLevel.toLowerCase()}">${escapeHTML(facultyLevel)}</span>` : '<span class="text-muted">---</span>'}</td>
                 <td><span class="hire-date">${hireDate}</span></td>
-                <td>${actionHtml}</td>
                 <td><span class="status-badge status-${statusClass}">${escapeHTML(statusLabel)}</span></td>
                 <td><span class="text-muted">${escapeHTML(emp.work_status || '---')}</span></td>
                 <td>${buttonsHtml}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="11" class="text-center text-muted">No employees found.</td></tr>';
+    }).join('') || '<tr><td colspan="10" class="text-center text-muted">No employees found.</td></tr>';
     
     // Render pagination
     renderPagination('employees', filteredEmployees.length);
+}
+
+function renderArchivedEmployeesTable() {
+    const tbody = document.getElementById('archivedEmployeesTableBody');
+    if (!tbody) return;
+
+    if (!document.getElementById('archived-search')) {
+        initializeTable('archived', {
+            rowsPerPage: 10,
+            showSearch: true,
+            showFilters: true,
+            useMotherFilter: true,
+            filters: [
+                {
+                    id: 'position',
+                    label: 'Position',
+                    type: 'select',
+                    options: [
+                        { value: 'Faculty', label: 'Faculty' },
+                        { value: 'Staff', label: 'Staff' },
+                        { value: 'Utility', label: 'Utility' },
+                        { value: 'Payroll Officer', label: 'Payroll Officer' }
+                    ]
+                },
+                {
+                    id: 'department',
+                    label: 'Department',
+                    type: 'select',
+                    options: [
+                        { value: 'IT', label: 'Information Technology' },
+                        { value: 'Education', label: 'Education' },
+                        { value: 'Admin', label: 'Administration' },
+                        { value: 'Utility', label: 'General Services' }
+                    ]
+                }
+            ]
+        });
+    }
+
+    const filtered = applyTableFilters('archived', archivedEmployees, ['full_name', 'employee_id']);
+    const paginated = getPaginatedData('archived', filtered);
+
+    tbody.innerHTML = paginated.map(emp => {
+        const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '---';
+        return `
+            <tr>
+                <td><strong>${escapeHTML(emp.employee_id)}</strong></td>
+                <td>
+                    <div class="user-info">
+                        <img src="${emp.profile_picture ? escapeHTML(emp.profile_picture) : `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.full_name)}&size=40&background=random`}" 
+                             alt="${escapeHTML(emp.full_name)}" 
+                             class="employee-avatar">
+                        <div class="user-details">
+                            <span class="name">${escapeHTML(emp.full_name)}</span>
+                            <span class="email">${escapeHTML(emp.email || 'No email')}</span>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="position-badge">${escapeHTML(emp.position)}</span></td>
+                <td>${escapeHTML(emp.department || '---')}</td>
+                <td><span class="hire-date">${hireDate}</span></td>
+                <td>
+                    <button class="btn btn-success btn-sm" onclick="rehireEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')">
+                        <i class="fas fa-user-plus"></i> Rehire
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" class="text-center text-muted">No archived employees found.</td></tr>';
+
+    renderPagination('archived', filtered.length);
+}
+
+async function rehireEmployee(id, name) {
+    const emp = archivedEmployees.find(e => e.id == id);
+    if (!emp) {
+        showToast('Employee data not found.', 'error');
+        return;
+    }
+
+    // Populate the employee modal with archived employee data
+    editingEmployeeId = id;
+    rehireMode = true;
+    openModal('employeeModal');
+
+    const form = document.getElementById('employeeForm');
+    
+    // Parse full_name into firstName, lastName, and middleInitial
+    const fullName = emp.full_name || '';
+    const nameParts = fullName.split(' ');
+    let firstName = '';
+    let lastName = '';
+    let middleInitial = '';
+    
+    if (nameParts.length >= 3) {
+        firstName = nameParts[0];
+        middleInitial = nameParts[1].replace('.', '');
+        lastName = nameParts.slice(2).join(' ');
+    } else if (nameParts.length === 2) {
+        firstName = nameParts[0];
+        lastName = nameParts[1];
+    } else {
+        firstName = nameParts[0] || '';
+        lastName = '';
+    }
+    
+    form.firstName.value = firstName;
+    form.lastName.value = lastName;
+    form.middleInitial.value = middleInitial;
+    form.fullName.value = fullName;
+    
+    form.dob.value = emp.dob || '';
+    form.email.value = emp.email || '';
+    if (form.contactNo) form.contactNo.value = emp.contact_no || '';
+    if (form.gender) form.gender.value = emp.gender || '';
+    form.position.value = emp.position;
+    if (form.work_position) form.work_position.value = emp.work_position || '';
+    form.department.value = emp.department;
+    if (form.faculty_level) form.faculty_level.value = emp.faculty_level || '';
+    if (form.hire_date) form.hire_date.value = emp.hire_date || '';
+    form.basicSalary.value = emp.basic_salary;
+    if (form.work_status) form.work_status.value = emp.work_status || '';
+    if (form.sss) form.sss.value = emp.sss || '';
+    if (form.philhealth) form.philhealth.value = emp.philhealth || '';
+    if (form.tin) form.tin.value = emp.tin || '';
+    if (form.pagibig) form.pagibig.value = emp.pagibig || '';
+
+    // Show/hide faculty level based on position
+    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
+    if (facultyLevelGroup) {
+        facultyLevelGroup.style.display = form.position.value === 'Faculty' ? 'block' : 'none';
+    }
+
+    // Reset stepper to step 1
+    currentStep = 1;
+    document.querySelectorAll('.form-step').forEach((s, i) => s.classList.toggle('active', i === 0));
+    document.querySelectorAll('.stepper-item').forEach((s, i) => {
+        s.classList.toggle('active', i === 0);
+        s.classList.remove('completed');
+    });
+    document.getElementById('prevBtn').style.display = 'none';
+    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('saveBtn').style.display = 'none';
+    document.getElementById('employeeModalTitle').innerText = 'Rehire Employee';
+    document.getElementById('saveBtn').innerHTML = '<i class="fas fa-user-plus"></i> Rehire Employee';
 }
 
 function renderMasterSubjects() {
@@ -1474,6 +1624,7 @@ async function resetPassword(userId) {
 }
 
 let editingEmployeeId = null;
+let rehireMode = false;
 
 function editEmployee(id) {
     const emp = employees.find(e => e.id == id);
@@ -1531,35 +1682,43 @@ function editEmployee(id) {
     
     // Set work status if exists
     if (form.work_status) form.work_status.value = emp.work_status || '';
-    // Government identifiers removed from Employee Directory UI
+    if (form.sss) form.sss.value = emp.sss || '';
+    if (form.philhealth) form.philhealth.value = emp.philhealth || '';
+    if (form.tin) form.tin.value = emp.tin || '';
+    if (form.pagibig) form.pagibig.value = emp.pagibig || '';
 
-    // Toggle faculty level visibility
-    toggleSubjectStep();
+    // Show/hide faculty level based on position
+    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
+    if (facultyLevelGroup) {
+        facultyLevelGroup.style.display = form.position.value === 'Faculty' ? 'block' : 'none';
+    }
 
 
     document.querySelector('#employeeModal h3').innerText = 'Edit Employee';
     document.getElementById('saveBtn').innerText = 'Update Employee';
 }
 
-async function deleteEmployee(id) {
+async function archiveEmployee(id) {
     const confirmResult = await Swal.fire({
-        title: 'Delete Employee?',
-        text: "Are you sure you want to delete this employee? This action cannot be undone.",
+        title: 'Archive Employee?',
+        text: "This employee will be archived and their account deactivated. You can rehire them later from the Archived Employees page.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#db261f',
         cancelButtonColor: '#1e0178',
-        confirmButtonText: 'Yes, delete!'
+        confirmButtonText: 'Yes, Archive'
     });
 
     if (confirmResult.isConfirmed) {
         const response = await fetch(`backend/api.php?action=delete_employee&id=${id}`);
         const result = await response.json();
         if (result.success) {
-            showToast('Employee deleted successfully.', 'success');
-            fetchData();
+            showToast('Employee archived successfully.', 'success');
+            employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
+            archivedEmployees = getArray(await fetchJSON('backend/api.php?action=get_archived_employees'));
+            renderEmployeeTable();
         } else {
-            showToast(result.message || 'Failed to delete employee.', 'error');
+            showToast(result.message || 'Failed to archive employee.', 'error');
         }
     }
 }
@@ -1632,9 +1791,6 @@ async function saveEmployee() {
     // Add editing ID if exists
     if (editingEmployeeId) data.id = editingEmployeeId;
 
-    // Removed Subjects handling from Employee Directory (Faculty subject-load allocation handled elsewhere)
-
-
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn) {
         saveBtn.disabled = true;
@@ -1650,10 +1806,24 @@ async function saveEmployee() {
 
         const result = await response.json();
         if (result.success) {
+            if (rehireMode) {
+                const reinstateResponse = await fetch('backend/api.php?action=reinstate_employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editingEmployeeId })
+                });
+                const reinstateResult = await reinstateResponse.json();
+                if (reinstateResult.success) {
+                    showToast('Employee rehired successfully!', 'success');
+                } else {
+                    showToast('Details saved but rehire failed: ' + (reinstateResult.message || 'Unknown error'), 'warning');
+                }
+            } else {
+                showToast('Employee saved successfully!', 'success');
+            }
             closeModal('employeeModal');
             await fetchData();
             resetEmpModal();
-            showToast('Employee saved successfully!', 'success');
         } else {
             showToast('Error: ' + result.message, 'error');
         }
@@ -1670,34 +1840,17 @@ async function saveEmployee() {
 
 // --- Multi-step Wizard Logic ---
 let currentStep = 1;
-const totalSteps = 4;
-
-function toggleSubjectStep() {
-    const position = document.querySelector('select[name="position"]').value;
-    const step4Indicator = document.getElementById('step4-indicator');
-    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
-    
-    if (position === 'Faculty') {
-        step4Indicator.style.opacity = '1';
-        step4Indicator.style.pointerEvents = 'auto';
-        facultyLevelGroup.style.display = 'block';
-    } else {
-        step4Indicator.style.opacity = '0.3';
-        step4Indicator.style.pointerEvents = 'none';
-        facultyLevelGroup.style.display = 'none';
-    }
-}
+const totalSteps = 2;
 
 function goEmpStep(n) {
     const steps = document.querySelectorAll('.form-step');
     const indicators = document.querySelectorAll('.stepper-item');
-    const position = document.querySelector('select[name="position"]').value;
 
-    // Bulletproofing: Validate current step before going forward
     if (n > 0 && !validateCurrentStep()) return;
 
     let nextStep = currentStep + n;
 
+<<<<<<< Updated upstream
 // Skip Steps 3 and 4 (Government + Subjects) in Employee Directory
     if ((nextStep === 3 || nextStep === 4) && n > 0) {
         saveEmployee(); // Finalize immediately
@@ -1715,6 +1868,8 @@ function goEmpStep(n) {
 
 
     // Update visibility
+=======
+>>>>>>> Stashed changes
     steps[currentStep - 1].classList.remove('active');
     indicators[currentStep - 1].classList.remove('active');
     if (n > 0) indicators[currentStep - 1].classList.add('completed');
@@ -1725,8 +1880,14 @@ function goEmpStep(n) {
     indicators[currentStep - 1].classList.add('active');
     indicators[currentStep - 1].classList.remove('completed');
 
+<<<<<<< Updated upstream
     // Button states
     const isLastStep = (position === 'Faculty' && currentStep === 4) || (position !== 'Faculty' && currentStep === 3);
+=======
+    document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-block';
+
+    const isLastStep = currentStep === 2;
+>>>>>>> Stashed changes
 
     document.getElementById('nextBtn').style.display = isLastStep ? 'none' : 'inline-block';
     document.getElementById('saveBtn').style.display = isLastStep ? 'inline-block' : 'none';
@@ -1822,15 +1983,19 @@ function validateCurrentStep() {
 function resetEmpModal() {
     currentStep = 1;
     editingEmployeeId = null;
+    rehireMode = false;
     document.querySelectorAll('.form-step').forEach((s, i) => s.classList.toggle('active', i === 0));
     document.querySelectorAll('.stepper-item').forEach((s, i) => {
         s.classList.toggle('active', i === 0);
         s.classList.remove('completed');
     });
     document.getElementById('employeeForm').reset();
+<<<<<<< Updated upstream
     const subjectRowsContainer = document.getElementById('subjectRowsContainer');
     if (subjectRowsContainer) subjectRowsContainer.innerHTML = '';
 
+=======
+>>>>>>> Stashed changes
     document.getElementById('prevBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').style.display = 'none';
@@ -1842,7 +2007,11 @@ function resetEmpModal() {
         fullNameDisplay.value = '';
     }
     
-    toggleSubjectStep();
+    // Hide faculty level group by default
+    const facultyLevelGroup = document.getElementById('facultyLevelGroup');
+    if (facultyLevelGroup) {
+        facultyLevelGroup.style.display = 'none';
+    }
 }
 
 // --- Attendance ---
@@ -1866,6 +2035,16 @@ function renderAttendanceTable() {
                     id: 'dateTo',
                     label: 'To Date',
                     type: 'date'
+                },
+                {
+                    id: 'status',
+                    label: 'Status',
+                    type: 'select',
+                    options: [
+                        { value: 'On-Time', label: 'On-Time' },
+                        { value: 'Late', label: 'Late Arrivals' },
+                        { value: 'Absent', label: 'Absences' }
+                    ]
                 }
             ]
         });

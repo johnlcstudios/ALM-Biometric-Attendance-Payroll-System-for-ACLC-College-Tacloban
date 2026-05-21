@@ -92,7 +92,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label><i class="fas fa-id-badge"></i> Position <span class="required text-danger">*</span></label>
-                            <select name="position" onchange="toggleSubjectStep()" required>
+                            <select name="position" required>
                                 <option value="">Select a Position</option>
                                 <option value="Faculty">Full-Time Faculty</option>
                                 <option value="Staff">Regular Staff</option>
@@ -175,6 +175,7 @@
                     </div>
                 </div>
 
+
             </form>
         </div>
         <div class="modal-footer border-top-0">
@@ -197,7 +198,7 @@
 <!-- Payslip View Modal -->
 <div id="payslipModal" class="modal">
     <div class="modal-content large">
-        <div class="modal-header">
+        <div class="modal-header">  
             <h3>Employee Payslip</h3>
             <span class="close" onclick="closeModal('payslipModal')">&times;</span>
         </div>

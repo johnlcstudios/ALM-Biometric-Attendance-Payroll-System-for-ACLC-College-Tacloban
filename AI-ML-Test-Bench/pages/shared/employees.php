@@ -1,7 +1,7 @@
 <section id="employees" class="page">
     <div class="page-header">
         
-        <button class="btn btn-primary" onclick="openModal('employeeModal')">
+        <button class="btn btn-primary" onclick="resetEmpModal(); openModal('employeeModal')">
             <i class="fas fa-plus"></i> Add Employee
         </button>
     </div>
@@ -16,7 +16,6 @@
                     <th>Department</th>
                     <th>Faculty Level</th>
                     <th>Hire Date</th>
-                    <th>Loads</th>
                     <th>Status</th>
                     <th>Work Status</th>
                     <th>Actions</th>

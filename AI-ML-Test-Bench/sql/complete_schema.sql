@@ -252,6 +252,7 @@ CREATE TABLE `employees` (
   `department` varchar(100) DEFAULT NULL,
   `basic_salary` decimal(10,2) DEFAULT NULL,
   `status` enum('Active','Inactive','On Leave','Probationary','Contractual','Resigned') DEFAULT 'Active',
+  `is_archived` tinyint(1) NOT NULL DEFAULT 0,
   `email` varchar(255) DEFAULT NULL,
   `contact_no` varchar(20) DEFAULT NULL,
   `gender` enum('Male','Female','Other') DEFAULT 'Male',

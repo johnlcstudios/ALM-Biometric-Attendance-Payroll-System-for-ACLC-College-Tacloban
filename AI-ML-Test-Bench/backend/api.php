@@ -95,10 +95,17 @@ $allowedActions = [
     // NEW: Payroll Calendar & Improvements (Phase 1)
     'get_payroll_schedule', 'save_payroll_schedule', 'validate_payroll_readiness',
     'calculate_taxes', 'apply_payroll_taxes',
-    
+
+    // Archived Employees
+    'get_archived_employees',
 
 ];
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes
 // Get and sanitize action parameter
 $action = getParam('action', '', 'string');
 
@@ -1425,7 +1432,7 @@ case 'reset_password_with_token':
         case 'get_employees':
             if (!isset($_SESSION['company_id']))
                 exit(json_encode([]));
-            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ?");
+            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ? AND e.is_archived = 0");
             $stmt->execute([$_SESSION['company_id']]);
             echo json_encode($stmt->fetchAll());
             break;
@@ -1547,11 +1554,19 @@ case 'reset_password_with_token':
 
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
+<<<<<<< Updated upstream
                 $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
+=======
+                $contact_no = trim($data['contactNo'] ?? '') ?: null;
+                $gender = trim($data['gender'] ?? '') ?: null;
+                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, contact_no = ?, gender = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
+>>>>>>> Stashed changes
                 $stmt->execute([
                     trim($data['fullName']),
                     $data['dob'],
                     $email,
+                    $contact_no,
+                    $gender,
                     $data['position'],
                     $data['work_position'] ?? null,
                     $data['department'],
@@ -1591,13 +1606,17 @@ case 'reset_password_with_token':
                     $stmt->execute([$_SESSION['company_id'], $username, $hashed_pass, $role, $email]);
                     $user_id = $pdo->lastInsertId();
 
-                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, position, work_position, department, faculty_level, hire_date, basic_salary, sss, philhealth, tin, pagibig, user_id, status, work_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $contact_no = trim($data['contactNo'] ?? '') ?: null;
+                    $gender = trim($data['gender'] ?? '') ?: null;
+                    $stmt = $pdo->prepare("INSERT INTO employees (company_id, employee_id, full_name, dob, email, contact_no, gender, position, work_position, department, faculty_level, hire_date, basic_salary, sss, philhealth, tin, pagibig, user_id, status, work_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([
                         $_SESSION['company_id'],
                         $emp_id,
                         trim($data['fullName']),
                         $data['dob'],
                         $email,
+                        $contact_no,
+                        $gender,
                         $data['position'],
                         $data['work_position'] ?? null,
                         $data['department'],
@@ -1629,12 +1648,22 @@ case 'reset_password_with_token':
         case 'delete_employee':
             if (!isAdminOrHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
-            $id = $_GET['id'] ?? '';
-            $errors = validateId($id, 'id');
+            $id = (int)($_GET['id'] ?? 0);
+            $errors = validateId((string)$id, 'id');
             rejectInvalidPayload($errors);
-            $stmt = $pdo->prepare("DELETE FROM employees WHERE id = ? AND company_id = ?");
+            $stmt = $pdo->prepare("UPDATE employees SET is_archived = 1, status = 'Inactive' WHERE id = ? AND company_id = ?");
             $stmt->execute([$id, $_SESSION['company_id']]);
+            $stmt_user = $pdo->prepare("UPDATE users SET is_active = 0 WHERE id = (SELECT user_id FROM employees WHERE id = ?)");
+            $stmt_user->execute([$id]);
             echo json_encode(['success' => true]);
+            break;
+
+        case 'get_archived_employees':
+            if (!isset($_SESSION['company_id']))
+                exit(json_encode([]));
+            $stmt = $pdo->prepare("SELECT e.*, u.username, u.role FROM employees e LEFT JOIN users u ON e.user_id = u.id WHERE e.company_id = ? AND e.is_archived = 1");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
             break;
 
         case 'get_registered_faces':
@@ -2418,12 +2447,12 @@ case 'reset_password_with_token':
 
             $pdo->beginTransaction();
             try {
-                // Update employee status to Active
-                $stmt = $pdo->prepare("UPDATE employees SET status = 'Active', reinstated_at = NOW(), reinstated_by = ? WHERE id = ? AND company_id = ? AND status = 'Resigned'");
+                // Update employee status to Active and clear archived flag
+                $stmt = $pdo->prepare("UPDATE employees SET status = 'Active', is_archived = 0, reinstated_at = NOW(), reinstated_by = ? WHERE id = ? AND company_id = ? AND is_archived = 1");
                 $stmt->execute([$_SESSION['user_id'], $id, $_SESSION['company_id']]);
                 
                 if ($stmt->rowCount() === 0) {
-                    throw new Exception('Employee not found or not in Resigned status');
+                    throw new Exception('Employee not found or not archived');
                 }
                 
                 // Reactivate user account
