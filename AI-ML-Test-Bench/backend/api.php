@@ -101,11 +101,6 @@ $allowedActions = [
 
 ];
 
-<<<<<<< Updated upstream
-=======
-
-
->>>>>>> Stashed changes
 // Get and sanitize action parameter
 $action = getParam('action', '', 'string');
 
@@ -1554,13 +1549,9 @@ case 'reset_password_with_token':
 
             if (isset($data['id']) && !empty($data['id'])) {
                 // Update existing employee
-<<<<<<< Updated upstream
-                $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
-=======
                 $contact_no = trim($data['contactNo'] ?? '') ?: null;
                 $gender = trim($data['gender'] ?? '') ?: null;
                 $stmt = $pdo->prepare("UPDATE employees SET full_name = ?, dob = ?, email = ?, contact_no = ?, gender = ?, position = ?, work_position = ?, department = ?, faculty_level = ?, hire_date = ?, basic_salary = ?, sss = ?, philhealth = ?, tin = ?, pagibig = ?, status = ?, work_status = ? WHERE id = ? AND company_id = ?");
->>>>>>> Stashed changes
                 $stmt->execute([
                     trim($data['fullName']),
                     $data['dob'],
@@ -1573,6 +1564,10 @@ case 'reset_password_with_token':
                     $data['faculty_level'] ?? null,
                     $data['hire_date'] ?? date('Y-m-d'),
                     $basic_salary,
+                    trim($data['sss'] ?? ''),
+                    trim($data['philhealth'] ?? ''),
+                    trim($data['tin'] ?? ''),
+                    trim($data['pagibig'] ?? ''),
                     $status,
                     $data['work_status'] ?? null,
                     $data['id'],

@@ -12,16 +12,18 @@
                 <p><strong>Payroll Period:</strong> <span id="specialized-payroll-period">---</span></p>
                 <p><strong>Cut-off Period:</strong> <span id="specialized-cutoff-period">---</span></p>
             </div>
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                <button class="btn btn-secondary" onclick="printSpecializedPayroll(currentPayrollTableId, currentPayrollTitle)">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button class="btn btn-success" onclick="exportCurrentPayroll()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+            </div>
             <span id="faculty-payroll-period" style="display:none"></span>
             <span id="utility-payroll-period" style="display:none"></span>
         </div>
-        <div class="header-right" style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary" onclick="printSpecializedPayroll(currentPayrollTableId, currentPayrollTitle)">
-                <i class="fas fa-print"></i> Print
-            </button>
-            <button class="btn btn-success" onclick="exportCurrentPayroll()">
-                <i class="fas fa-file-excel"></i> Export
-            </button>
+        <div class="header-right">
         </div>
     </div>
 

@@ -1850,26 +1850,6 @@ function goEmpStep(n) {
 
     let nextStep = currentStep + n;
 
-<<<<<<< Updated upstream
-// Skip Steps 3 and 4 (Government + Subjects) in Employee Directory
-    if ((nextStep === 3 || nextStep === 4) && n > 0) {
-        saveEmployee(); // Finalize immediately
-        return;
-    }
-
-    // Personal(1): no Previous. Employment(2): change Next to Save Employee behavior.
-    if (currentStep === 2 && n > 0) {
-        saveEmployee();
-        return;
-    }
-
-
-
-
-
-    // Update visibility
-=======
->>>>>>> Stashed changes
     steps[currentStep - 1].classList.remove('active');
     indicators[currentStep - 1].classList.remove('active');
     if (n > 0) indicators[currentStep - 1].classList.add('completed');
@@ -1880,14 +1860,9 @@ function goEmpStep(n) {
     indicators[currentStep - 1].classList.add('active');
     indicators[currentStep - 1].classList.remove('completed');
 
-<<<<<<< Updated upstream
-    // Button states
-    const isLastStep = (position === 'Faculty' && currentStep === 4) || (position !== 'Faculty' && currentStep === 3);
-=======
     document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-block';
 
     const isLastStep = currentStep === 2;
->>>>>>> Stashed changes
 
     document.getElementById('nextBtn').style.display = isLastStep ? 'none' : 'inline-block';
     document.getElementById('saveBtn').style.display = isLastStep ? 'inline-block' : 'none';
@@ -1990,12 +1965,6 @@ function resetEmpModal() {
         s.classList.remove('completed');
     });
     document.getElementById('employeeForm').reset();
-<<<<<<< Updated upstream
-    const subjectRowsContainer = document.getElementById('subjectRowsContainer');
-    if (subjectRowsContainer) subjectRowsContainer.innerHTML = '';
-
-=======
->>>>>>> Stashed changes
     document.getElementById('prevBtn').style.display = 'none';
     document.getElementById('nextBtn').style.display = 'inline-block';
     document.getElementById('saveBtn').style.display = 'none';
