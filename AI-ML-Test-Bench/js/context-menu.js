@@ -92,15 +92,6 @@ function getCurrentPageContext() {
         return 'ess-dashboard';
     }
     
-    // Check for Payroll Officer portal
-    if (pathname.includes('Payroll-Officer.php')) {
-        const activePage = document.querySelector('.page.active');
-        if (activePage) {
-            return 'po-' + activePage.id;
-        }
-        return 'po-dashboard';
-    }
-    
     // Default to Admin/HR pages
     const activePage = document.querySelector('.page.active');
     if (activePage) {

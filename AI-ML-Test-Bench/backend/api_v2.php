@@ -158,7 +158,7 @@ try {
             break;
             
         case 'get_audit_logs':
-            if (!isset($_SESSION['company_id']) || !in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll Officer'])) {
+            if (!isset($_SESSION['company_id']) || $_SESSION['role'] !== 'HR') {
                 echo json_encode(['success' => false, 'message' => 'Unauthorized']);
                 break;
             }

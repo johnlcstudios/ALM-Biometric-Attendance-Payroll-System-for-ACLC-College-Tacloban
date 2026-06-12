@@ -12,14 +12,14 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Only SD/Admin role can access this
+// Only Admin/HR role can access this
 $user_role = $_SESSION['role'] ?? '';
-if (!in_array($user_role, ['Admin', 'SD', 'School Director'])) {
+if ($user_role !== 'HR') {
     header('Location: ../index.php');
     exit;
 }
 
-$full_name = $_SESSION['full_name'] ?? 'School Director';
+$full_name = $_SESSION['full_name'] ?? 'HR';
 $company_name = $_SESSION['company_name'] ?? 'ACLC College Tacloban';
 $company_id = $_SESSION['company_id'] ?? 1;
 ?>
@@ -498,13 +498,13 @@ $company_id = $_SESSION['company_id'] ?? 1;
         <div class="main-content">
             <!-- Top Header -->
             <div class="top-header">
-                <h1 class="header-title">School Director Management Portal</h1>
+                <h1 class="header-title">HR Management Portal</h1>
                 <div class="header-actions">
                     <div class="user-info">
                         <div class="user-avatar"><?php echo strtoupper(substr($full_name, 0, 1)); ?></div>
                         <div class="user-details">
                             <h6><?php echo htmlspecialchars($full_name); ?></h6>
-                            <small>School Director</small>
+                            <small>HR</small>
                         </div>
                     </div>
                 </div>

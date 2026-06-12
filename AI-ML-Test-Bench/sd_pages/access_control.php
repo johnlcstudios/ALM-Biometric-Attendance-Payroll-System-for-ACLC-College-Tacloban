@@ -89,9 +89,7 @@ try {
                                 <td>
                                     <?php
                                         $badge_class = match($user['role']) {
-                                            'Admin', 'School Director', 'SD' => 'bg-danger',
                                             'HR' => 'bg-primary',
-                                            'Payroll Officer' => 'bg-success',
                                             default => 'bg-secondary'
                                         };
                                     ?>

@@ -1,5 +1,5 @@
 <section id="leave" class="page">
-    <?php if (in_array($role, ['Admin', 'HR', 'Payroll Officer'])): ?>
+    <?php if ($role === 'HR'): ?>
         <div class="payroll-header">
             <div class="header-left">
             </div>

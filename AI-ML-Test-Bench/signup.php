@@ -5,11 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 if (isset($_SESSION['user_id'])) {
     // Redirect based on role
     $role = $_SESSION['role'] ?? 'Employee';
-    if (in_array($role, ['Admin', 'SD', 'School Director'])) {
-        header('Location: sd_dashboard.php');
-    } elseif (in_array($role, ['Payroll', 'Payroll Officer'])) {
-        header('Location: Payroll-Officer.php');
-    } elseif ($role === 'HR') {
+    if ($_SESSION['role'] === 'HR') {
         header('Location: index.php');
     } else {
         header('Location: ess.php');

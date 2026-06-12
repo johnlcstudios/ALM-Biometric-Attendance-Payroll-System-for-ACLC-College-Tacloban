@@ -10,16 +10,12 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Redirect Admin, HR, and Payroll roles
+// Redirect Admin, HR, SD, and Payroll roles
 $session_role = trim($_SESSION['role'] ?? '');
-$is_management = in_array($session_role, ['Admin', 'HR', 'Payroll', 'Payroll Officer']);
+$is_management = ($session_role === 'HR');
 
 if ($is_management) {
-    if (in_array($session_role, ['Payroll', 'Payroll Officer'])) {
-        header('Location: Payroll-Officer.php');
-    } else {
-        header('Location: index.php');
-    }
+    header('Location: index.php');
     exit;
 }
 
@@ -195,13 +191,6 @@ $position = $emp['position'] ?? 'Staff';
                         <div class="stat-info">
                             <h3>Leave Balance</h3>
                             <div class="stat-value" id="stat-leave-balance">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red"><i class="fas fa-clock"></i></div>
-                        <div class="stat-info">
-                            <h3>Late Minutes</h3>
-                            <div class="stat-value" id="stat-late">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -464,7 +453,7 @@ $position = $emp['position'] ?? 'Staff';
                                         <div class="ca-row" style="margin-bottom: 15px;">
                                             <div class="ca-label" style="width: 200px;">Recommending Approval</div>
                                             <div class="ca-colon">:</div>
-                                            <div style="font-weight: 700; color: #333;">School Director</div>
+                                            <div style="font-weight: 700; color: #333;">Admin</div>
                                         </div>
                                         <div class="ca-row" style="margin-bottom: 15px;">
                                             <div class="ca-label" style="width: 200px;">Approved By</div>
@@ -926,22 +915,9 @@ $position = $emp['position'] ?? 'Staff';
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
-<<<<<<< HEAD
-    <script src="js/script.js?v=2.4"></script>
+    <script src="js/script.js?v=2.5"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
-=======
-    <script src="js/script.js"></script>
-    <script>
-        function _loadLocalJS(src) {
-            var s = document.createElement('script');
-            s.src = src;
-            document.body.appendChild(s);
-        }
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="_loadLocalJS('js/jspdf.umd.min.js')"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js" onerror="_loadLocalJS('js/jspdf.plugin.autotable.min.js')"></script>
->>>>>>> be505afb39a7b3b7a6e8872462c663bc30f020b8
     
     <script>
         let essData = null;

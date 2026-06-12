@@ -1,27 +1,27 @@
 <?php
 /**
  * SD Pages - Analytics Dashboard
- * Main admin dashboard for School Director with analytics and summary features
+ * Admin dashboard with analytics and summary features
  */
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once 'backend/db.php';
 
-// Check if user is logged in and is SD/Admin
+// Check if user is logged in and is Admin/HR
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// Only SD/Admin role can access this
+// Only Admin/HR role can access this
 $user_role = $_SESSION['role'];
-if (!in_array($user_role, ['Admin', 'SD', 'School Director'])) {
+if ($user_role !== 'HR') {
     header('Location: index.php');
     exit;
 }
 
-$full_name = $_SESSION['full_name'] ?? 'School Director';
+$full_name = $_SESSION['full_name'] ?? 'HR';
 $company_name = $_SESSION['company_name'] ?? 'ACLC College Tacloban';
 $company_id = $_SESSION['company_id'] ?? 1;
 
@@ -52,14 +52,9 @@ try {
     $absent_today = max(0, $total_employees - $present_today);
     
     // Total HR users
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role IN ('HR', 'Admin') AND is_active = 1 AND company_id = ?");
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'HR' AND is_active = 1 AND company_id = ?");
     $stmt->execute([$company_id]);
     $total_hr = $stmt->fetch()['total'] ?? 0;
-    
-    // Total Payroll Officers
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'Payroll Officer' AND is_active = 1 AND company_id = ?");
-    $stmt->execute([$company_id]);
-    $total_payroll = $stmt->fetch()['total'] ?? 0;
     
     // Monthly payroll (current month)
     $stmt = $pdo->prepare("SELECT SUM(net_pay) as total FROM payroll WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND company_id = ?");
@@ -288,7 +283,7 @@ try {
     <div class="sd-dashboard">
         <!-- Header -->
         <div class="sd-header">
-            <h1><i class="fas fa-chart-line"></i> School Director Dashboard</h1>
+            <h1><i class="fas fa-chart-line"></i> HR Dashboard</h1>
             <p>Welcome back, <?php echo htmlspecialchars($full_name); ?> | <?php echo htmlspecialchars($company_name); ?></p>
         </div>
         
@@ -316,12 +311,6 @@ try {
                 <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
                 <div class="stat-label">HR Staff</div>
                 <div class="stat-value" style="color: #f39c12;"><?php echo number_format($total_hr); ?></div>
-            </div>
-            
-            <div class="stat-card blue">
-                <div class="stat-icon"><i class="fas fa-money-check-alt"></i></div>
-                <div class="stat-label">Payroll Officers</div>
-                <div class="stat-value" style="color: #3498db;"><?php echo number_format($total_payroll); ?></div>
             </div>
             
             <div class="stat-card">

@@ -11,11 +11,11 @@ if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Only allow Admin or HR to run this script
+// Only allow HR to run this script
 if (php_sapi_name() !== 'cli' && !defined('INTERNAL_UPDATE')) {
-    if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'HR'])) {
+    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
         http_response_code(403);
-        die("<h2>Access Denied</h2><p>You must be an Admin or HR to run this update script.</p>");
+        die("<h2>Access Denied</h2><p>You must be an HR user to run this update script.</p>");
     }
 }
 
@@ -352,15 +352,10 @@ try {
 
     // 16. Expand 'users' table 'role' enum
     if (!$silent) echo "Updating 'users' role enum... ";
-    $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee') DEFAULT 'Employee'");
+    $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('HR', 'Employee') DEFAULT 'Employee'");
     if (!$silent) echo "DONE\n";
 
-    // 17. Sync Payroll Officer roles
-    if (!$silent) echo "Syncing Payroll Officer roles... ";
-    $pdo->exec("UPDATE users u JOIN employees e ON u.id = e.user_id SET u.role = 'Payroll Officer' WHERE e.position = 'Payroll Officer'");
-    if (!$silent) echo "DONE\n";
-
-    // 18. Relax Biometric Thresholds for better recognition
+    // 17. Relax Biometric Thresholds for better recognition
     if (!$silent) echo "Relaxing Biometric Thresholds for better recognition... ";
     $pdo->exec("UPDATE companies SET biometric_match_threshold = 0.70, biometric_ambiguity_ratio = 1.25 WHERE biometric_match_threshold = 0.60");
     if (!$silent) echo "DONE\n";

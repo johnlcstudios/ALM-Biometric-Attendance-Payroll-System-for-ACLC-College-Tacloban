@@ -1013,7 +1013,7 @@ function showPage(pageId) {
         'biometrics': 'Face Registration'
     };
     const titleEl = document.getElementById('current-page-title');
-    if (titleEl) titleEl.innerText = titles[pageId] || 'Admin Hub';
+    if (titleEl) titleEl.innerText = titles[pageId] || 'HR Hub';
 
     // Render respective tables
     if (pageId === 'employees') renderEmployeeTable();
@@ -1059,8 +1059,7 @@ function renderEmployeeTable() {
                     options: [
                         { value: 'Faculty', label: 'Faculty' },
                         { value: 'Staff', label: 'Staff' },
-                        { value: 'Utility', label: 'Utility' },
-                        { value: 'Payroll Officer', label: 'Payroll Officer' }
+                        { value: 'Utility', label: 'Utility' }
                     ]
                 },
                 {
@@ -1164,8 +1163,7 @@ function renderArchivedEmployeesTable() {
                     options: [
                         { value: 'Faculty', label: 'Faculty' },
                         { value: 'Staff', label: 'Staff' },
-                        { value: 'Utility', label: 'Utility' },
-                        { value: 'Payroll Officer', label: 'Payroll Officer' }
+                        { value: 'Utility', label: 'Utility' }
                     ]
                 },
                 {
@@ -2290,12 +2288,55 @@ async function loadFacultyPayroll(period = 'latest') {
         const totalEarnings = earnedForPeriod + loadPay + overTime + differential + substitution + adjPlus + honorarium;
         const netPay = totalEarnings - totalDeductions;
         
+        // Government contributions from payroll record
+        const sssEmp = parseFloat(p.sss_employee) || 0;
+        const philhealthEmp = parseFloat(p.philhealth_employee) || 0;
+        const pagibigEmp = parseFloat(p.pagibig_employee) || 0;
+        const birTax = parseFloat(p.bir_tax) || 0;
+        const totalGovContributions = sssEmp + philhealthEmp + pagibigEmp + birTax;
+        const grossPay = parseFloat(p.gross_pay) || totalEarnings;
+
+        // Approval status badge
+        const approvalStatus = p.approval_status || 'Pending';
+        const statusClass = approvalStatus === 'Approved' ? 'success' : approvalStatus === 'Paid' ? 'info' : approvalStatus === 'Rejected' ? 'danger' : 'warning';
+
+        // Action buttons based on status
+        let actionButtons = `
+            <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="downloadPayslip(${p.id})" title="Download Payslip PDF">
+                <i class="fas fa-file-pdf"></i>
+            </button>`;
+        if (approvalStatus === 'Pending') {
+            actionButtons += `
+            <button class="btn btn-success btn-sm" onclick="approvePayroll(${p.id})" title="Approve">
+                <i class="fas fa-check"></i>
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="rejectPayroll(${p.id})" title="Reject">
+                <i class="fas fa-times"></i>
+            </button>`;
+        } else if (approvalStatus === 'Approved') {
+            actionButtons += `
+            <button class="btn btn-info btn-sm" onclick="markPayrollPaid(${p.id})" title="Mark as Paid">
+                <i class="fas fa-dollar-sign"></i>
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="reversePayroll(${p.id})" title="Reverse">
+                <i class="fas fa-undo"></i>
+            </button>`;
+        } else if (approvalStatus === 'Rejected') {
+            actionButtons += `
+            <button class="btn btn-warning btn-sm" onclick="reversePayroll(${p.id})" title="Reverse to Pending">
+                <i class="fas fa-undo"></i>
+            </button>`;
+        }
+
         return `
             <tr>
                 <td>${index + 1}</td>
                 <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
                 <td class="currency">₱${basicSalary.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${grossPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="load_pay" data-id="${p.id}">₱${loadPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="overtime_pay" data-id="${p.id}">₱${overTime.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="differential_pay" data-id="${p.id}">₱${differential.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
@@ -2306,20 +2347,15 @@ async function loadFacultyPayroll(period = 'latest') {
                 <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="hdmf_mp2" data-id="${p.id}">₱${hdmfMP2.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency"><small>SSS: ₱${sssEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>PH: ₱${philhealthEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>PAG-IBIG: ₱${pagibigEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>BIR: ₱${birTax.toLocaleString('en-US', {minimumFractionDigits: 2})}</small></td>
                 <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
                 <td class="currency editable" data-field="honorarium" data-id="${p.id}">₱${honorarium.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
-                        <i class="fas fa-print"></i> Print
-                    </button>
-                </td>
+                <td><span class="status-badge status-${statusClass}">${approvalStatus}</span></td>
+                <td>${actionButtons}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="18" class="text-center">No faculty payroll records for this period.</td></tr>';
+    }).join('') || '<tr><td colspan="21" class="text-center">No faculty payroll records for this period.</td></tr>';
     
     // Make cells editable with auto-calculation
     makePayrollCellsEditable('faculty');
@@ -2364,12 +2400,54 @@ async function loadUtilityPayroll(period = 'latest') {
         const atm = netPay; // Default: all to ATM
         const nonAtm = 0;
         
+        // Government contributions from payroll record
+        const sssEmp = parseFloat(p.sss_employee) || 0;
+        const philhealthEmp = parseFloat(p.philhealth_employee) || 0;
+        const pagibigEmp = parseFloat(p.pagibig_employee) || 0;
+        const birTax = parseFloat(p.bir_tax) || 0;
+        const grossPay = parseFloat(p.gross_pay) || totalEarnings;
+
+        // Approval status badge
+        const approvalStatus = p.approval_status || 'Pending';
+        const statusClass = approvalStatus === 'Approved' ? 'success' : approvalStatus === 'Paid' ? 'info' : approvalStatus === 'Rejected' ? 'danger' : 'warning';
+
+        // Action buttons based on status
+        let actionButtons = `
+            <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
+                <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="downloadPayslip(${p.id})" title="Download Payslip PDF">
+                <i class="fas fa-file-pdf"></i>
+            </button>`;
+        if (approvalStatus === 'Pending') {
+            actionButtons += `
+            <button class="btn btn-success btn-sm" onclick="approvePayroll(${p.id})" title="Approve">
+                <i class="fas fa-check"></i>
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="rejectPayroll(${p.id})" title="Reject">
+                <i class="fas fa-times"></i>
+            </button>`;
+        } else if (approvalStatus === 'Approved') {
+            actionButtons += `
+            <button class="btn btn-info btn-sm" onclick="markPayrollPaid(${p.id})" title="Mark as Paid">
+                <i class="fas fa-dollar-sign"></i>
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="reversePayroll(${p.id})" title="Reverse">
+                <i class="fas fa-undo"></i>
+            </button>`;
+        } else if (approvalStatus === 'Rejected') {
+            actionButtons += `
+            <button class="btn btn-warning btn-sm" onclick="reversePayroll(${p.id})" title="Reverse to Pending">
+                <i class="fas fa-undo"></i>
+            </button>`;
+        }
+
         return `
             <tr>
                 <td>${index + 1}</td>
                 <td><strong>${escapeHTML(p.full_name)}</strong><br><small>${escapeHTML(p.emp_code)}</small></td>
                 <td class="currency">₱${ratePerDay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                <td class="currency earned">₱${earnedForPeriod.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency earned">₱${grossPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="ot_holiday_pay" data-id="${p.id}">₱${otHolidayPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="adj_plus" data-id="${p.id}">₱${adjPlus.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency deduction">(₱${lateUT.toLocaleString('en-US', {minimumFractionDigits: 2})})</td>
@@ -2377,21 +2455,16 @@ async function loadUtilityPayroll(period = 'latest') {
                 <td class="currency editable" data-field="hdmf_contribution" data-id="${p.id}">₱${hdmfCont.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="hdmf_loans" data-id="${p.id}">₱${hdmfLoans.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency editable" data-field="cash_advance" data-id="${p.id}">₱${cashAdvance.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                <td class="currency"><small>SSS: ₱${sssEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>PH: ₱${philhealthEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>PAG-IBIG: ₱${pagibigEmp.toLocaleString('en-US', {minimumFractionDigits: 2})}<br>BIR: ₱${birTax.toLocaleString('en-US', {minimumFractionDigits: 2})}</small></td>
                 <td class="currency total-deduction"><strong>(₱${totalDeductions.toLocaleString('en-US', {minimumFractionDigits: 2})})</strong></td>
                 <td class="currency net-pay"><strong>₱${netPay.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></td>
                 <td class="currency atm">₱${atm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td class="currency non-atm">₱${nonAtm.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="viewAndPrintPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="View & Print Payslip">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn btn-primary btn-sm" onclick="printIndividualPayslip(${p.employee_id}, '${escapeHTML(actualPeriod)}')" title="Print Payslip">
-                        <i class="fas fa-print"></i> Print
-                    </button>
-                </td>
+                <td><span class="status-badge status-${statusClass}">${approvalStatus}</span></td>
+                <td>${actionButtons}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="16" class="text-center">No utility payroll records for this period.</td></tr>';
+    }).join('') || '<tr><td colspan="19" class="text-center">No utility payroll records for this period.</td></tr>';
     
     // Make cells editable with auto-calculation
     makePayrollCellsEditable('utility');
@@ -2682,20 +2755,25 @@ function renderPayrollTable() {
                 if (elStaffCount) elStaffCount.innerText = batchList[0].staff_count;
             }
 
-            tbody.innerHTML = batchList.map((b, index) => `
+            tbody.innerHTML = batchList.map((b, index) => {
+                const approvalStatus = b.approval_status || 'Completed';
+                const statusClass = approvalStatus === 'Approved' ? 'success' : approvalStatus === 'Paid' ? 'info' : approvalStatus === 'Rejected' ? 'danger' : approvalStatus === 'Pending' ? 'warning' : 'active';
+                return `
                 <tr>
                     <td><strong>BATCH-${101 + index}</strong></td>
                     <td>${escapeHTML(b.period)}</td>
                     <td>₱${parseFloat(b.total_disbursed).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                     <td>${escapeHTML(new Date(b.processing_date).toLocaleDateString())}</td>
                     <td>Admin</td>
-                    <td><span class="status-badge status-active">Completed</span></td>
+                    <td><span class="status-badge status-${statusClass}">${approvalStatus}</span></td>
                     <td>
                         <button class="btn btn-secondary btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="viewBatch('${escapeHTML(b.period)}')"><i class="fas fa-eye" style="font-size:8px"></i> View</button>
                         <button class="btn btn-danger btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print" style="font-size:8px"></i> Print All</button>
+                        <button class="btn btn-success btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="bulkApprovePayroll('${escapeHTML(b.period)}')" title="Bulk Approve Pending"><i class="fas fa-check-double" style="font-size:8px"></i> Approve All</button>
+                        <button class="btn btn-info btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="loadPayrollSummary('${escapeHTML(b.period)}')" title="View Summary"><i class="fas fa-chart-bar" style="font-size:8px"></i> Summary</button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         });
 }
 
@@ -5321,6 +5399,400 @@ if (!document.getElementById('bulk-styles')) {
         #payrollTable input[type="checkbox"] { transform: scale(1.2); }
         .bulk-actions { display: flex; gap: 8px; margin: 0 10px; }
         .bulk-actions .btn { padding: 6px 12px; font-size: 0.85em; }
+        .status-badge.status-warning { background: #fff3cd; color: #856404; }
+        .status-badge.status-success { background: #d4edda; color: #155724; }
+        .status-badge.status-info { background: #d1ecf1; color: #0c5460; }
+        .status-badge.status-danger { background: #f8d7da; color: #721c24; }
+        .status-badge.status-active { background: #d4edda; color: #155724; }
     `;
     document.head.appendChild(style);
+}
+
+// =============================================
+// PAYROLL APPROVAL WORKFLOW FUNCTIONS
+// =============================================
+
+// Central payroll loader - refreshes the currently visible payroll view
+async function loadPayroll() {
+    if (typeof currentPayrollType !== 'undefined') {
+        await loadSpecializedPayroll(currentPayrollType, 'latest');
+    }
+    if (typeof renderPayrollTable === 'function') renderPayrollTable();
+}
+
+// Approve a single payroll record
+async function approvePayroll(payrollId) {
+    const confirmResult = await Swal.fire({
+        title: 'Approve Payroll',
+        text: 'Approve this payroll record?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, approve'
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=approve_payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payroll_id: payrollId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Payroll approved successfully', 'success');
+            await loadPayroll();
+        } else {
+            showToast(result.message || 'Failed to approve', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// Reject a single payroll record
+async function rejectPayroll(payrollId) {
+    const confirmResult = await Swal.fire({
+        title: 'Reject Payroll',
+        text: 'Reject this payroll record?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, reject'
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=reject_payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payroll_id: payrollId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Payroll rejected', 'success');
+            await loadPayroll();
+        } else {
+            showToast(result.message || 'Failed to reject', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// Mark payroll as paid
+async function markPayrollPaid(payrollId) {
+    const confirmResult = await Swal.fire({
+        title: 'Mark as Paid',
+        text: 'Mark this payroll as paid?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#17a2b8',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, mark paid'
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=mark_payroll_paid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payroll_id: payrollId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Payroll marked as paid', 'success');
+            await loadPayroll();
+        } else {
+            showToast(result.message || 'Failed to mark as paid', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// Bulk approve all pending payroll for a period
+async function bulkApprovePayroll(period) {
+    const confirmResult = await Swal.fire({
+        title: 'Bulk Approve',
+        text: `Approve ALL pending payroll for period: ${period}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, approve all'
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=bulk_approve_payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period: period })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast((result.affected || 0) + ' records approved', 'success');
+            await loadPayroll();
+        } else {
+            showToast(result.message || 'Failed to bulk approve', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// Reverse a payroll record
+async function reversePayroll(payrollId) {
+    const { value: reason } = await Swal.fire({
+        title: 'Reverse Payroll',
+        input: 'text',
+        inputLabel: 'Reason for reversal',
+        inputPlaceholder: 'Enter reason...',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Reverse'
+    });
+    if (reason === undefined) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=reverse_payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payroll_id: payrollId, reason: reason || '' })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Payroll reversed', 'success');
+            await loadPayroll();
+        } else {
+            showToast(result.message || 'Failed to reverse', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// =============================================
+// HOLIDAY MANAGEMENT FUNCTIONS
+// =============================================
+
+// Load holidays
+async function loadHolidays() {
+    try {
+        const holidays = await fetchJSON('backend/api.php?action=get_holidays');
+        renderHolidays(getArray(holidays));
+    } catch (e) {
+        console.error('Error loading holidays:', e);
+    }
+}
+
+// Render holidays table
+function renderHolidays(holidays) {
+    const container = document.getElementById('holidays-container');
+    if (!container) return;
+
+    if (!holidays || holidays.length === 0) {
+        container.innerHTML = '<p class="text-muted">No holidays configured.</p>';
+        return;
+    }
+
+    let html = '<table class="table table-sm"><thead><tr><th>Date</th><th>Name</th><th>Type</th><th>Pay Rate</th><th>Actions</th></tr></thead><tbody>';
+    holidays.forEach(h => {
+        html += `<tr>
+            <td>${new Date(h.date).toLocaleDateString()}</td>
+            <td>${escapeHTML(h.name)}</td>
+            <td><span class="badge badge-${h.type === 'Regular' ? 'primary' : 'secondary'}">${escapeHTML(h.type)}</span></td>
+            <td>${h.pay_rate}%</td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteHoliday(${h.id})"><i class="fas fa-trash"></i></button></td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+// Add holiday
+async function addHoliday() {
+    const name = document.getElementById('holiday-name')?.value;
+    const date = document.getElementById('holiday-date')?.value;
+    const type = document.getElementById('holiday-type')?.value || 'Regular';
+    const payRate = document.getElementById('holiday-pay-rate')?.value || (type === 'Regular' ? 200 : 130);
+
+    if (!name || !date) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('backend/api.php?action=add_holiday', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, date, type, pay_rate: payRate })
+        });
+        const result = await response.json();
+        if (result.success) {
+            showToast('Holiday added', 'success');
+            document.getElementById('holiday-name').value = '';
+            document.getElementById('holiday-date').value = '';
+            loadHolidays();
+        } else {
+            showToast(result.message || 'Failed to add holiday', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// Delete holiday
+async function deleteHoliday(id) {
+    const confirmResult = await Swal.fire({
+        title: 'Delete Holiday',
+        text: 'Delete this holiday?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, delete'
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+        const response = await fetch('backend/api.php?action=delete_holiday&id=' + id);
+        const result = await response.json();
+        if (result.success) {
+            showToast('Holiday deleted', 'success');
+            loadHolidays();
+        } else {
+            showToast(result.message || 'Failed to delete', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+// =============================================
+// PAYSLIP PDF DOWNLOAD
+// =============================================
+
+// Download payslip as PDF/HTML
+function downloadPayslip(payrollId) {
+    window.open(`backend/generate_payslip.php?id=${payrollId}`, '_blank');
+}
+
+// =============================================
+// PAYROLL SUMMARY FUNCTIONS
+// =============================================
+
+// Load payroll summary for a period
+async function loadPayrollSummary(period) {
+    try {
+        const summary = await fetchJSON('backend/api.php?action=get_payroll_summary&period=' + encodeURIComponent(period));
+        if (summary) {
+            renderPayrollSummary(summary, period);
+        }
+    } catch (e) {
+        console.error('Error loading payroll summary:', e);
+    }
+}
+
+// Render payroll summary
+function renderPayrollSummary(summary, period) {
+    const container = document.getElementById('payroll-summary');
+    if (!container) {
+        // Create a SweetAlert modal for the summary if no container exists
+        const html = `
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning">${summary.pending_count || 0}</h5>
+                            <p class="card-text">Pending</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">${summary.approved_count || 0}</h5>
+                            <p class="card-text">Approved</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-info">${summary.paid_count || 0}</h5>
+                            <p class="card-text">Paid</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title text-danger">${summary.rejected_count || 0}</h5>
+                            <p class="card-text">Rejected</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row" style="text-align:left">
+                <div class="col-md-4"><strong>Total Gross:</strong> ₱${parseFloat(summary.total_gross || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+                <div class="col-md-4"><strong>Total Deductions:</strong> ₱${parseFloat(summary.total_deductions || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+                <div class="col-md-4"><strong>Total Net:</strong> ₱${parseFloat(summary.total_net || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+            </div>
+        `;
+        Swal.fire({
+            title: `Payroll Summary - ${period}`,
+            html: html,
+            confirmButtonColor: '#1e0178',
+            width: 700
+        });
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">${summary.pending_count || 0}</h5>
+                        <p class="card-text">Pending</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">${summary.approved_count || 0}</h5>
+                        <p class="card-text">Approved</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">${summary.paid_count || 0}</h5>
+                        <p class="card-text">Paid</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">${summary.rejected_count || 0}</h5>
+                        <p class="card-text">Rejected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3"><strong>Total Gross:</strong> ₱${parseFloat(summary.total_gross || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+            <div class="col-md-3"><strong>Total Deductions:</strong> ₱${parseFloat(summary.total_deductions || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+            <div class="col-md-3"><strong>Total Net:</strong> ₱${parseFloat(summary.total_net || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+            <div class="col-md-3"><button class="btn btn-success btn-sm" onclick="bulkApprovePayroll('${period}')">Bulk Approve Pending</button></div>
+        </div>
+    `;
 }

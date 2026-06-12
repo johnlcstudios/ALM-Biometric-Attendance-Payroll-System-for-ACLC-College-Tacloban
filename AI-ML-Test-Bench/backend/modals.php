@@ -97,7 +97,6 @@
                                 <option value="Faculty">Full-Time Faculty</option>
                                 <option value="Staff">Regular Staff</option>
                                 <option value="Utility">Utility Staff</option>
-                                <option value="Payroll Officer">Payroll Officer</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -323,7 +322,6 @@
                         <option value="Faculty">Full-Time Faculty</option>
                         <option value="Staff">Regular Staff</option>
                         <option value="Utility">Utility Staff</option>
-                        <option value="Payroll Officer">Payroll Officer</option>
                     </select>
                 </div>
                 <p class="text-muted small"><i class="fas fa-info-circle"></i> This will calculate earnings and deductions for the selected period and employees.</p>

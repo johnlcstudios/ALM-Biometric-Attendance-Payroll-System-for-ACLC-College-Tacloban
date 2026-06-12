@@ -14,12 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if (in_array($_SESSION['role'], ['Payroll', 'Payroll Officer'])) {
-    header('Location: Payroll-Officer.php');
-    exit;
-}
-
-if (!in_array($_SESSION['role'], ['Admin', 'HR'])) {
+if ($_SESSION['role'] !== 'HR') {
     header('Location: ess.php');
     exit;
 }
@@ -280,22 +275,22 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 </button>
                 
                 <!-- Shared Role-Based Access -->
-                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
+                <?php if ($role === 'HR'): ?>
                 <button class="nav-btn <?php echo $page === 'employees' ? 'active' : ''; ?>" data-page="employees" onclick="window.location.href='index.php?page=employees'">
                     <i class="fas fa-users"></i> <span>Employees</span>
                 </button>
 
                 <?php endif; ?>
 
-                <!-- Role: Admin / HR / Payroll Officer -->
-                <?php if (in_array($role, ['HR', 'Admin', 'Payroll Officer'])): ?>
+                <!-- Role: HR -->
+                <?php if ($role === 'HR'): ?>
                 <button class="nav-btn <?php echo $page === 'biometrics' ? 'active' : ''; ?>" data-page="biometrics" onclick="window.location.href='index.php?page=biometrics'">
                     <i class="fas fa-id-card"></i> <span>Face Registration</span>
                 </button>
                 <?php endif; ?>
 
-                <!-- Role: Payroll Officer specific or Admin -->
-                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
+                <!-- Role: HR -->
+                <?php if ($role === 'HR'): ?>
                 <button class="nav-btn <?php echo $page === 'attendance' ? 'active' : ''; ?>" data-page="attendance" onclick="window.location.href='index.php?page=attendance'">
                     <i class="fas fa-calendar-alt"></i> <span>Attendance Logs</span>
                 </button>
@@ -317,7 +312,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 <button class="nav-btn <?php echo $page === 'leave' ? 'active' : ''; ?>" data-page="leave" onclick="window.location.href='index.php?page=leave'">
                     <i class="fas fa-calendar-check"></i> <span>Leave Requests</span>
                 </button>
-                <?php if (in_array($role, ['HR', 'Admin', 'Payroll', 'Payroll Officer'])): ?>
+                <?php if ($role === 'HR'): ?>
                 <button class="nav-btn <?php echo $page === 'loans' ? 'active' : ''; ?>" data-page="loans" onclick="window.location.href='index.php?page=loans'">
                     <i class="fas fa-hand-holding-usd"></i> <span>Cash Advance</span>
                 </button>

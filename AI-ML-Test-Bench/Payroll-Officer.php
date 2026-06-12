@@ -13,12 +13,8 @@ if (!isset($_SESSION['user_id'])) {
 
 $session_role = trim($_SESSION['role'] ?? '');
 
-if (!in_array($session_role, ['Payroll', 'Payroll Officer'])) {
-    if (in_array($session_role, ['Admin', 'HR'])) {
-        header('Location: index.php');
-    } else {
-        header('Location: ess.php');
-    }
+if ($session_role !== 'HR') {
+    header('Location: ess.php');
     exit;
 }
 

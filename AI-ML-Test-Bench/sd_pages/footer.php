@@ -4,7 +4,7 @@
 
     <footer style="background-color: #f8f9fa; border-top: 1px solid #e0e0e0; padding: 20px 30px; text-align: center; color: #666; font-size: 0.9rem; margin-left: 260px;">
         <p style="margin: 0;">
-            &copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($company_name ?? 'ACLC College of Tacloban'); ?> | School Director Management Portal | 
+            &copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($company_name ?? 'ACLC College of Tacloban'); ?> | HR Management Portal | 
             <a href="#" style="color: #1e0178; text-decoration: none;">Privacy Policy</a> | 
             <a href="#" style="color: #1e0178; text-decoration: none;">Terms of Service</a>
         </p>

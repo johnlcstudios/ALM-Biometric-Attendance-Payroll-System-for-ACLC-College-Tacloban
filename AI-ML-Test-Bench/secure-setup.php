@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once 'backend/db.php';
 
 // Check if setup is already completed
-$stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'Admin'");
+$stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'HR'");
 $adminCount = $stmt->fetchColumn();
 
 if ($adminCount > 0) {
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Create admin user
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'Admin', ?)");
+            $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, 'HR', ?)");
             $stmt->execute([$companyId, $username, $hashedPassword, $adminEmail]);
             
             $pdo->commit();

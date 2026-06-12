@@ -8,13 +8,13 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once 'backend/db.php';
 
-// Check if user is SD/Admin
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'SD', 'School Director'])) {
+// Check if user is Admin/HR
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
     header('Location: login.php');
     exit;
 }
 
-$full_name = $_SESSION['full_name'] ?? 'School Director';
+$full_name = $_SESSION['full_name'] ?? 'HR';
 $company_name = $_SESSION['company_name'] ?? 'ACLC College Tacloban';
 $company_id = $_SESSION['company_id'] ?? 1;
 
@@ -35,7 +35,7 @@ try {
         SELECT u.id, u.username, u.email, u.role, u.is_active, u.created_at, e.full_name, e.employee_id
         FROM users u
         LEFT JOIN employees e ON u.id = e.user_id
-        WHERE u.role IN ('HR', 'Admin', 'Payroll Officer')
+        WHERE u.role IN ('HR')
         AND u.company_id = ?
         ORDER BY u.role, u.username
     ");
@@ -303,8 +303,6 @@ try {
                         <select id="roleSelect" required>
                             <option value="">-- Select Role --</option>
                             <option value="HR">HR Staff</option>
-                            <option value="Admin">HR Admin</option>
-                            <option value="Payroll Officer">Payroll Officer</option>
                         </select>
                     </div>
                     

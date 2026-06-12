@@ -27,18 +27,20 @@
                     <th>No.</th>
                     <th>Name</th>
                     <th>Rate per Day</th>
-                    <th>Earned for the Period</th>
+                    <th>Gross Pay</th>
                     <th>OT/ Holiday Pay</th>
                     <th>Adj.(+)</th>
-                    <th>Latest/UT</th>
+                    <th>Late/UT</th>
                     <th>Adj. (-)</th>
                     <th>HDMF Cont.</th>
                     <th>HDMF Cash Advance</th>
                     <th>Cash Advance</th>
+                    <th>Gov. Contributions</th>
                     <th>Total Deduction</th>
                     <th>Net Pay</th>
                     <th>ATM</th>
                     <th>Non ATM</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>

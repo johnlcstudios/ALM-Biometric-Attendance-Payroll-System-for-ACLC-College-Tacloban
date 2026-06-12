@@ -284,7 +284,7 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
                 <div class="sig">
                     <div class="label">Recommending Approval</div>
                     <div class="colon">:</div>
-                    <div class="value">School Director</div>
+                    <div class="value">Admin</div>
                 </div>
                 <div class="sig">
                     <div class="label">Approved By</div>

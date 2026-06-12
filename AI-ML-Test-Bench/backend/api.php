@@ -15,6 +15,7 @@ try {
     require_once 'audit.php';
     require_once 'encryption.php';
     require_once 'two_factor_auth.php';
+    require_once __DIR__ . '/payroll_tax.php';
 } catch (Exception $e) {
     apiError('Database connection failed: ' . $e->getMessage(), [], 500);
 }
@@ -32,7 +33,7 @@ $allowedActions = [
     
     // Employee Management
     'get_employees', 'save_employee', 'delete_employee', 'reinstate_employee',
-    'upload_profile_picture', 'update_employee_profile',
+    'upload_profile_picture', 'update_employee_profile', 'update_profile',
     
     // Attendance
     'get_attendance', 'add_attendance', 'update_attendance', 'flag_attendance',
@@ -45,6 +46,10 @@ $allowedActions = [
     'update_payroll_field', 'revoke_payroll_access',
     'get_payslip', 'get_deduction_breakdown',
     'bulk_payroll_adjustment', 'bulk_payroll_update',
+    'approve_payroll', 'reject_payroll', 'mark_payroll_paid',
+    'bulk_approve_payroll', 'reverse_payroll',
+    'get_payroll_summary',
+    'get_holidays', 'add_holiday', 'delete_holiday',
     
     // Deductions
     'get_deductions', 'save_deduction', 'delete_deduction',
@@ -61,6 +66,10 @@ $allowedActions = [
     // Subject Load Management
     'get_subjects', 'save_subject', 'delete_subject',
     'get_subject_loads', 'save_subject_load', 'delete_subject_load',
+    'get_my_subject_loads', 'save_my_subject_load', 'delete_my_subject_load',
+    'get_my_subject_schedules', 'save_my_subject_schedule', 'delete_my_subject_schedule',
+    'save_subject_load_ess', 'delete_subject_load_ess',
+    'save_subject_schedule_ess', 'delete_subject_schedule_ess',
     
 // Leave Management
     'get_leave_requests', 'apply_leave', 'update_leave_status',
@@ -70,6 +79,10 @@ $allowedActions = [
     
     // Loan/Cash Advance Management
     'get_loan_requests', 'apply_loan', 'update_loan_status', 'get_cash_advance_by_tracking',
+    'create_loan_installment', 'get_loan_installments', 'process_loan_installment_deduction',
+    
+    // Resignations
+    'get_resignation_requests',
     
     // Company & Settings
     'get_companies', 'add_company', 'update_company', 'get_company_info',
@@ -170,21 +183,37 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
             
             if ($position === 'Faculty') {
                 // Faculty specific calculations
-                // FIXED: Removed hardcoded / 2 divisor - use actual working days
-                // Calculate actual working days in the period
-                $period_days = max(1, (strtotime($end_date) - strtotime($start_date)) / (60 * 60 * 24) + 1);
-                $working_days = max(10, min(22, $period_days)); // Clamp between 10-22 days
+                // Calculate actual working days (Mon-Fri) in the period
+                $working_days = 0;
+                $current_dt = new DateTime($start_date);
+                $end_dt = new DateTime($end_date);
+                while ($current_dt <= $end_dt) {
+                    if ($current_dt->format('N') < 6)
+                        $working_days++;
+                    $current_dt->add(new DateInterval('P1D'));
+                }
+                $working_days = max(1, $working_days);
                 
                 // Basic pay is prorated based on actual working days in period
                 $basic_pay = (float) $emp['basic_salary'] * ($working_days / 22); // 22 = standard monthly working days
                 $load_pay = 0; // Additional load pay (0 if no subjects assigned)
-                $overtime = 0;
-                $differential = 0;
-                $substitution = 0;
-                $adj_plus = 0;
                 
-                // FIXED: Absence deduction based on actual daily rate
+                // Calculate daily and hourly rates for holiday/ND
                 $daily_rate = (float) $emp['basic_salary'] / 22;
+                $hourly_rate = $daily_rate / 8;
+                
+                // Calculate holiday pay
+                $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $daily_rate);
+                
+                // Calculate night differential pay
+                $night_diff_pay = calculateNightDiffPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $hourly_rate);
+                
+                $overtime = 0;
+                $differential = $night_diff_pay;
+                $substitution = 0;
+                $adj_plus = $holiday_pay;
+                
+                // Absence deduction based on actual daily rate
                 $absences_deduction = $total_absent * $daily_rate;
                 
                 $late_ut = $total_late_min * $deduction_per_min;
@@ -231,15 +260,21 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     ];
                 }
                 
-                $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions;
+                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances + $holiday_pay + $night_diff_pay;
+
+                // Use PayrollTaxEngine for government contributions
+                $tax_engine = new PayrollTaxEngine($pdo, $company_id);
+                $gov_contributions = $tax_engine->calculateGovContributions($gross_pay, $emp);
+
+                $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions
+                    + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
                 $honorarium = 0;
-                $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances) - $total_deduction;
+                $net_pay = $gross_pay - $total_deduction;
                 
-                // FIXED: Validate net_pay is not negative
+                // Validate net_pay is not negative
                 if ($net_pay < 0) {
                     error_log("Warning: Negative net_pay detected for faculty employee {$emp['id']}: {$net_pay}. Setting to 0.");
                     $net_pay = 0;
-                    $breakdown['negative_net_pay_warning'] = 'Net pay was negative and has been set to 0. Please review deductions.';
                 }
                 
                 $breakdown = [
@@ -248,6 +283,8 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'differential' => $differential,
                     'substitution' => $substitution,
                     'adj_plus' => $adj_plus,
+                    'holiday_pay' => $holiday_pay,
+                    'night_diff_pay' => $night_diff_pay,
                     'total_allowances' => $total_allowances,
                     'absences' => $absences_deduction,
                     'late_ut' => $late_ut,
@@ -260,17 +297,33 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'honorarium' => $honorarium,
                     'days_present' => $days_present,
                     'absent_days' => $total_absent,
-                    'late_minutes' => $total_late_min
+                    'late_minutes' => $total_late_min,
+                    'gross_pay' => $gross_pay,
+                    'sss_employee' => $gov_contributions['sss_employee'],
+                    'sss_employer' => $gov_contributions['sss_employer'],
+                    'philhealth_employee' => $gov_contributions['philhealth_employee'],
+                    'philhealth_employer' => $gov_contributions['philhealth_employer'],
+                    'pagibig_employee' => $gov_contributions['pagibig_employee'],
+                    'pagibig_employer' => $gov_contributions['pagibig_employer'],
+                    'bir_tax' => $gov_contributions['bir_tax']
                 ];
                 
-                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
-                                 VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid')");
-                $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
+                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                 VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
             } else {
                 // Utility specific calculations
-                // FIXED: Added validation for 22-day divisor
-                $working_days_in_month = 22; // Standard working days
-                $rate_per_day = $emp['basic_salary'] / $working_days_in_month;
+                // Calculate actual working days (Mon-Fri) in the period
+                $working_days_in_month = 0;
+                $current_dt = new DateTime($start_date);
+                $end_dt = new DateTime($end_date);
+                while ($current_dt <= $end_dt) {
+                    if ($current_dt->format('N') < 6)
+                        $working_days_in_month++;
+                    $current_dt->add(new DateInterval('P1D'));
+                }
+                $working_days_in_month = max(1, $working_days_in_month);
+                $rate_per_day = $emp['basic_salary'] / 22;
                 
                 // Validate rate_per_day is positive
                 if ($rate_per_day <= 0) {
@@ -279,8 +332,14 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 }
                 
                 $earned = $rate_per_day * $days_present;
-                $ot_holiday = 0;
-                $adj_plus = 0;
+                $daily_rate_util = $emp['basic_salary'] / 22;
+                $hourly_rate_util = $daily_rate_util / 8;
+                
+                $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $daily_rate_util);
+                $night_diff_pay = calculateNightDiffPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $hourly_rate_util);
+                
+                $ot_holiday = $holiday_pay;
+                $adj_plus = $night_diff_pay;
                 $late_ut = $total_late_min * $deduction_per_min;
                 $adj_minus = 0;
                 $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
@@ -326,14 +385,20 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     ];
                 }
                 
-                $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
-                $net_pay = ($earned + $ot_holiday + $adj_plus + $total_allowances) - $total_deduction;
+                $gross_pay = $earned + $ot_holiday + $adj_plus + $total_allowances;
+
+                // Use PayrollTaxEngine for government contributions
+                $tax_engine = new PayrollTaxEngine($pdo, $company_id);
+                $gov_contributions = $tax_engine->calculateGovContributions($gross_pay, $emp);
+
+                $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions
+                    + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
+                $net_pay = $gross_pay - $total_deduction;
                 
-                // FIXED: Validate net_pay is not negative
+                // Validate net_pay is not negative
                 if ($net_pay < 0) {
                     error_log("Warning: Negative net_pay detected for utility employee {$emp['id']}: {$net_pay}. Setting to 0.");
                     $net_pay = 0;
-                    $breakdown['negative_net_pay_warning'] = 'Net pay was negative and has been set to 0. Please review deductions.';
                 }
                 
                 $atm = $net_pay;
@@ -344,6 +409,8 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'earned' => $earned,
                     'ot_holiday' => $ot_holiday,
                     'adj_plus' => $adj_plus,
+                    'holiday_pay' => $holiday_pay,
+                    'night_diff_pay' => $night_diff_pay,
                     'total_allowances' => $total_allowances,
                     'late_ut' => $late_ut,
                     'adj_minus' => $adj_minus,
@@ -357,12 +424,20 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'non_atm' => $non_atm,
                     'days_present' => $days_present,
                     'absent_days' => $total_absent,
-                    'late_minutes' => $total_late_min
+                    'late_minutes' => $total_late_min,
+                    'gross_pay' => $gross_pay,
+                    'sss_employee' => $gov_contributions['sss_employee'],
+                    'sss_employer' => $gov_contributions['sss_employer'],
+                    'philhealth_employee' => $gov_contributions['philhealth_employee'],
+                    'philhealth_employer' => $gov_contributions['philhealth_employer'],
+                    'pagibig_employee' => $gov_contributions['pagibig_employee'],
+                    'pagibig_employer' => $gov_contributions['pagibig_employer'],
+                    'bir_tax' => $gov_contributions['bir_tax']
                 ];
                 
-                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
-                                 VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid')");
-                $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown)]);
+                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                 VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
             }
         }
         
@@ -374,16 +449,76 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
     }
 }
 
-// Helper to check for HR or Admin role (includes Payroll Officer for full company data access)
-function isAdminOrHR()
+// Helper to check for HR role
+function isHR()
 {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+    return isset($_SESSION['user_id']) && $_SESSION['role'] === 'HR';
 }
 
-// Helper to check for Payroll role (includes Admin/HR/Payroll Officer)
+// Helper to check for Payroll role (HR only)
 function isPayrollOrHigher()
 {
-    return isset($_SESSION['user_id']) && in_array($_SESSION['role'], ['HR', 'Admin', 'Payroll', 'Payroll Officer']);
+    return isset($_SESSION['user_id']) && $_SESSION['role'] === 'HR';
+}
+
+// Calculate holiday pay for attendance in a date range
+function calculateHolidayPay($pdo, $company_id, $employee_id, $start_date, $end_date, $daily_rate) {
+    $stmt = $pdo->prepare("SELECT * FROM holidays WHERE company_id = ? AND date BETWEEN ? AND ?");
+    $stmt->execute([$company_id, $start_date, $end_date]);
+    $holidays = $stmt->fetchAll();
+    
+    $holiday_pay = 0;
+    foreach ($holidays as $holiday) {
+        // Check if employee was present on the holiday
+        $stmt_att = $pdo->prepare("SELECT id FROM attendance WHERE employee_id = ? AND log_date = ? AND check_in IS NOT NULL");
+        $stmt_att->execute([$employee_id, $holiday['date']]);
+        if ($stmt_att->fetch()) {
+            // Regular holiday: 200% of daily rate, Special: 130%
+            $rate = (float)$holiday['pay_rate'] / 100;
+            $holiday_pay += $daily_rate * $rate;
+        }
+    }
+    return $holiday_pay;
+}
+
+// Calculate night differential pay for a date range
+function calculateNightDiffPay($pdo, $company_id, $employee_id, $start_date, $end_date, $hourly_rate) {
+    // Night differential: 10% of hourly rate for work between 10PM and 6AM
+    $nd_rate = $hourly_rate * 0.10;
+    
+    $stmt = $pdo->prepare("SELECT * FROM attendance WHERE employee_id = ? AND company_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
+    $stmt->execute([$employee_id, $company_id, $start_date, $end_date]);
+    $logs = $stmt->fetchAll();
+    
+    $total_nd_pay = 0;
+    foreach ($logs as $log) {
+        $nd_hours = 0;
+        
+        // Check check_in time - if before 6AM, count ND hours
+        if (!empty($log['check_in'])) {
+            $check_in = strtotime($log['check_in']);
+            $six_am = strtotime('06:00:00');
+            if ($check_in < $six_am) {
+                $nd_hours += ($six_am - $check_in) / 3600;
+            }
+        }
+        
+        // Check check_out time - if after 10PM, count ND hours
+        if (!empty($log['check_out'])) {
+            $check_out = strtotime($log['check_out']);
+            $ten_pm = strtotime('22:00:00');
+            if ($check_out > $ten_pm) {
+                $nd_hours += ($check_out - $ten_pm) / 3600;
+            }
+        }
+        
+        if ($nd_hours > 0) {
+            $nd_hours = min($nd_hours, 8); // Cap at 8 hours
+            $total_nd_pay += $nd_hours * $nd_rate;
+        }
+    }
+    
+    return round($total_nd_pay, 2);
 }
 
 // Centralized validation functions
@@ -831,7 +966,7 @@ case 'reset_password_with_token':
 
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 // Assign Admin/HR role (Admin) to new signups
-                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email, is_active) VALUES (?, ?, ?, 'Admin', ?, 1)");
+                $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email, is_active) VALUES (?, ?, ?, 'HR', ?, 1)");
                 $stmt->execute([$company_id, $username, $hashed_password, $email]);
                 $user_id = $pdo->lastInsertId();
 
@@ -841,7 +976,7 @@ case 'reset_password_with_token':
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $user_id;
                 $_SESSION['company_id'] = $company_id;
-                $_SESSION['role'] = 'Admin';
+                $_SESSION['role'] = 'HR';
                 $_SESSION['company_name'] = $company_name;
                 $_SESSION['company_code'] = $company_code;
                 $_SESSION['company_timezone'] = 'Asia/Manila';
@@ -850,7 +985,7 @@ case 'reset_password_with_token':
 
                 echo json_encode([
                     'success' => true,
-                    'role' => 'Admin',
+                    'role' => 'HR',
                     'company_code' => $company_code,
                     'company_name' => $company_name,
                     'message' => 'Account created successfully. Company Code: ' . $company_code
@@ -1021,14 +1156,31 @@ case 'reset_password_with_token':
                     }
 
                     if ($type === 'faculty') {
-                        // Faculty specific calculations (17 columns)
-                        $basic_pay = (float) $emp['basic_salary'] / 2;
+                        // Faculty specific calculations - dynamic working days
+                        $working_days = 0;
+                        $current_dt = new DateTime($start_date);
+                        $end_dt = new DateTime($end_date);
+                        while ($current_dt <= $end_dt) {
+                            if ($current_dt->format('N') < 6)
+                                $working_days++;
+                            $current_dt->add(new DateInterval('P1D'));
+                        }
+                        $working_days = max(1, $working_days);
+
+                        $basic_pay = (float) $emp['basic_salary'] * ($working_days / 22);
                         $load_pay = 0;
+                        
+                        $daily_rate_f = (float) $emp['basic_salary'] / 22;
+                        $hourly_rate_f = $daily_rate_f / 8;
+                        $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $daily_rate_f);
+                        $night_diff_pay = calculateNightDiffPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $hourly_rate_f);
+                        
                         $overtime = 0;
-                        $differential = 0;
+                        $differential = $night_diff_pay;
                         $substitution = 0;
-                        $adj_plus = 0;
-                        $absences_deduction = $total_absent * (((float) $emp['basic_salary']) / 22);
+                        $adj_plus = $holiday_pay;
+                        $daily_rate = (float) $emp['basic_salary'] / 22;
+                        $absences_deduction = $total_absent * $daily_rate;
                         $late_ut = $total_late_min * $deduction_per_min;
                         $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
                         $hdmf_loans = 0;
@@ -1064,9 +1216,21 @@ case 'reset_password_with_token':
                             $employee_specific_deductions += (float)$amount;
                         }
                         
-                        $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions;
+                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances + $holiday_pay + $night_diff_pay;
+
+                        // Use PayrollTaxEngine for government contributions
+                        $tax_engine = new PayrollTaxEngine($pdo, $company_id);
+                        $gov_contributions = $tax_engine->calculateGovContributions($gross_pay, $emp);
+
+                        $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions
+                            + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
                         $honorarium = 0;
-                        $net_pay = ($basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances) - $total_deduction;
+                        $net_pay = $gross_pay - $total_deduction;
+
+                        // Validate net_pay is not negative
+                        if ($net_pay < 0) {
+                            $net_pay = 0;
+                        }
 
                         $breakdown = [
                             'load_pay' => $load_pay,
@@ -1074,6 +1238,8 @@ case 'reset_password_with_token':
                             'differential' => $differential,
                             'substitution' => $substitution,
                             'adj_plus' => $adj_plus,
+                            'holiday_pay' => $holiday_pay,
+                            'night_diff_pay' => $night_diff_pay,
                             'total_allowances' => $total_allowances,
                             'absences' => $absences_deduction,
                             'late_ut' => $late_ut,
@@ -1085,18 +1251,40 @@ case 'reset_password_with_token':
                             'honorarium' => $honorarium,
                             'days_present' => $days_present,
                             'absent_days' => $total_absent,
-                            'late_minutes' => $total_late_min
+                            'late_minutes' => $total_late_min,
+                            'gross_pay' => $gross_pay,
+                            'sss_employee' => $gov_contributions['sss_employee'],
+                            'sss_employer' => $gov_contributions['sss_employer'],
+                            'philhealth_employee' => $gov_contributions['philhealth_employee'],
+                            'philhealth_employer' => $gov_contributions['philhealth_employer'],
+                            'pagibig_employee' => $gov_contributions['pagibig_employee'],
+                            'pagibig_employer' => $gov_contributions['pagibig_employer'],
+                            'bir_tax' => $gov_contributions['bir_tax']
                         ];
 
-                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
-                                         VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Paid')");
-                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown)]);
+                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                         VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
                     } else {
-                        // Utility specific calculations (15 columns)
+                        // Utility specific calculations - dynamic working days
+                        $working_days_util = 0;
+                        $current_dt = new DateTime($start_date);
+                        $end_dt = new DateTime($end_date);
+                        while ($current_dt <= $end_dt) {
+                            if ($current_dt->format('N') < 6)
+                                $working_days_util++;
+                            $current_dt->add(new DateInterval('P1D'));
+                        }
+                        $working_days_util = max(1, $working_days_util);
                         $rate_per_day = $emp['basic_salary'] / 22;
                         $earned = $rate_per_day * $days_present;
-                        $ot_holiday = 0;
-                        $adj_plus = 0;
+                        $daily_rate_u = $emp['basic_salary'] / 22;
+                        $hourly_rate_u = $daily_rate_u / 8;
+                        $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $daily_rate_u);
+                        $night_diff_pay = calculateNightDiffPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $hourly_rate_u);
+                        
+                        $ot_holiday = $holiday_pay;
+                        $adj_plus = $night_diff_pay;
                         $late_ut = $total_late_min * $deduction_per_min;
                         $adj_minus = 0;
                         $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
@@ -1133,8 +1321,21 @@ case 'reset_password_with_token':
                             $employee_specific_deductions += (float)$amount;
                         }
                         
-                        $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions;
-                        $net_pay = ($earned + $ot_holiday + $adj_plus + $total_allowances) - $total_deduction;
+                        $gross_pay = $earned + $ot_holiday + $adj_plus + $total_allowances;
+
+                        // Use PayrollTaxEngine for government contributions
+                        $tax_engine = new PayrollTaxEngine($pdo, $company_id);
+                        $gov_contributions = $tax_engine->calculateGovContributions($gross_pay, $emp);
+
+                        $total_deduction = $late_ut + $adj_minus + $hdmf_cont + $hdmf_loans + $cash_advance + $employee_specific_deductions
+                            + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
+                        $net_pay = $gross_pay - $total_deduction;
+
+                        // Validate net_pay is not negative
+                        if ($net_pay < 0) {
+                            $net_pay = 0;
+                        }
+
                         $atm = $net_pay;
                         $non_atm = 0;
 
@@ -1143,6 +1344,8 @@ case 'reset_password_with_token':
                             'earned' => $earned,
                             'ot_holiday' => $ot_holiday,
                             'adj_plus' => $adj_plus,
+                            'holiday_pay' => $holiday_pay,
+                            'night_diff_pay' => $night_diff_pay,
                             'total_allowances' => $total_allowances,
                             'late_ut' => $late_ut,
                             'adj_minus' => $adj_minus,
@@ -1155,12 +1358,20 @@ case 'reset_password_with_token':
                             'non_atm' => $non_atm,
                             'days_present' => $days_present,
                             'absent_days' => $total_absent,
-                            'late_minutes' => $total_late_min
+                            'late_minutes' => $total_late_min,
+                            'gross_pay' => $gross_pay,
+                            'sss_employee' => $gov_contributions['sss_employee'],
+                            'sss_employer' => $gov_contributions['sss_employer'],
+                            'philhealth_employee' => $gov_contributions['philhealth_employee'],
+                            'philhealth_employer' => $gov_contributions['philhealth_employer'],
+                            'pagibig_employee' => $gov_contributions['pagibig_employee'],
+                            'pagibig_employer' => $gov_contributions['pagibig_employer'],
+                            'bir_tax' => $gov_contributions['bir_tax']
                         ];
 
-                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status) 
-                                         VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Paid')");
-                        $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown)]);
+                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                         VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
                     }
                 }
                 $pdo->commit();
@@ -1172,7 +1383,7 @@ case 'reset_password_with_token':
             break;
 
         case 'get_allowance_categories':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT * FROM allowance_categories WHERE company_id = ? ORDER BY name ASC");
             $stmt->execute([$_SESSION['company_id']]);
@@ -1180,7 +1391,7 @@ case 'reset_password_with_token':
             break;
 
         case 'add_allowance_category':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO allowance_categories (company_id, name, type, rate) VALUES (?, ?, ?, ?)");
@@ -1189,7 +1400,7 @@ case 'reset_password_with_token':
             break;
 
         case 'get_employee_allowances':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT ea.*, e.full_name, e.employee_id as emp_code, ac.name as category_name, ac.type as category_type, ac.rate as category_rate 
                                  FROM employee_allowances ea 
@@ -1201,7 +1412,7 @@ case 'reset_password_with_token':
             break;
 
         case 'assign_employee_allowance':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_allowances (company_id, employee_id, category_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
@@ -1210,7 +1421,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_allowance_category':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -1223,7 +1434,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_employee_allowance':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -1236,7 +1447,7 @@ case 'reset_password_with_token':
             break;
 
         case 'bulk_assign_allowance':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $category_id = $data['category_id'];
@@ -1260,7 +1471,7 @@ case 'reset_password_with_token':
             break;
 
         case 'get_deduction_breakdown':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT ed.*, e.full_name, e.employee_id as emp_code, d.name as category_name, d.type as category_type, d.value as category_rate 
                                  FROM employee_deductions ed 
@@ -1272,7 +1483,7 @@ case 'reset_password_with_token':
             break;
 
         case 'assign_employee_deduction':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO employee_deductions (company_id, employee_id, deduction_id, override_amount, effective_date) VALUES (?, ?, ?, ?, ?)");
@@ -1281,7 +1492,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_employee_deduction':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -1294,7 +1505,7 @@ case 'reset_password_with_token':
             break;
 
         case 'bulk_assign_deduction':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $deduction_id = $data['deduction_id'];
@@ -1318,7 +1529,7 @@ case 'reset_password_with_token':
             break;
 
         case 'revoke_payroll_access':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -1358,7 +1569,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_settings':
-            if (!isAdminOrHR()) {
+            if (!isHR()) {
                 echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
                 break;
             }
@@ -1497,7 +1708,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_employee':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
 
@@ -1595,7 +1806,7 @@ case 'reset_password_with_token':
                     $random_password = bin2hex(random_bytes(6)); // 12-char hex password
                     $hashed_pass = password_hash($random_password, PASSWORD_DEFAULT);
                     $username = strtolower(str_replace(' ', '.', trim($data['fullName'])));
-                    $role = ($data['position'] === 'Payroll Officer') ? 'Payroll Officer' : 'Employee';
+                    $role = 'Employee';
 
                     $stmt = $pdo->prepare("INSERT INTO users (company_id, username, password, role, email) VALUES (?, ?, ?, ?, ?)");
                     $stmt->execute([$_SESSION['company_id'], $username, $hashed_pass, $role, $email]);
@@ -1641,7 +1852,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_employee':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = (int)($_GET['id'] ?? 0);
             $errors = validateId((string)$id, 'id');
@@ -1662,7 +1873,7 @@ case 'reset_password_with_token':
             break;
 
         case 'get_registered_faces':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $stmt = $pdo->prepare("SELECT id, full_name, face_descriptor FROM employees WHERE company_id = ? AND face_descriptor IS NOT NULL");
             $stmt->execute([$_SESSION['company_id']]);
@@ -1671,7 +1882,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_face_registration':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             if (empty($data['id']) || empty($data['descriptor'])) {
@@ -1707,7 +1918,7 @@ case 'reset_password_with_token':
             break;
 
         case 'reset_password':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $target_user_id = filter_var($_GET['user_id'] ?? '', FILTER_VALIDATE_INT);
             if (!$target_user_id || $target_user_id <= 0) {
@@ -2172,19 +2383,34 @@ case 'reset_password_with_token':
                     $monthly_salary = (float) $emp['basic_salary'];
                     $earned_pay = ($work_days_in_period > 0) ? ($days_present / $work_days_in_period) * $monthly_salary : 0;
 
+                    $gross_pay = $earned_pay;
+                    
+                    // Calculate daily and hourly rates for holiday/ND
+                    $daily_rate_gen = $monthly_salary / 22;
+                    $hourly_rate_gen = $daily_rate_gen / 8;
+                    
+                    // Calculate holiday pay
+                    $holiday_pay = calculateHolidayPay($pdo, $_SESSION['company_id'], $emp['id'], $start_date, $end_date, $daily_rate_gen);
+                    
+                    // Calculate night differential pay
+                    $night_diff_pay = calculateNightDiffPay($pdo, $_SESSION['company_id'], $emp['id'], $start_date, $end_date, $hourly_rate_gen);
+                    
+                    $gross_pay = $earned_pay + $holiday_pay + $night_diff_pay;
+
+                    // Use PayrollTaxEngine for government contributions
+                    $tax_engine = new PayrollTaxEngine($pdo, $_SESSION['company_id']);
+                    $gov_contributions = $tax_engine->calculateGovContributions($gross_pay, $emp);
+
+                    // Non-government deductions only
                     $total_deductions = 0;
                     foreach ($deductions_config as $deduction) {
                         $d_name = strtoupper($deduction['name']);
 
-                        // Skip government deductions if employee doesn't have the respective ID
-                        if (strpos($d_name, 'SSS') !== false && empty($emp['sss']))
-                            continue;
-                        if (strpos($d_name, 'PHILHEALTH') !== false && empty($emp['philhealth']))
-                            continue;
-                        if ((strpos($d_name, 'PAG-IBIG') !== false || strpos($d_name, 'PAGIBIG') !== false) && empty($emp['pagibig']))
-                            continue;
-                        if ((strpos($d_name, 'TIN') !== false || strpos($d_name, 'TAX') !== false) && empty($emp['tin']))
-                            continue;
+                        // Skip government deductions - handled by tax engine
+                        if (strpos($d_name, 'SSS') !== false) continue;
+                        if (strpos($d_name, 'PHILHEALTH') !== false) continue;
+                        if (strpos($d_name, 'PAG-IBIG') !== false || strpos($d_name, 'PAGIBIG') !== false) continue;
+                        if (strpos($d_name, 'TIN') !== false || strpos($d_name, 'TAX') !== false) continue;
 
                         if ($deduction['type'] === 'percentage') {
                             $total_deductions += $earned_pay * ($deduction['value'] / 100);
@@ -2235,11 +2461,34 @@ case 'reset_password_with_token':
                         $pdo->prepare("UPDATE loans SET status = 'Paid' WHERE id = ?")->execute([$loan['id']]);
                     }
 
-                    $net_pay = $earned_pay + $total_allowances - $total_deductions;
+                    // Add government contributions to total deductions
+                    $total_deductions += $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
 
-                    $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type) 
-                                         VALUES (?, ?, ?, ?, ?, ?, 'Paid', 'General')");
-                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay]);
+                    $net_pay = $gross_pay + $total_allowances - $total_deductions;
+
+                    // Guard against negative net pay
+                    if ($net_pay < 0) {
+                        $net_pay = 0;
+                    }
+
+                    $breakdown = [
+                        'total_allowances' => $total_allowances,
+                        'employee_deductions' => $employee_specific_deductions,
+                        'holiday_pay' => $holiday_pay,
+                        'night_diff_pay' => $night_diff_pay,
+                        'gross_pay' => $gross_pay,
+                        'sss_employee' => $gov_contributions['sss_employee'],
+                        'sss_employer' => $gov_contributions['sss_employer'],
+                        'philhealth_employee' => $gov_contributions['philhealth_employee'],
+                        'philhealth_employer' => $gov_contributions['philhealth_employer'],
+                        'pagibig_employee' => $gov_contributions['pagibig_employee'],
+                        'pagibig_employer' => $gov_contributions['pagibig_employer'],
+                        'bir_tax' => $gov_contributions['bir_tax']
+                    ];
+
+                    $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, period, basic_pay, deductions, net_pay, status, payroll_type, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax, breakdown) 
+                                         VALUES (?, ?, ?, ?, ?, ?, 'Pending', 'General', ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$_SESSION['company_id'], $emp['id'], $period, $earned_pay, $total_deductions, $net_pay, $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax'], json_encode($breakdown)]);
                 }
                 
                 $pdo->commit();
@@ -2341,7 +2590,7 @@ case 'reset_password_with_token':
         case 'update_leave_status':
         case 'update_loan_status':
         case 'update_resignation_status':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
 
@@ -2402,7 +2651,7 @@ case 'reset_password_with_token':
             break;
 
         case 'decline_resignation':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             
             $data = json_decode(file_get_contents('php://input'), true);
@@ -2429,7 +2678,7 @@ case 'reset_password_with_token':
             break;
 
         case 'reinstate_employee':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             
             $data = json_decode(file_get_contents('php://input'), true);
@@ -2514,7 +2763,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_deduction':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             if (isset($data['id']) && !empty($data['id'])) {
@@ -2528,7 +2777,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_deduction':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -2652,7 +2901,7 @@ case 'reset_password_with_token':
             break;
 
         case 'update_role':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT);
             if (!$id || $id <= 0) {
@@ -2661,7 +2910,7 @@ case 'reset_password_with_token':
             }
             $role = $_GET['role'] ?? 'Employee';
             // Validate role is a valid enum value
-            $valid_roles = ['HR', 'Admin', 'Payroll', 'Payroll Officer', 'Employee'];
+            $valid_roles = ['HR', 'Employee'];
             if (!in_array($role, $valid_roles)) {
                 echo json_encode(['success' => false, 'message' => 'Invalid role']);
                 break;
@@ -2818,7 +3067,7 @@ case 'reset_password_with_token':
             break;
 
         case 'update_leave_balance':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $employee_id = $_GET['employee_id'] ?? '';
             $balance = $_GET['balance'] ?? 0;
@@ -2828,7 +3077,7 @@ case 'reset_password_with_token':
             break;
 
         case 'bulk_update_leave_balance':
-            if (!isAdminOrHR())
+            if (!isHR())
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $balance = isset($data['balance']) ? (float) $data['balance'] : null;
@@ -3138,8 +3387,8 @@ case 'reset_password_with_token':
             break;
 
         case 'assign_role':
-            // SD/Admin can assign HR and Payroll Officer roles
-            if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'SD', 'School Director'])) {
+            // Admin/HR can assign HR and Payroll Officer roles
+            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
                 echo json_encode(['success' => false, 'message' => 'Unauthorized']);
                 break;
             }
@@ -3158,7 +3407,7 @@ case 'reset_password_with_token':
             }
             
             // Validate role
-            if (!in_array($role, ['HR', 'Admin', 'Payroll Officer'])) {
+            if (!in_array($role, ['HR'])) {
                 echo json_encode(['success' => false, 'message' => 'Invalid role']);
                 break;
             }
@@ -3212,8 +3461,8 @@ case 'reset_password_with_token':
             break;
             
         case 'deactivate_user':
-            // SD/Admin can deactivate users
-            if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Admin', 'SD', 'School Director'])) {
+            // Admin/HR can deactivate users
+            if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
                 echo json_encode(['success' => false, 'message' => 'Unauthorized']);
                 break;
             }
@@ -3272,14 +3521,9 @@ case 'reset_password_with_token':
                 $absent_today = max(0, $total_employees - $present_today);
                 
                 // Total HR users
-                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role IN ('HR', 'Admin') AND is_active = 1 AND company_id = ?");
+                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'HR' AND is_active = 1 AND company_id = ?");
                 $stmt->execute([$company_id]);
                 $total_hr = $stmt->fetch()['total'] ?? 0;
-                
-                // Total Payroll Officers
-                $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'Payroll Officer' AND is_active = 1 AND company_id = ?");
-                $stmt->execute([$company_id]);
-                $total_payroll = $stmt->fetch()['total'] ?? 0;
                 
                 // Monthly payroll
                 $stmt = $pdo->prepare("
@@ -3298,7 +3542,6 @@ case 'reset_password_with_token':
                         'present_today' => $present_today,
                         'absent_today' => $absent_today,
                         'total_hr' => $total_hr,
-                        'total_payroll' => $total_payroll,
                         'monthly_payroll' => $monthly_payroll
                     ]
                 ]);
@@ -3315,7 +3558,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO subjects (company_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
@@ -3323,7 +3566,7 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_subject':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? null;
             if ($id) {
                 $pdo->prepare("DELETE FROM subjects WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
@@ -3338,7 +3581,7 @@ case 'reset_password_with_token':
             break;
 
         case 'save_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
             $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
@@ -3346,12 +3589,351 @@ case 'reset_password_with_token':
             break;
 
         case 'delete_subject_load':
-            if (!isAdminOrHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $id = $_GET['id'] ?? null;
             if ($id) {
                 $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
             }
             echo json_encode(['success' => true]);
+            break;
+
+        // --- Self-Service Subject Loads (Faculty/Employee) ---
+        case 'get_my_subject_loads':
+            $user_id = $_SESSION['user_id'];
+            $emp_stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $emp_stmt->execute([$user_id]);
+            $emp = $emp_stmt->fetch();
+            if ($emp) {
+                $stmt = $pdo->prepare("SELECT * FROM subject_loads WHERE faculty_id = ? AND company_id = ? ORDER BY id DESC");
+                $stmt->execute([$emp['id'], $_SESSION['company_id']]);
+                echo json_encode($stmt->fetchAll());
+            } else {
+                echo json_encode([]);
+            }
+            break;
+
+        case 'save_my_subject_load':
+            $user_id = $_SESSION['user_id'];
+            $emp_stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $emp_stmt->execute([$user_id]);
+            $emp = $emp_stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'No employee record found']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $load_id = $data['id'] ?? null;
+            if ($load_id) {
+                $stmt = $pdo->prepare("UPDATE subject_loads SET code = ?, description = ?, units = ?, hours = ? WHERE id = ? AND faculty_id = ? AND company_id = ?");
+                $stmt->execute([$data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $load_id, $emp['id'], $_SESSION['company_id']]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$_SESSION['company_id'], $emp['id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_my_subject_load':
+            $user_id = $_SESSION['user_id'];
+            $emp_stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $emp_stmt->execute([$user_id]);
+            $emp = $emp_stmt->fetch();
+            if ($emp) {
+                $id = $_GET['id'] ?? null;
+                if ($id) {
+                    $pdo->prepare("DELETE FROM subject_schedules WHERE subject_load_id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+                    $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND faculty_id = ? AND company_id = ?")->execute([$id, $emp['id'], $_SESSION['company_id']]);
+                }
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_my_subject_schedules':
+            $load_id = $_GET['subject_load_id'] ?? null;
+            if ($load_id) {
+                $stmt = $pdo->prepare("SELECT * FROM subject_schedules WHERE subject_load_id = ? AND company_id = ? ORDER BY FIELD(day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday')");
+                $stmt->execute([$load_id, $_SESSION['company_id']]);
+                echo json_encode($stmt->fetchAll());
+            } else {
+                echo json_encode([]);
+            }
+            break;
+
+        case 'save_my_subject_schedule':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO subject_schedules (company_id, subject_load_id, day_of_week, time_start, time_end, room) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? '']);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_my_subject_schedule':
+            $id = $_GET['id'] ?? null;
+            if ($id) {
+                $pdo->prepare("DELETE FROM subject_schedules WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        // --- ESS Subject Load/Schedule ---
+        case 'save_subject_load_ess':
+            $user_id = $_SESSION['user_id'];
+            $emp_stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $emp_stmt->execute([$user_id]);
+            $emp = $emp_stmt->fetch();
+            if (!$emp) exit(json_encode(['success' => false, 'message' => 'No employee record found']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $load_id = $data['id'] ?? null;
+            if ($load_id) {
+                $stmt = $pdo->prepare("UPDATE subject_loads SET code = ?, description = ?, units = ?, hours = ? WHERE id = ? AND faculty_id = ? AND company_id = ?");
+                $stmt->execute([$data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $load_id, $emp['id'], $_SESSION['company_id']]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$_SESSION['company_id'], $emp['id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_load_ess':
+            $user_id = $_SESSION['user_id'];
+            $emp_stmt = $pdo->prepare("SELECT id FROM employees WHERE user_id = ?");
+            $emp_stmt->execute([$user_id]);
+            $emp = $emp_stmt->fetch();
+            if ($emp) {
+                $id = $_GET['id'] ?? null;
+                if ($id) {
+                    $pdo->prepare("DELETE FROM subject_schedules WHERE subject_load_id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+                    $pdo->prepare("DELETE FROM subject_loads WHERE id = ? AND faculty_id = ? AND company_id = ?")->execute([$id, $emp['id'], $_SESSION['company_id']]);
+                }
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'save_subject_schedule_ess':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO subject_schedules (company_id, subject_load_id, day_of_week, time_start, time_end, room) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['subject_load_id'], $data['day_of_week'], $data['time_start'], $data['time_end'], $data['room'] ?? '']);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_subject_schedule_ess':
+            $id = $_GET['id'] ?? null;
+            if ($id) {
+                $pdo->prepare("DELETE FROM subject_schedules WHERE id = ? AND company_id = ?")->execute([$id, $_SESSION['company_id']]);
+            }
+            echo json_encode(['success' => true]);
+            break;
+
+        // --- Payroll Approval Workflow ---
+        case 'approve_payroll':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? 0;
+            if (!$payroll_id) exit(json_encode(['success' => false, 'message' => 'Payroll ID required']));
+            
+            $stmt = $pdo->prepare("UPDATE payroll SET approval_status = 'Approved', approved_by = ?, approved_at = NOW() WHERE id = ? AND company_id = ?");
+            $stmt->execute([$_SESSION['user_id'], $payroll_id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Payroll approved']);
+            break;
+
+        case 'reject_payroll':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? 0;
+            if (!$payroll_id) exit(json_encode(['success' => false, 'message' => 'Payroll ID required']));
+            
+            $stmt = $pdo->prepare("UPDATE payroll SET approval_status = 'Rejected' WHERE id = ? AND company_id = ?");
+            $stmt->execute([$payroll_id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Payroll rejected']);
+            break;
+
+        case 'mark_payroll_paid':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? 0;
+            if (!$payroll_id) exit(json_encode(['success' => false, 'message' => 'Payroll ID required']));
+            
+            $stmt = $pdo->prepare("UPDATE payroll SET approval_status = 'Paid', status = 'Paid' WHERE id = ? AND company_id = ? AND approval_status = 'Approved'");
+            $stmt->execute([$payroll_id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Payroll marked as paid']);
+            break;
+
+        case 'bulk_approve_payroll':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $period = $data['period'] ?? '';
+            if (!$period) exit(json_encode(['success' => false, 'message' => 'Period required']));
+            
+            $stmt = $pdo->prepare("UPDATE payroll SET approval_status = 'Approved', approved_by = ?, approved_at = NOW() WHERE company_id = ? AND period = ? AND approval_status = 'Pending'");
+            $stmt->execute([$_SESSION['user_id'], $_SESSION['company_id'], $period]);
+            echo json_encode(['success' => true, 'message' => 'All payroll for this period approved', 'affected' => $stmt->rowCount()]);
+            break;
+
+        case 'reverse_payroll':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? 0;
+            $reason = $data['reason'] ?? '';
+            if (!$payroll_id) exit(json_encode(['success' => false, 'message' => 'Payroll ID required']));
+            
+            // Get current values
+            $stmt = $pdo->prepare("SELECT * FROM payroll WHERE id = ? AND company_id = ?");
+            $stmt->execute([$payroll_id, $_SESSION['company_id']]);
+            $current = $stmt->fetch();
+            if (!$current) exit(json_encode(['success' => false, 'message' => 'Payroll not found']));
+            
+            $old_values = json_encode($current);
+            
+            // Reset to Pending
+            $stmt = $pdo->prepare("UPDATE payroll SET approval_status = 'Pending', status = 'Pending', approved_by = NULL, approved_at = NULL WHERE id = ? AND company_id = ?");
+            $stmt->execute([$payroll_id, $_SESSION['company_id']]);
+            
+            // Log the reversal
+            $stmt_log = $pdo->prepare("INSERT INTO payroll_audit_log (company_id, payroll_id, action, old_values, performed_by, reason) VALUES (?, ?, 'Reversed', ?, ?, ?)");
+            $stmt_log->execute([$_SESSION['company_id'], $payroll_id, $old_values, $_SESSION['user_id'], $reason]);
+            
+            echo json_encode(['success' => true, 'message' => 'Payroll reversed']);
+            break;
+
+        case 'get_holidays':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $stmt = $pdo->prepare("SELECT * FROM holidays WHERE company_id = ? ORDER BY date ASC");
+            $stmt->execute([$_SESSION['company_id']]);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'add_holiday':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $stmt = $pdo->prepare("INSERT INTO holidays (company_id, name, date, type, pay_rate) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['name'], $data['date'], $data['type'], $data['pay_rate']]);
+            echo json_encode(['success' => true, 'message' => 'Holiday added']);
+            break;
+
+        case 'delete_holiday':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $id = $_GET['id'] ?? 0;
+            $stmt = $pdo->prepare("DELETE FROM holidays WHERE id = ? AND company_id = ?");
+            $stmt->execute([$id, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'message' => 'Holiday deleted']);
+            break;
+
+        case 'get_payroll_summary':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $period = $_GET['period'] ?? '';
+            $query = "SELECT 
+                COUNT(*) as total_employees,
+                SUM(CASE WHEN approval_status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN approval_status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
+                SUM(CASE WHEN approval_status = 'Paid' THEN 1 ELSE 0 END) as paid_count,
+                SUM(CASE WHEN approval_status = 'Rejected' THEN 1 ELSE 0 END) as rejected_count,
+                SUM(gross_pay) as total_gross,
+                SUM(deductions) as total_deductions,
+                SUM(net_pay) as total_net,
+                SUM(sss_employee) as total_sss,
+                SUM(philhealth_employee) as total_philhealth,
+                SUM(pagibig_employee) as total_pagibig,
+                SUM(bir_tax) as total_bir_tax
+            FROM payroll WHERE company_id = ?";
+            $params = [$_SESSION['company_id']];
+            if ($period) {
+                $query .= " AND period = ?";
+                $params[] = $period;
+            }
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($params);
+            echo json_encode($stmt->fetch());
+            break;
+
+        case 'create_loan_installment':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $loan_id = $data['loan_id'] ?? 0;
+            $installments = $data['installments'] ?? 6;
+            $start_date = $data['start_date'] ?? date('Y-m-d');
+            
+            if (!$loan_id) exit(json_encode(['success' => false, 'message' => 'Loan ID required']));
+            
+            $stmt = $pdo->prepare("SELECT * FROM loans WHERE id = ? AND company_id = ?");
+            $stmt->execute([$loan_id, $_SESSION['company_id']]);
+            $loan = $stmt->fetch();
+            if (!$loan) exit(json_encode(['success' => false, 'message' => 'Loan not found']));
+            
+            $installment_amount = round($loan['amount'] / $installments, 2);
+            
+            $stmt = $pdo->prepare("INSERT INTO loan_installments (company_id, employee_id, loan_id, total_amount, installment_amount, total_installments, paid_installments, balance, status, start_date) VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'Active', ?)");
+            $stmt->execute([$_SESSION['company_id'], $loan['employee_id'], $loan_id, $loan['amount'], $installment_amount, $installments, $loan['amount'], $start_date]);
+            
+            echo json_encode(['success' => true, 'message' => 'Loan installment plan created', 'installment_amount' => $installment_amount]);
+            break;
+
+        case 'get_loan_installments':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $employee_id = $_GET['employee_id'] ?? 0;
+            $query = "SELECT li.*, l.amount as loan_amount, e.full_name FROM loan_installments li JOIN loans l ON li.loan_id = l.id JOIN employees e ON li.employee_id = e.id WHERE li.company_id = ?";
+            $params = [$_SESSION['company_id']];
+            if ($employee_id) {
+                $query .= " AND li.employee_id = ?";
+                $params[] = $employee_id;
+            }
+            $query .= " ORDER BY li.created_at DESC";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
+            break;
+
+        case 'process_loan_installment_deduction':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $data = json_decode(file_get_contents('php://input'), true);
+            $payroll_id = $data['payroll_id'] ?? 0;
+            
+            if (!$payroll_id) exit(json_encode(['success' => false, 'message' => 'Payroll ID required']));
+            
+            // Get payroll record
+            $stmt = $pdo->prepare("SELECT * FROM payroll WHERE id = ? AND company_id = ?");
+            $stmt->execute([$payroll_id, $_SESSION['company_id']]);
+            $payroll = $stmt->fetch();
+            if (!$payroll) exit(json_encode(['success' => false, 'message' => 'Payroll not found']));
+            
+            // Get active loan installments for this employee
+            $stmt = $pdo->prepare("SELECT * FROM loan_installments WHERE employee_id = ? AND company_id = ? AND status = 'Active'");
+            $stmt->execute([$payroll['employee_id'], $_SESSION['company_id']]);
+            $installments = $stmt->fetchAll();
+            
+            $total_loan_deduction = 0;
+            foreach ($installments as $inst) {
+                if ($inst['paid_installments'] < $inst['total_installments']) {
+                    $total_loan_deduction += $inst['installment_amount'];
+                    
+                    // Update installment
+                    $new_paid = $inst['paid_installments'] + 1;
+                    $new_balance = $inst['balance'] - $inst['installment_amount'];
+                    $new_status = ($new_paid >= $inst['total_installments']) ? 'Completed' : 'Active';
+                    
+                    $pdo->prepare("UPDATE loan_installments SET paid_installments = ?, balance = ?, status = ? WHERE id = ?")->execute([$new_paid, max(0, $new_balance), $new_status, $inst['id']]);
+                }
+            }
+            
+            if ($total_loan_deduction > 0) {
+                $new_deductions = $payroll['deductions'] + $total_loan_deduction;
+                $new_net = $payroll['net_pay'] - $total_loan_deduction;
+                if ($new_net < 0) $new_net = 0;
+                
+                $pdo->prepare("UPDATE payroll SET deductions = ?, net_pay = ? WHERE id = ?")->execute([$new_deductions, $new_net, $payroll_id]);
+            }
+            
+            echo json_encode(['success' => true, 'message' => 'Loan installment deductions processed', 'total_deducted' => $total_loan_deduction]);
+            break;
+
+        case 'get_payroll_audit_log':
+            if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
+            $payroll_id = $_GET['payroll_id'] ?? 0;
+            $query = "SELECT pal.*, u.username as performed_by_name FROM payroll_audit_log pal LEFT JOIN users u ON pal.performed_by = u.id WHERE pal.company_id = ?";
+            $params = [$_SESSION['company_id']];
+            if ($payroll_id) {
+                $query .= " AND pal.payroll_id = ?";
+                $params[] = $payroll_id;
+            }
+            $query .= " ORDER BY pal.created_at DESC LIMIT 100";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($params);
+            echo json_encode($stmt->fetchAll());
             break;
 
         default:

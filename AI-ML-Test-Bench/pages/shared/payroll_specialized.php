@@ -35,20 +35,22 @@
                     <th>No.</th>
                     <th>Name</th>
                     <th>Basic Pay</th>
-                    <th>Earned for the Period</th>
+                    <th>Gross Pay</th>
                     <th>Load</th>
                     <th>Over Time</th>
                     <th>Differential</th>
                     <th>Substitution</th>
                     <th>Adj. (+)</th>
                     <th>Absences</th>
-                    <th>Latest/UT</th>
+                    <th>Late/UT</th>
                     <th>HDMF Cont.</th>
                     <th>HDMF Cash Advance</th>
                     <th>HDMF MP2</th>
+                    <th>Gov. Contributions</th>
                     <th>Total Deduction</th>
                     <th>Honorarium</th>
                     <th>Net Pay</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -64,18 +66,20 @@
                     <th>No.</th>
                     <th>Name</th>
                     <th>Rate per Day</th>
-                    <th>Earned for the Period</th>
+                    <th>Gross Pay</th>
                     <th>OT/ Holiday Pay</th>
                     <th>Adj.(+)</th>
-                    <th>Latest/UT</th>
+                    <th>Late/UT</th>
                     <th>Adj. (-)</th>
                     <th>HDMF Cont.</th>
                     <th>HDMF Cash Advance</th>
                     <th>Cash Advance</th>
+                    <th>Gov. Contributions</th>
                     <th>Total Deduction</th>
                     <th>Net Pay</th>
                     <th>ATM</th>
                     <th>Non ATM</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>

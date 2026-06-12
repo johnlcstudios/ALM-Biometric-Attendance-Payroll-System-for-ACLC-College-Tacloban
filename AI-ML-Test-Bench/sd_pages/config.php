@@ -18,7 +18,7 @@ if (!isset($_SESSION['user_id'])) {
 // Get company_id from session for data isolation
 $company_id = $_SESSION['company_id'] ?? 1;
 $company_name = $_SESSION['company_name'] ?? 'ACLC College Tacloban';
-$full_name = $_SESSION['full_name'] ?? 'School Director';
+$full_name = $_SESSION['full_name'] ?? 'HR';
 
 // Include main database connection
 require_once __DIR__ . '/../backend/db.php';

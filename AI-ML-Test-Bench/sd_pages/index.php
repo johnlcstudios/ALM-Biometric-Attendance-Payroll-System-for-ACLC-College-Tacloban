@@ -31,14 +31,9 @@ try {
     $punctuality = round($stmt->fetch()['punctuality'] ?? 0);
     
     // Total HR users
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role IN ('HR', 'Admin') AND is_active = 1 AND company_id = ?");
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'HR' AND is_active = 1 AND company_id = ?");
     $stmt->execute([$company_id]);
     $total_hr = $stmt->fetch()['total'] ?? 0;
-    
-    // Total Payroll Officers
-    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'Payroll Officer' AND is_active = 1 AND company_id = ?");
-    $stmt->execute([$company_id]);
-    $total_payroll = $stmt->fetch()['total'] ?? 0;
     
     // Monthly payroll
     $stmt = $pdo->prepare("SELECT SUM(net_pay) as total FROM payroll WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND company_id = ?");
