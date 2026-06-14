@@ -10,9 +10,8 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Redirect Admin, HR, SD, and Payroll roles
 $session_role = trim($_SESSION['role'] ?? '');
-$is_management = ($session_role === 'HR');
+$is_management = ($session_role === 'HR' || $session_role === 'Admin');
 
 if ($is_management) {
     header('Location: index.php');
@@ -29,11 +28,19 @@ $stmt = $pdo->prepare("SELECT e.*, u.username, u.email as user_email, c.name as 
 $stmt->execute([$user_id]);
 $emp = $stmt->fetch();
 
-$full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
-$emp_id = $emp['employee_id'] ?? '---';
-$company_name = $emp['company_name'] ?? $_SESSION['company_name'] ?? 'ALM Tech Solutions';
-$company_code = $emp['company_code'] ?? $_SESSION['company_code'] ?? 'N/A';
-$position = $emp['position'] ?? 'Staff';
+if (!$emp) {
+    $full_name = $_SESSION['full_name'] ?? 'Employee';
+    $emp_id = '---';
+    $company_name = $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+    $company_code = $_SESSION['company_code'] ?? 'N/A';
+    $position = 'Staff';
+} else {
+    $full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
+    $emp_id = $emp['employee_id'] ?? '---';
+    $company_name = $emp['company_name'] ?? $_SESSION['company_name'] ?? 'ALM Tech Solutions';
+    $company_code = $emp['company_code'] ?? $_SESSION['company_code'] ?? 'N/A';
+    $position = $emp['position'] ?? 'Staff';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -47,7 +54,7 @@ $position = $emp['position'] ?? 'Staff';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" onerror="this.src='js/sweetalert2.all.min.js'"></script>
     <script src="js/chart.min.js"></script>
     
     <!-- CSS -->
@@ -138,7 +145,7 @@ $position = $emp['position'] ?? 'Staff';
                 </button>
             </nav>
             <div class="sidebar-footer">
-                <button class="nav-btn logout" onclick="logout()">
+                <button class="nav-btn logout" onclick="fetch('backend/api.php?action=logout').then(()=>window.location.href='login.php')">
                     <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
@@ -168,8 +175,9 @@ $position = $emp['position'] ?? 'Staff';
                     <div class="stat-card">
                         <div class="stat-icon blue"><i class="fas fa-building"></i></div>
                         <div class="stat-info">
-                            <h3>Company Code</h3>
-                            <div class="stat-value" style="font-size: 1.2rem;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
+                            <h3>Company</h3>
+                            <div class="stat-value" style="font-size: 1.1rem;"><?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-top: 2px;">Code: <?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -912,7 +920,7 @@ $position = $emp['position'] ?? 'Staff';
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="this.src='js/chart.min.js'"></script>
     <script src="js/face-api.min.js"></script>
     <script src="js/face-api-manager.js"></script>
     <script src="js/script.js?v=2.5"></script>
@@ -1914,11 +1922,6 @@ $position = $emp['position'] ?? 'Staff';
 
             const safePeriod = period.replace(/[^a-zA-Z0-9]/g, '_');
             doc.save(`Payslip_${empCode}_${safePeriod}.pdf`);
-        }
-
-        async function logout() {
-            await fetch('backend/api.php?action=logout');
-            window.location.href = 'login.php';
         }
 
         function generateDTR() {

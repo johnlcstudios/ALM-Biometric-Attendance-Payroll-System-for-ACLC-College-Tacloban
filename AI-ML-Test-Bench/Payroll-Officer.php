@@ -13,8 +13,13 @@ if (!isset($_SESSION['user_id'])) {
 
 $session_role = trim($_SESSION['role'] ?? '');
 
-if ($session_role !== 'HR') {
+if ($session_role !== 'HR' && $session_role !== 'Admin' && $session_role !== 'Payroll Officer') {
     header('Location: ess.php');
+    exit;
+}
+
+if ($session_role === 'Admin' || $session_role === 'HR') {
+    header('Location: index.php');
     exit;
 }
 

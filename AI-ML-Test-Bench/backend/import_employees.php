@@ -2,7 +2,7 @@
 // Bulk Employee Import from CSV
 // Requires: admin or HR role
 
-if (!isset($_SESSION['company_id']) || $_SESSION['role'] !== 'HR') {
+if (!isset($_SESSION['company_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }

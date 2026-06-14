@@ -35,10 +35,8 @@ switch ($action) {
             apiError('All fields are required.', [], 422);
         }
 
-        $duration = $start_date . ' to ' . $end_date;
-
-        $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, duration, reason) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$company_id, $employee_id, $leave_type, $duration, $reason]);
+        $stmt = $pdo->prepare("INSERT INTO leave_requests (company_id, employee_id, type, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$company_id, $employee_id, $leave_type, $start_date, $end_date, $reason]);
         apiSuccess();
         break;
 
@@ -64,23 +62,12 @@ switch ($action) {
 
     case 'apply_coe':
         $data = json_decode(file_get_contents('php://input'), true);
-        if (empty($data['purpose']) || empty($data['recipient']) || empty($data['requested_date'])) {
-            apiError('Purpose, recipient, and request date are required.', [], 422);
+        if (empty($data['purpose']) || empty($data['recipient'])) {
+            apiError('Purpose and recipient are required.', [], 422);
         }
 
-        $pdo->exec("CREATE TABLE IF NOT EXISTS coe_requests (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            company_id INT NOT NULL,
-            employee_id INT NOT NULL,
-            purpose TEXT NOT NULL,
-            recipient VARCHAR(255) NOT NULL,
-            requested_date DATE NOT NULL,
-            status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-        $stmt = $pdo->prepare("INSERT INTO coe_requests (company_id, employee_id, purpose, recipient, requested_date) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$company_id, $employee_id, $data['purpose'], $data['recipient'], $data['requested_date']]);
+        $stmt = $pdo->prepare("INSERT INTO coe_requests (company_id, employee_id, purpose, recipient) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$company_id, $employee_id, $data['purpose'], $data['recipient']]);
         apiSuccess();
         break;
 
@@ -89,20 +76,6 @@ switch ($action) {
         if (empty($data['purpose']) || empty($data['destination']) || empty($data['travel_date']) || empty($data['time_out']) || empty($data['time_in']) || empty($data['department_approval'])) {
             apiError('All OB request fields are required.', [], 422);
         }
-
-        $pdo->exec("CREATE TABLE IF NOT EXISTS ob_requests (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            company_id INT NOT NULL,
-            employee_id INT NOT NULL,
-            purpose TEXT NOT NULL,
-            destination VARCHAR(255) NOT NULL,
-            travel_date DATE NOT NULL,
-            time_out VARCHAR(25) NOT NULL,
-            time_in VARCHAR(25) NOT NULL,
-            department_approval VARCHAR(50) NOT NULL,
-            status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         $stmt = $pdo->prepare("INSERT INTO ob_requests (company_id, employee_id, purpose, destination, travel_date, time_out, time_in, department_approval) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([$company_id, $employee_id, $data['purpose'], $data['destination'], $data['travel_date'], $data['time_out'], $data['time_in'], $data['department_approval']]);

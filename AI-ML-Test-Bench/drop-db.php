@@ -19,7 +19,7 @@ if (!$isLocal) {
 // Session check for web
 if (!$isCli && (session_status() === PHP_SESSION_NONE)) {
     session_start();
-    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
+    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) {
         http_response_code(403);
         die("Forbidden: Admin access only");
     }

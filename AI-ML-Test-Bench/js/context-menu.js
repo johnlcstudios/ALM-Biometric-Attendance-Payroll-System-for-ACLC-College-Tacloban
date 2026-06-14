@@ -8,6 +8,31 @@ const contextMenuConfig = {
     global: {
         title: 'System Options',
         items: [
+            { icon: 'fas fa-copy', label: 'Copy', action: () => {
+                const sel = window.getSelection();
+                if (sel && sel.toString()) {
+                    navigator.clipboard.writeText(sel.toString()).then(() => {
+                        if (typeof showToast === 'function') showToast('Copied to clipboard', 'success');
+                    });
+                }
+            }},
+            { icon: 'fas fa-paste', label: 'Paste', action: async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    const el = document.activeElement;
+                    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                        const start = el.selectionStart;
+                        const end = el.selectionEnd;
+                        el.value = el.value.substring(0, start) + text + el.value.substring(end);
+                        el.selectionStart = el.selectionEnd = start + text.length;
+                    } else if (el && el.isContentEditable) {
+                        document.execCommand('insertText', false, text);
+                    }
+                } catch (err) {
+                    if (typeof showToast === 'function') showToast('Paste not permitted by browser', 'warning');
+                }
+            }},
+            { divider: true },
             { icon: 'fas fa-sync-alt', label: 'Refresh', action: () => location.reload() },
             { icon: 'fas fa-info-circle', label: 'System Info', action: () => window.location.href = 'about.php' },
             { icon: 'fas fa-question-circle', label: 'Help and Support', action: () => window.location.href = 'contact-us.php' }

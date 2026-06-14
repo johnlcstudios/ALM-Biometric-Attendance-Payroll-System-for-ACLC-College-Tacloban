@@ -13,6 +13,9 @@ let payrollHistory = [];
 let leaveRequests = [];
 let loanRequests = [];
 let resignationRequests = [];
+let coeRequests = [];
+let holidays = [];
+let overtimeRecords = [];
 let masterSubjects = [];
 let subjectLoads = [];
 let archivedEmployees = [];
@@ -911,6 +914,14 @@ async function fetchData(specificPage = null) {
             loanRequests = getArray(await fetchJSON('backend/api.php?action=get_loan_requests'));
         } else if (page === 'resignations') {
             resignationRequests = getArray(await fetchJSON('backend/api.php?action=get_resignation_requests'));
+        } else if (page === 'coe_requests') {
+            coeRequests = getArray(await fetchJSON('backend/api.php?action=get_coe_requests'));
+        } else if (page === 'holidays') {
+            holidays = getArray(await fetchJSON('backend/api.php?action=get_holidays'));
+        } else if (page === 'generate_dtr') {
+            employees = getArray(await fetchJSON('backend/api.php?action=get_employees'));
+        } else if (page === 'overtime') {
+            overtimeRecords = getArray(await fetchJSON('backend/api.php?action=get_overtime'));
         } else if (page === 'archived_employees') {
             archivedEmployees = getArray(await fetchJSON('backend/api.php?action=get_archived_employees'));
         } else if (page === 'subject_loads' || page === 'employees') {
@@ -1006,6 +1017,10 @@ function showPage(pageId) {
         'leave': 'Leave Management',
         'loans': 'Cash Advance',
         'resignations': 'Resignations',
+        'coe_requests': 'COE Requests',
+        'holidays': 'Holiday Calendar',
+        'generate_dtr': 'Daily Time Record',
+        'overtime': 'Overtime Management',
         'archived_employees': 'Archived Employees',
         'reports': 'System Reports',
         'subject_loads': 'Subject Load Management',
@@ -1025,6 +1040,10 @@ function showPage(pageId) {
     if (pageId === 'leave') renderLeaveTable();
     if (pageId === 'loans') renderLoanTable();
     if (pageId === 'resignations') renderResignationTable();
+    if (pageId === 'coe_requests') renderCoeRequestsTable();
+    if (pageId === 'holidays') renderHolidayTable();
+    if (pageId === 'generate_dtr') populateDTREmployeeSelect();
+    if (pageId === 'overtime') renderOvertimeTable();
     if (pageId === 'archived_employees') renderArchivedEmployeesTable();
     if (pageId === 'subject_loads') renderMasterSubjects();
     if (pageId === 'biometrics') populateRegistrationSelect();
@@ -1786,6 +1805,20 @@ async function saveEmployee() {
         return;
     }
 
+    // Validate all required fields
+    const missing = [];
+    if (!data.dob) missing.push('Date of Birth');
+    if (!data.email) missing.push('Email');
+    if (!data.position) missing.push('Position');
+    if (!data.department) missing.push('Department');
+    if (!data.basicSalary || parseFloat(data.basicSalary) <= 0) missing.push('Basic Salary');
+    if (!data.hire_date) missing.push('Hire Date');
+    if (data.position === 'Faculty' && !data.faculty_level) missing.push('Faculty Level');
+    if (missing.length > 0) {
+        showToast('Please fill in: ' + missing.join(', '), 'error');
+        return;
+    }
+
     // Add editing ID if exists
     if (editingEmployeeId) data.id = editingEmployeeId;
 
@@ -1836,6 +1869,72 @@ async function saveEmployee() {
     }
 }
 
+async function importEmployees(input) {
+    const file = input.files[0];
+    if (!file) return;
+    input.value = '';
+
+    if (!file.name.endsWith('.csv')) {
+        showToast('Please select a CSV file', 'error');
+        return;
+    }
+
+    const result = await Swal.fire({
+        title: 'Import Employees?',
+        html: `Import <strong>${file.name}</strong> (${(file.size / 1024).toFixed(1)} KB)?<br><br>CSV must have columns: <code>employee_id, full_name, email, position, basic_salary</code><br>Optional: <code>department, dob, sss, tin, philhealth, pagibig, status</code>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Import',
+        cancelButtonText: 'Cancel',
+        customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+        background: 'transparent',
+        confirmButtonColor: '#4facfe'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({ title: 'Importing...', html: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    const formData = new FormData();
+    formData.append('csv_file', file);
+
+    try {
+        const response = await fetch('backend/api.php?action=import_employees', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+            let msg = `Imported: ${data.imported}`;
+            if (data.failed > 0) msg += `<br>Failed: ${data.failed}`;
+            if (data.errors && data.errors.length > 0) {
+                msg += '<br><br><small>' + data.errors.slice(0, 10).join('<br>') + '</small>';
+            }
+            Swal.fire({
+                title: 'Import Complete',
+                html: msg,
+                icon: data.failed > 0 ? 'warning' : 'success',
+                customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+                background: 'transparent',
+                confirmButtonColor: '#4facfe'
+            });
+            await fetchData();
+        } else {
+            Swal.fire({
+                title: 'Import Failed',
+                text: data.message || 'Unknown error',
+                icon: 'error',
+                customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+                background: 'transparent',
+                confirmButtonColor: '#4facfe'
+            });
+        }
+    } catch (err) {
+        console.error('Import error:', err);
+        showToast('Failed to connect to the server', 'error');
+    }
+}
+
 // --- Multi-step Wizard Logic ---
 let currentStep = 1;
 const totalSteps = 2;
@@ -1858,12 +1957,15 @@ function goEmpStep(n) {
     indicators[currentStep - 1].classList.add('active');
     indicators[currentStep - 1].classList.remove('completed');
 
-    document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-block';
+    const prevBtnEl = document.getElementById('prevBtn');
+    const nextBtnEl = document.getElementById('nextBtn');
+    const saveBtnEl = document.getElementById('saveBtn');
+    if (prevBtnEl) prevBtnEl.style.display = currentStep === 1 ? 'none' : 'inline-block';
 
     const isLastStep = currentStep === 2;
 
-    document.getElementById('nextBtn').style.display = isLastStep ? 'none' : 'inline-block';
-    document.getElementById('saveBtn').style.display = isLastStep ? 'inline-block' : 'none';
+    if (nextBtnEl) nextBtnEl.style.display = isLastStep ? 'none' : 'inline-block';
+    if (saveBtnEl) saveBtnEl.style.display = isLastStep ? 'inline-block' : 'none';
 }
 
 function validateCurrentStep() {
@@ -1963,10 +2065,14 @@ function resetEmpModal() {
         s.classList.remove('completed');
     });
     document.getElementById('employeeForm').reset();
-    document.getElementById('prevBtn').style.display = 'none';
-    document.getElementById('nextBtn').style.display = 'inline-block';
-    document.getElementById('saveBtn').style.display = 'none';
-    document.getElementById('employeeModalTitle').innerText = 'Add New Employee';
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    if (prevBtn) prevBtn.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'inline-block';
+    if (saveBtn) saveBtn.style.display = 'none';
+    const titleEl = document.getElementById('employeeModalTitle');
+    if (titleEl) titleEl.innerText = 'Add New Employee';
     
     // Clear the fullName display field
     const fullNameDisplay = document.getElementById('fullNameDisplay');
@@ -1978,6 +2084,15 @@ function resetEmpModal() {
     const facultyLevelGroup = document.getElementById('facultyLevelGroup');
     if (facultyLevelGroup) {
         facultyLevelGroup.style.display = 'none';
+    }
+
+    // Toggle faculty level when position changes
+    const positionSelect = document.querySelector('select[name="position"]');
+    if (positionSelect) {
+        positionSelect.onchange = function() {
+            const flg = document.getElementById('facultyLevelGroup');
+            if (flg) flg.style.display = this.value === 'Faculty' ? 'block' : 'none';
+        };
     }
 }
 
@@ -2269,7 +2384,7 @@ async function loadFacultyPayroll(period = 'latest') {
         
         // Earnings
         const earnedForPeriod = basicPay; // From backend calculation
-        const loadPay = parseFloat(p.load_pay) || 5000;
+        const loadPay = parseFloat(p.load_pay) || 0;
         const overTime = parseFloat(p.overtime_pay) || 0;
         const differential = parseFloat(p.differential_pay) || 0;
         const substitution = parseFloat(p.substitution_pay) || 0;
@@ -2771,6 +2886,7 @@ function renderPayrollTable() {
                         <button class="btn btn-danger btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="printBatchPayslips('${escapeHTML(b.period)}')"><i class="fas fa-print" style="font-size:8px"></i> Print All</button>
                         <button class="btn btn-success btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="bulkApprovePayroll('${escapeHTML(b.period)}')" title="Bulk Approve Pending"><i class="fas fa-check-double" style="font-size:8px"></i> Approve All</button>
                         <button class="btn btn-info btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="loadPayrollSummary('${escapeHTML(b.period)}')" title="View Summary"><i class="fas fa-chart-bar" style="font-size:8px"></i> Summary</button>
+                        <button class="btn btn-primary btn-sm" style="padding:0;font-size:5px;line-height:1;min-height:auto;border-width:0" onclick="printBatchPayslips('${escapeHTML(b.period)}')" title="Download PDF"><i class="fas fa-file-pdf" style="font-size:8px"></i> PDF</button>
                     </td>
                 </tr>`;
             }).join('');
@@ -3596,6 +3712,302 @@ async function updateResignationStatus(id, status) {
     } else {
         showToast(result.message || "Failed to update status.", 'error');
     }
+}
+
+// --- COE Requests ---
+function renderCoeRequestsTable() {
+    const tbody = document.getElementById('coeTableBody');
+    if (!tbody) return;
+    if (coeRequests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No COE requests found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = coeRequests.map(req => {
+        let actionButtons = '';
+        if (req.status === 'Pending') {
+            actionButtons = `
+                <button class="btn btn-success btn-sm" onclick="updateCoeStatus(${req.id}, 'Approved')">Approve</button>
+                <button class="btn btn-danger btn-sm" onclick="updateCoeStatus(${req.id}, 'Rejected')">Reject</button>
+            `;
+        } else if (req.status === 'Approved') {
+            actionButtons = `
+                <button class="btn btn-primary btn-sm" onclick='printCOE(${JSON.stringify(req).replace(/'/g, "&#39;")})'><i class="fas fa-print"></i> Print COE</button>
+            `;
+        } else {
+            actionButtons = `<span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span>`;
+        }
+        return `
+            <tr>
+                <td>${escapeHTML(req.full_name)}</td>
+                <td>${escapeHTML(req.purpose)}</td>
+                <td>${escapeHTML(req.recipient)}</td>
+                <td><span class="status-badge status-${req.status.toLowerCase()}">${escapeHTML(req.status)}</span></td>
+                <td>${req.created_at ? new Date(req.created_at).toLocaleDateString() : '---'}</td>
+                <td>${actionButtons}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function updateCoeStatus(id, status) {
+    const action = status === 'Approved' ? 'approve_coe' : 'reject_coe';
+    const response = await fetch(`backend/api.php?action=${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    });
+    const result = await response.json();
+    if (result.success) {
+        showToast(`COE request ${status.toLowerCase()} successfully.`, 'success');
+        fetchData();
+    } else {
+        showToast(result.message || 'Failed to update status.', 'error');
+    }
+}
+
+function printCOE(req) {
+    const companyName = 'ACLC College of Tacloban';
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const dateFiled = req.created_at ? new Date(req.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : today;
+
+    const html = `
+    <html><head><title>Certificate of Employment - ${escapeHTML(req.full_name)}</title>
+    <style>
+        body { font-family: 'Times New Roman', serif; padding: 60px 80px; color: #333; line-height: 1.8; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px double #333; padding-bottom: 20px; }
+        .header h1 { font-size: 18px; margin: 5px 0; text-transform: uppercase; letter-spacing: 2px; }
+        .header h2 { font-size: 14px; margin: 5px 0; font-weight: normal; color: #555; }
+        .header p { font-size: 12px; color: #777; margin: 3px 0; }
+        .date { text-align: right; margin-bottom: 20px; font-size: 13px; }
+        .body { font-size: 14px; text-align: justify; margin-bottom: 30px; }
+        .body strong { text-transform: uppercase; }
+        .purpose { margin: 15px 0; padding: 10px; background: #f9f9f9; border-left: 3px solid #333; }
+        .footer { margin-top: 60px; }
+        .signature { text-align: right; margin-top: 40px; }
+        .signature-line { border-top: 1px solid #333; width: 200px; display: inline-block; margin-top: 5px; }
+        .sig-name { font-weight: bold; font-size: 13px; }
+        .sig-title { font-size: 11px; color: #555; }
+        @media print { body { padding: 40px 60px; } }
+    </style></head><body>
+        <div class="header">
+            <h1>${companyName}</h1>
+            <h2>Certificate of Employment</h2>
+            <p>Tacloban City, Philippines</p>
+        </div>
+        <div class="date">${today}</div>
+        <div class="body">
+            <p>To Whom It May Concern:</p>
+            <br>
+            <p>This is to certify that <strong>${escapeHTML(req.full_name)}</strong> is/was employed at <strong>${companyName}</strong> as <strong>${escapeHTML(req.position || 'Employee')}</strong>.</p>
+            <br>
+            <p>This certificate is being issued upon the request of the above-named employee for whatever legal purpose it may serve.</p>
+            <div class="purpose">
+                <strong>Purpose:</strong> ${escapeHTML(req.purpose)}
+            </div>
+            <br>
+            <p>Filed on: ${dateFiled}</p>
+        </div>
+        <div class="footer">
+            <p>Very truly yours,</p>
+            <div class="signature">
+                <div class="signature-line"></div><br>
+                <div class="sig-name">Authorized Signatory</div>
+                <div class="sig-title">HR Manager / Administrator</div>
+            </div>
+        </div>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+}
+
+// --- Holidays ---
+function renderHolidayTable() {
+    const tbody = document.getElementById('holidayTableBody');
+    if (!tbody) return;
+    if (holidays.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No holidays found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = holidays.map(h => `
+        <tr>
+            <td>${escapeHTML(h.name)}</td>
+            <td>${new Date(h.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+            <td><span class="status-badge status-${h.type.toLowerCase()}">${escapeHTML(h.type)}</span></td>
+            <td>${h.pay_rate}%</td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteHoliday(${h.id})"><i class="fas fa-trash"></i></button></td>
+        </tr>
+    `).join('');
+}
+
+function openHolidayModal() {
+    document.getElementById('holidayModal').style.display = 'block';
+}
+
+async function saveHoliday(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    const res = await fetch('backend/api.php?action=add_holiday', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+        showToast('Holiday added!', 'success');
+        closeModal('holidayModal');
+        e.target.reset();
+        fetchData();
+    } else {
+        showToast(result.message, 'error');
+    }
+}
+
+async function deleteHoliday(id) {
+    if (!confirm('Delete this holiday?')) return;
+    const res = await fetch(`backend/api.php?action=delete_holiday&id=${id}`);
+    const result = await res.json();
+    if (result.success) { showToast('Deleted', 'success'); fetchData(); }
+    else showToast(result.message, 'error');
+}
+
+// --- DTR ---
+function populateDTREmployeeSelect() {
+    const select = document.getElementById('dtr-employee');
+    if (!select) return;
+    select.innerHTML = '<option value="">Select Employee...</option>' +
+        employees.map(e => `<option value="${e.id}">${escapeHTML(e.full_name)} (${e.employee_id})</option>`).join('');
+}
+
+async function generateDTR() {
+    const empId = document.getElementById('dtr-employee').value;
+    const from = document.getElementById('dtr-from').value;
+    const to = document.getElementById('dtr-to').value;
+    if (!empId) { showToast('Select an employee', 'error'); return; }
+
+    const res = await fetch(`backend/api.php?action=generate_dtr&employee_id=${empId}&start_date=${from}&end_date=${to}`);
+    const data = await res.json();
+    if (!data.employee) { showToast(data.message || 'Error', 'error'); return; }
+
+    const emp = data.employee;
+    const logs = data.logs || [];
+    document.getElementById('dtr-title').textContent = `DTR - ${emp.full_name} (${emp.employee_id})`;
+
+    let totalHours = 0, totalLate = 0, totalPresent = 0, totalAbsent = 0;
+
+    let html = `<table class="modern-table" style="font-size: 0.85rem;">
+        <thead><tr><th>Date</th><th>Day</th><th>Check In</th><th>Lunch Out</th><th>Lunch In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>`;
+
+    const start = new Date(from);
+    const end = new Date(to);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+        const log = logs.find(l => l.log_date === dateStr);
+
+        if (log) {
+            totalHours += parseFloat(log.total_hours) || 0;
+            totalLate += parseInt(log.late_minutes) || 0;
+            totalPresent++;
+            html += `<tr>
+                <td>${dateStr}</td><td>${dayName}</td>
+                <td>${log.check_in ? log.check_in.substring(0, 5) : '-'}</td>
+                <td>${log.lunch_out ? log.lunch_out.substring(0, 5) : '-'}</td>
+                <td>${log.lunch_in ? log.lunch_in.substring(0, 5) : '-'}</td>
+                <td>${log.check_out ? log.check_out.substring(0, 5) : '-'}</td>
+                <td>${(parseFloat(log.total_hours) || 0).toFixed(2)}</td>
+                <td><span class="status-badge status-${(log.status || '').toLowerCase()}">${log.status || '-'}</span></td>
+            </tr>`;
+        } else if (d.getDay() > 0 && d.getDay() < 6) {
+            totalAbsent++;
+            html += `<tr style="opacity:0.5"><td>${dateStr}</td><td>${dayName}</td><td colspan="6" class="text-center">No record</td></tr>`;
+        }
+    }
+
+    html += `</tbody></table>`;
+    html += `<div style="margin-top:1rem; padding:1rem; background:rgba(0,0,0,0.05); border-radius:8px;">
+        <strong>Summary:</strong> Present: ${totalPresent} | Absent: ${totalAbsent} | Total Hours: ${totalHours.toFixed(2)} | Total Late: ${totalLate} min
+    </div>`;
+
+    document.getElementById('dtr-content').innerHTML = html;
+    document.getElementById('dtr-result').style.display = 'block';
+}
+
+function printDTR() {
+    const content = document.getElementById('dtr-content').innerHTML;
+    const title = document.getElementById('dtr-title').textContent;
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>${title}</title><style>
+        body{font-family:Arial,sans-serif;padding:20px;font-size:12px;}
+        table{width:100%;border-collapse:collapse;margin-top:10px;}
+        th,td{border:1px solid #333;padding:6px 8px;text-align:left;}
+        th{background:#f0f0f0;font-weight:bold;}
+        @media print{body{padding:0;}}
+    </style></head><body><h2>${title}</h2>${content}</body></html>`);
+    win.document.close();
+    win.print();
+}
+
+// --- Overtime ---
+function renderOvertimeTable() {
+    const tbody = document.getElementById('overtimeTableBody');
+    if (!tbody) return;
+
+    const header = document.getElementById('overtime-header');
+    if (header && !document.getElementById('submitOvertimeBtn')) {
+        header.innerHTML = '<button class="btn btn-primary" id="submitOvertimeBtn" onclick="openModal(\'overtimeModal\')"><i class="fas fa-plus"></i> Submit Overtime</button>';
+    }
+
+    if (overtimeRecords.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No overtime records.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = overtimeRecords.map(o => {
+        let actionBtns = '';
+        if (o.status === 'Pending') {
+            actionBtns = `
+                <button class="btn btn-success btn-sm" onclick="updateOvertimeStatus(${o.id}, 'Approved')">Approve</button>
+                <button class="btn btn-danger btn-sm" onclick="updateOvertimeStatus(${o.id}, 'Rejected')">Reject</button>
+            `;
+        } else {
+            actionBtns = `<span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span>`;
+        }
+        return `<tr>
+            <td>${escapeHTML(o.full_name)}</td>
+            <td>${o.ot_date}</td>
+            <td>${o.hours}h</td>
+            <td>${escapeHTML(o.reason)}</td>
+            <td><span class="status-badge status-${o.status.toLowerCase()}">${o.status}</span></td>
+            <td>${actionBtns}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function submitOvertime(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    const res = await fetch('backend/api.php?action=submit_overtime', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+        showToast('Overtime request submitted!', 'success');
+        closeModal('overtimeModal');
+        e.target.reset();
+        fetchData();
+    } else {
+        showToast(result.message, 'error');
+    }
+}
+
+async function updateOvertimeStatus(id, status) {
+    const action = status === 'Approved' ? 'approve_overtime' : 'reject_overtime';
+    const res = await fetch(`backend/api.php?action=${action}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id })
+    });
+    const result = await res.json();
+    if (result.success) { showToast(`Overtime ${status.toLowerCase()}`, 'success'); fetchData(); }
+    else showToast(result.message, 'error');
 }
 
 // --- Deductions ---

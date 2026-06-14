@@ -4,8 +4,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['role'] ?? 'Employee';
-    if ($_SESSION['role'] === 'HR') {
+    if ($role === 'HR' || $role === 'Admin' || $role === 'admin') {
         header('Location: index.php');
+    } else if ($role === 'Payroll Officer') {
+        header('Location: Payroll-Officer.php');
     } else {
         header('Location: ess.php');
     }
@@ -270,6 +272,11 @@ body {
             <p class="signup-text">
                 Don't have an account? <a href="signup.php">Sign Up</a>
             </p>
+            <div style="text-align: center; margin-top: 10px;">
+                <a href="devs.php" style="color: rgba(255,255,255,0.4); font-size: 11px; text-decoration: none;">
+                    <i class="fas fa-code"></i> Devs
+                </a>
+            </div>
         </form>
     </div>
 </div>
@@ -360,8 +367,10 @@ document.getElementById('loginForm').onsubmit = async (e) => {
     const result = await response.json();
     if (result.success) {
         const role = result.role ? result.role.trim() : 'Employee';
-        if (role === 'HR') {
+        if (role === 'HR' || role === 'Admin' || role === 'admin') {
             window.location.href = 'index.php';
+        } else if (role === 'Payroll Officer') {
+            window.location.href = 'Payroll-Officer.php';
         } else {
             window.location.href = 'ess.php';
         }
@@ -453,9 +462,57 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
         return otpResult;
     }
     
-    // First OTP generation
+    // First OTP generation to get email
     let otpResult = await generateOTP();
     if (!otpResult) return;
+    
+    // STEP 1b: Email verification
+    const registeredEmail = otpResult.email || '';
+    const maskedEmail = registeredEmail ? registeredEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') : '';
+    
+    const { value: emailInput } = await Swal.fire({
+        title: 'Verify Your Email',
+        html: `
+            <p style="margin-bottom: 15px; color: rgba(255,255,255,0.9); font-size: 14px;">
+                A registered email was found for this account.<br>
+                Hint: <strong>${maskedEmail}</strong>
+            </p>
+            <input id="swal-email-verify" type="email" class="swal2-input" placeholder="Enter your registered email" autocomplete="email">
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Verify Email',
+        confirmButtonColor: '#4facfe',
+        cancelButtonText: 'Cancel',
+        customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+        background: 'transparent',
+        preConfirm: () => {
+            const email = document.getElementById('swal-email-verify').value;
+            if (!email) {
+                Swal.showValidationMessage('Email is required');
+                return false;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                Swal.showValidationMessage('Please enter a valid email address');
+                return false;
+            }
+            return email;
+        }
+    });
+    
+    if (!emailInput) return;
+    
+    if (emailInput.toLowerCase().trim() !== registeredEmail.toLowerCase().trim()) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Email Does Not Match',
+            text: 'The email you entered does not match our records. Please try again.',
+            customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+            background: 'transparent',
+            confirmButtonColor: '#4facfe'
+        });
+        return;
+    }
     
     userEmployeeId = formValues.employeeId;
     userEmail = otpResult.email;
@@ -759,18 +816,73 @@ document.getElementById('forgotPasswordLink').addEventListener('click', async (e
             const resetResult = await resetResponse.json();
             
             if (resetResult.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Password Reset Successful!',
-                    html: 'You can now login with your new password.<br><br><strong>Redirecting to login...</strong>',
-                    timer: 3000,
-                    showConfirmButton: false,
-                    customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
-                    background: 'transparent',
-                    willClose: () => {
-                        window.location.reload();
-                    }
-                });
+                const resetUsername = resetResult.username || '';
+                const resetEmail = resetResult.email || userEmail;
+                const resetPassword = passwordValues.newPass;
+                let countdown = 15;
+                
+                const showCredentialsDialog = () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Password Reset Successful!',
+                        html: `
+                            <p style="margin-bottom: 15px; color: rgba(255,255,255,0.9);">Your new credentials are ready. Save them before logging in.</p>
+                            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 15px; text-align: left; font-family: monospace;">
+                                <p style="margin: 5px 0; color: rgba(255,255,255,0.9);"><strong>Username:</strong> <span style="color: #4facfe;">${resetUsername}</span></p>
+                                <p style="margin: 5px 0; color: rgba(255,255,255,0.9);"><strong>Email:</strong> <span style="color: #4facfe;">${resetEmail}</span></p>
+                                <p style="margin: 5px 0; color: rgba(255,255,255,0.9);"><strong>Password:</strong> <span style="color: #4facfe;">${resetPassword}</span></p>
+                            </div>
+                            <p id="cred-countdown" style="margin-top: 15px; font-size: 13px; color: #ffaa00;">
+                                Auto-login in <strong id="cred-timer">${countdown}</strong> seconds...
+                            </p>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Login Now',
+                        cancelButtonText: 'Copy Credentials',
+                        confirmButtonColor: '#4facfe',
+                        cancelButtonColor: 'rgba(255,255,255,0.2)',
+                        customClass: { popup: 'glass-modal', container: 'glass-backdrop' },
+                        background: 'transparent',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            const timerEl = document.getElementById('cred-timer');
+                            const interval = setInterval(() => {
+                                countdown--;
+                                if (timerEl) timerEl.textContent = countdown;
+                                if (countdown <= 0) {
+                                    clearInterval(interval);
+                                    Swal.close();
+                                    window.location.reload();
+                                }
+                            }, 1000);
+                            
+                            // Cancel button = copy credentials
+                            const cancelBtn = Swal.getCancelButton();
+                            if (cancelBtn) {
+                                cancelBtn.addEventListener('click', () => {
+                                    const text = `Username: ${resetUsername}\nEmail: ${resetEmail}\nPassword: ${resetPassword}`;
+                                    navigator.clipboard.writeText(text).then(() => {
+                                        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Credentials copied to clipboard', timer: 1500, showConfirmButton: false, customClass: { popup: 'glass-modal', container: 'glass-backdrop' }, background: 'transparent' });
+                                    }).catch(() => {
+                                        const ta = document.createElement('textarea');
+                                        ta.value = text;
+                                        document.body.appendChild(ta);
+                                        ta.select();
+                                        document.execCommand('copy');
+                                        document.body.removeChild(ta);
+                                        Swal.fire({ icon: 'success', title: 'Copied!', text: 'Credentials copied to clipboard', timer: 1500, showConfirmButton: false, customClass: { popup: 'glass-modal', container: 'glass-backdrop' }, background: 'transparent' });
+                                    });
+                                });
+                            }
+                        },
+                        willClose: () => {
+                            window.location.reload();
+                        }
+                    });
+                };
+                
+                showCredentialsDialog();
             } else {
                 Swal.fire({
                     icon: 'error',

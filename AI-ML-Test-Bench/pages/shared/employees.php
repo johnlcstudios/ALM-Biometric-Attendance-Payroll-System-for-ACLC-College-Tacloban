@@ -4,6 +4,10 @@
         <button class="btn btn-primary" onclick="resetEmpModal(); openModal('employeeModal')">
             <i class="fas fa-plus"></i> Add Employee
         </button>
+        <button class="btn btn-success" onclick="document.getElementById('importCsvInput').click()">
+            <i class="fas fa-file-csv"></i> Import CSV
+        </button>
+        <input type="file" id="importCsvInput" accept=".csv" style="display:none;" onchange="importEmployees(this)">
     </div>
     <div class="table-container">
         <table id="employeeTable">

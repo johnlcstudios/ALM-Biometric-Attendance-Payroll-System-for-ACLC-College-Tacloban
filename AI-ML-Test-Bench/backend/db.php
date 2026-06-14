@@ -31,7 +31,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     $message = "An unexpected error occurred. Please contact support.";
     
     // Detailed errors ONLY in development (localhost)
-    $is_dev = in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']);
+    $is_dev = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', '::ffff:127.0.0.1']);
     if ($is_dev) {
         $message = "PHP Error: [$errno] $errstr in $errfile on line $errline";
     }

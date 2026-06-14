@@ -49,28 +49,28 @@ if (!$company) {
                 <div class="form-row">
                     <div class="form-group">
                         <label>Time In (Shift Start)</label>
-                        <input type="time" name="workStart" value="<?php echo $company['work_start']; ?>">
+                        <input type="time" name="workStart" value="<?php echo $company['work_start'] ?: '08:00'; ?>">
                     </div>
                     <div class="form-group">
                         <label>Time Out (Shift End)</label>
-                        <input type="time" name="workEnd" value="<?php echo $company['work_end']; ?>">
+                        <input type="time" name="workEnd" value="<?php echo $company['work_end'] ?: '17:00'; ?>">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Lunch Out Range</label>
                         <div style="display:flex; gap:5px;">
-                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?? '10:00'; ?>">
+                            <input type="time" name="lunchOutStart" value="<?php echo $company['lunch_out_start'] ?: '10:00'; ?>">
                             <span>to</span>
-                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?? '10:30'; ?>">
+                            <input type="time" name="lunchOutEnd" value="<?php echo $company['lunch_out_end'] ?: '10:30'; ?>">
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Lunch In Range</label>
                         <div style="display:flex; gap:5px;">
-                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?? '10:30'; ?>">
+                            <input type="time" name="lunchInStart" value="<?php echo $company['lunch_in_start'] ?: '10:30'; ?>">
                             <span>to</span>
-                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?? '11:00'; ?>">
+                            <input type="time" name="lunchInEnd" value="<?php echo $company['lunch_in_end'] ?: '11:00'; ?>">
                         </div>
                     </div>
                 </div>

@@ -13,7 +13,7 @@ if (php_sapi_name() !== 'cli' && session_status() === PHP_SESSION_NONE) {
 
 // Only allow HR to run this script
 if (php_sapi_name() !== 'cli' && !defined('INTERNAL_UPDATE')) {
-    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
+    if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) {
         http_response_code(403);
         die("<h2>Access Denied</h2><p>You must be an HR user to run this update script.</p>");
     }
@@ -231,6 +231,14 @@ try {
         if (!$silent) echo "DONE\n";
     }
 
+    // 6b. Check for work_start and work_end columns in 'companies' table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'work_start'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'work_start' and 'work_end' columns to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies ADD COLUMN work_start TIME DEFAULT '08:00:00', ADD COLUMN work_end TIME DEFAULT '17:00:00'");
+        if (!$silent) echo "DONE\n";
+    }
+
     // 7. Check for lunch out and lunch in ranges in 'companies' table
     $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'lunch_out_start'");
     if (!$stmt->fetch()) {
@@ -352,7 +360,7 @@ try {
 
     // 16. Expand 'users' table 'role' enum
     if (!$silent) echo "Updating 'users' role enum... ";
-    $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('HR', 'Employee') DEFAULT 'Employee'");
+    $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('HR', 'Admin', 'Employee', 'Payroll Officer') NOT NULL DEFAULT 'Employee'");
     if (!$silent) echo "DONE\n";
 
     // 17. Relax Biometric Thresholds for better recognition
@@ -452,6 +460,14 @@ try {
         if (!$silent) echo "DONE\n";
     } else {
         if (!$silent) echo "'subject_schedules' table already exists.\n";
+    }
+
+    // 20. Ensure audit_log has user_agent column
+    $stmt = $pdo->query("SHOW COLUMNS FROM audit_log LIKE 'user_agent'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'user_agent' column to 'audit_log' table... ";
+        $pdo->exec("ALTER TABLE audit_log ADD COLUMN user_agent VARCHAR(512) DEFAULT NULL AFTER details");
+        if (!$silent) echo "DONE\n";
     }
 
     if (!$silent) {

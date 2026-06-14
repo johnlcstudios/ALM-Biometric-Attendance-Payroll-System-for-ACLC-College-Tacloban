@@ -16,7 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 
 // Only Admin/HR role can access this
 $user_role = $_SESSION['role'];
-if ($user_role !== 'HR') {
+if ($user_role !== 'HR' && $user_role !== 'Admin') {
     header('Location: index.php');
     exit;
 }

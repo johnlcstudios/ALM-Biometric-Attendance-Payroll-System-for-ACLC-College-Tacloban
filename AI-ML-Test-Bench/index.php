@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-if ($_SESSION['role'] !== 'HR') {
+if ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin') {
     header('Location: ess.php');
     exit;
 }
@@ -41,6 +41,10 @@ $allowed_pages = [
     'leave',
     'loans',
     'resignations',
+    'coe_requests',
+    'holidays',
+    'generate_dtr',
+    'overtime',
     'archived_employees',
     'reports',
     'assign_payroll',
@@ -318,6 +322,18 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                 </button>
                 <button class="nav-btn <?php echo $page === 'resignations' ? 'active' : ''; ?>" data-page="resignations" onclick="window.location.href='index.php?page=resignations'">
                     <i class="fas fa-user-minus"></i> <span>Resignations</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'coe_requests' ? 'active' : ''; ?>" data-page="coe_requests" onclick="window.location.href='index.php?page=coe_requests'">
+                    <i class="fas fa-certificate"></i> <span>COE Requests</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'holidays' ? 'active' : ''; ?>" data-page="holidays" onclick="window.location.href='index.php?page=holidays'">
+                    <i class="fas fa-calendar-alt"></i> <span>Holidays</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'generate_dtr' ? 'active' : ''; ?>" data-page="generate_dtr" onclick="window.location.href='index.php?page=generate_dtr'">
+                    <i class="fas fa-file-alt"></i> <span>DTR</span>
+                </button>
+                <button class="nav-btn <?php echo $page === 'overtime' ? 'active' : ''; ?>" data-page="overtime" onclick="window.location.href='index.php?page=overtime'">
+                    <i class="fas fa-clock"></i> <span>Overtime</span>
                 </button>
                 <button class="nav-btn <?php echo $page === 'archived_employees' ? 'active' : ''; ?>" data-page="archived_employees" onclick="window.location.href='index.php?page=archived_employees'">
                     <i class="fas fa-archive"></i> <span>Archived</span>

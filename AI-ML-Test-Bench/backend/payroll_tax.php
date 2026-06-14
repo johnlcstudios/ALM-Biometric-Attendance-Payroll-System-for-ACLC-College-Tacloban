@@ -211,44 +211,4 @@ class PayrollTaxEngine {
         return true;
     }
 }
-
-// API Endpoints
-header('Content-Type: application/json');
-require_once 'db.php';
-
-$action = $_GET['action'] ?? '';
-
-switch ($action) {
-    case 'calculate_taxes':
-        $company_id = $_SESSION['company_id'] ?? $_GET['company_id'] ?? 1;
-        $gross_pay = $_POST['gross_pay'] ?? 0;
-        $employee_data = $_POST['employee_data'] ?? [];
-
-        $engine = new PayrollTaxEngine($pdo, $company_id);
-        $taxes = $engine->calculateGovContributions($gross_pay, $employee_data);
-        echo json_encode(['success' => true, 'taxes' => $taxes]);
-        break;
-
-    case 'apply_payroll_taxes':
-        if (!isPayrollOrHigher()) {
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            break;
-        }
-
-        $payroll_id = $_POST['payroll_id'] ?? 0;
-        if (!$payroll_id) {
-            echo json_encode(['success' => false, 'message' => 'Payroll ID required']);
-            break;
-        }
-
-        $company_id = $_SESSION['company_id'];
-        $engine = new PayrollTaxEngine($pdo, $company_id);
-        $success = $engine->applyTaxesToPayroll($payroll_id);
-
-        echo json_encode(['success' => $success]);
-        break;
-
-    default:
-        echo json_encode(['success' => false, 'message' => 'Invalid action']);
-}
 ?>

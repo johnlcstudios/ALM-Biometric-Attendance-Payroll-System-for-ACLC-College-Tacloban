@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once 'backend/db.php';
 
 // Check if user is Admin/HR
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'HR') {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'HR' && $_SESSION['role'] !== 'Admin')) {
     header('Location: login.php');
     exit;
 }
