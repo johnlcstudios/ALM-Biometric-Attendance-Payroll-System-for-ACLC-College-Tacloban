@@ -31,6 +31,9 @@
     </div>
 
     <div class="table-container modern-table-wrapper">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="addAttendance()"><i class="fas fa-plus"></i> Add Attendance</button>
+        </div>
         <table id="attendanceTable" class="modern-table">
             <thead>
                 <tr>
@@ -40,6 +43,7 @@
                     <th>LUNCH-OUT</th>
                     <th>LUNCH-IN</th>
                     <th>CHECK-OUT</th>
+                    <th>TOTAL HRS</th>
                     <th>STATUS</th>
                     <th>SCHEDULE</th>
                     <th>ACTION</th>

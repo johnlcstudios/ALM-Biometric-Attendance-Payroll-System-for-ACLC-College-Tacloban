@@ -470,6 +470,17 @@ try {
         if (!$silent) echo "DONE\n";
     }
 
+    // 21. Add admin_hour_active column to companies
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'admin_hour_active'");
+    if (!$stmt->fetch()) {
+        if (!$silent) echo "Adding 'admin_hour_active' column to 'companies' table... ";
+        $pdo->exec("ALTER TABLE companies ADD COLUMN admin_hour_active TINYINT(1) NOT NULL DEFAULT 0 AFTER checkout_buffer");
+        if (!$silent) echo "DONE\n";
+    } else {
+        // Ensure default is 0 (inactive) so Faculty follows their schedule
+        $pdo->exec("UPDATE companies SET admin_hour_active = 0 WHERE admin_hour_active IS NULL");
+    }
+
     if (!$silent) {
         echo "\n<b>Database update completed successfully!</b>";
         echo "\n<a href='index.php'>Return to Dashboard</a>";

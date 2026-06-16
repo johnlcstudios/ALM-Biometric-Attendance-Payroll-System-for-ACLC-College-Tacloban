@@ -248,6 +248,10 @@
                         <input type="number" id="loadHours" class="form-control" placeholder="5" required>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Load Pay (PHP)</label>
+                    <input type="number" id="loadPay" class="form-control" step="0.01" min="0" placeholder="0.00">
+                </div>
             </form>
         </div>
         <div class="modal-footer">
@@ -396,6 +400,7 @@
                             <th>DESCRIPTION</th>
                             <th>UNITS</th>
                             <th>HOURS/WEEK</th>
+                            <th>LOAD PAY</th>
                             <th>ACTIONS</th>
                         </tr>
                     </thead>

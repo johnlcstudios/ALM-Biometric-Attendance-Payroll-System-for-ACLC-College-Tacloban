@@ -646,6 +646,7 @@
         let serverTimezone = 'Asia/Manila';
         let currentCompanyId = null;
         let companyConfig = null;
+        let facultyScheduleEnd = null;
 
         async function syncServerTime() {
             try {
@@ -736,11 +737,19 @@
             let action = "TIME OUT (CHECK OUT)", color = "var(--primary-blue)";
 
             const workStart = companyConfig.work_start || '08:00:00';
-            const workEnd = companyConfig.work_end || '17:00:00';
+            let workEnd = companyConfig.work_end || '17:00:00';
             const lOutS = companyConfig.lunch_out_start || '10:00:00';
             const lOutE = companyConfig.lunch_out_end || '10:30:00';
             const lInS = companyConfig.lunch_in_start || '10:30:00';
             const lInE = companyConfig.lunch_in_end || '11:00:00';
+
+            if (facultyScheduleEnd) {
+                workEnd = facultyScheduleEnd;
+            }
+
+            const workEndDisplay = facultyScheduleEnd
+                ? new Date('1970-01-01T' + facultyScheduleEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                : null;
 
             if (timeStr < lOutS) {
                 action = "TIME IN (CHECK IN)";
@@ -752,8 +761,16 @@
                 action = "LUNCH IN";
                 color = "#27ae60";
             } else {
-                action = timeStr < workEnd ? "TIME OUT (EARLY)" : "TIME OUT (CHECK OUT)";
-                color = timeStr < workEnd ? "#e67e22" : "var(--accent-red)";
+                if (timeStr < workEnd) {
+                    action = "TIME OUT (EARLY)";
+                    color = "#e67e22";
+                } else {
+                    action = "TIME OUT (CHECK OUT)";
+                    color = "var(--accent-red)";
+                }
+                if (workEndDisplay) {
+                    action += " — Schedule ends " + workEndDisplay;
+                }
             }
 
             if (faceManager.isProcessing) {
@@ -991,6 +1008,7 @@
                     statAttendance.innerText = String(result.attendance_count).padStart(2, '0');
                     statAbsent.innerText = String(result.absent_count).padStart(2, '0');
                     statEmpId.innerText = result.employee_id;
+                    facultyScheduleEnd = result.faculty_schedule_end || null;
                     cameraCircle.className = `camera-circle border-${result.status === 'On-Time' ? 'success' : 'warning'}`;
                     statusEl.innerHTML = `<h3 class="text-success">${(result.action || "SCAN").toUpperCase().replace('_', ' ')} SUCCESS!</h3><p>${result.time}</p>`;
                 } else {
@@ -1015,6 +1033,7 @@
             statAbsent.innerText = "00";
             statEmpId.innerText = "---";
             statusEl.innerHTML = '';
+            facultyScheduleEnd = null;
         }
         init();
 

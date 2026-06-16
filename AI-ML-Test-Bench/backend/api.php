@@ -56,7 +56,7 @@ $allowedActions = [
     
     // Attendance
     'get_attendance', 'add_attendance', 'update_attendance', 'flag_attendance',
-    'check_in_out', 'biometric_check', 'kiosk_scan',
+    'check_in_out', 'biometric_check', 'kiosk_scan', 'log_spoof_attempt',
     
     // Payroll
     'run_payroll', 'get_payroll_batches', 'get_payroll_by_period', 'get_payroll',
@@ -122,7 +122,7 @@ $allowedActions = [
     
     // Company & Settings
     'get_companies', 'add_company', 'update_company', 'get_company_info',
-    'get_settings', 'save_settings',
+    'get_settings', 'save_settings', 'toggle_admin_hour',
     
     // User Management
     'get_users', 'add_user', 'update_user', 'delete_user', 'update_role',
@@ -255,6 +255,7 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                 $differential = $night_diff_pay;
                 $substitution = 0;
                 $adj_plus = $holiday_pay;
+                $honorarium = 0;
                 
                 // Absence deduction based on actual hourly rate
                 $absences_deduction = $total_absent * ($hourly_rate * 8);
@@ -303,7 +304,7 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     ];
                 }
                 
-                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances + $holiday_pay + $night_diff_pay;
+                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances;
 
                 // Use PayrollTaxEngine for government contributions
                 $tax_engine = new PayrollTaxEngine($pdo, $company_id);
@@ -311,7 +312,6 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
 
                 $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions
                     + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
-                $honorarium = 0;
                 $net_pay = $gross_pay - $total_deduction;
                 
                 // Validate net_pay is not negative
@@ -353,8 +353,9 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'bir_tax' => $gov_contributions['bir_tax']
                 ];
                 
-                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
-                                 VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                 VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)
+                                 ON DUPLICATE KEY UPDATE basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), total_hours = VALUES(total_hours), breakdown = VALUES(breakdown), gross_pay = VALUES(gross_pay), sss_employee = VALUES(sss_employee), sss_employer = VALUES(sss_employer), philhealth_employee = VALUES(philhealth_employee), philhealth_employer = VALUES(philhealth_employer), pagibig_employee = VALUES(pagibig_employee), pagibig_employer = VALUES(pagibig_employer), bir_tax = VALUES(bir_tax)");
                 $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, $effective_hours, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
             } else {
                 // Utility specific calculations - HOURS BASED
@@ -366,7 +367,7 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
 
                 $earned = $hourly_rate_util * $total_hours_util;
                 
-                $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $daily_rate_util);
+                $holiday_pay = calculateHolidayPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $rate_per_day);
                 $night_diff_pay = calculateNightDiffPay($pdo, $company_id, $emp['id'], $start_date, $end_date, $hourly_rate_util);
                 
                 $ot_holiday = $holiday_pay;
@@ -467,8 +468,9 @@ function processSpecializedPayroll($pdo, $company_id, $position, $start_date, $e
                     'bir_tax' => $gov_contributions['bir_tax']
                 ];
                 
-                $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
-                                 VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                 VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)
+                                 ON DUPLICATE KEY UPDATE basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), total_hours = VALUES(total_hours), breakdown = VALUES(breakdown), gross_pay = VALUES(gross_pay), sss_employee = VALUES(sss_employee), sss_employer = VALUES(sss_employer), philhealth_employee = VALUES(philhealth_employee), philhealth_employer = VALUES(philhealth_employer), pagibig_employee = VALUES(pagibig_employee), pagibig_employer = VALUES(pagibig_employer), bir_tax = VALUES(bir_tax)");
                 $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, $total_hours_util, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
             }
         }
@@ -1158,16 +1160,6 @@ case 'reset_password_with_token':
             $company = $stmt_company->fetch();
             $deduction_per_min = isset($company['deduction_per_min']) ? (float) $company['deduction_per_min'] : 0.50;
 
-            $period = date('m/d/Y', strtotime($start_date)) . ' - ' . date('m/d/Y', strtotime($end_date));
-            $company_id = $_SESSION['company_id'];
-
-            $position = ($type === 'faculty') ? 'Faculty' : 'Utility';
-
-            $stmt_company = $pdo->prepare("SELECT deduction_per_min FROM companies WHERE id = ?");
-            $stmt_company->execute([$company_id]);
-            $company = $stmt_company->fetch();
-            $deduction_per_min = isset($company['deduction_per_min']) ? (float) $company['deduction_per_min'] : 0.50;
-
             $stmt_employees = $pdo->prepare("SELECT * FROM employees WHERE company_id = ? AND position = ? AND status = 'Active'");
             $stmt_employees->execute([$company_id, $position]);
             $employees = $stmt_employees->fetchAll();
@@ -1234,6 +1226,7 @@ case 'reset_password_with_token':
                         $differential = $night_diff_pay;
                         $substitution = 0;
                         $adj_plus = $holiday_pay;
+                        $honorarium = 0;
                         $absences_deduction = $total_absent * ($hourly_rate_f * 8);
                         $late_ut = $total_late_min * $deduction_per_min;
                         $hdmf_cont = !empty($emp['pagibig']) ? 100 : 0;
@@ -1270,7 +1263,7 @@ case 'reset_password_with_token':
                             $employee_specific_deductions += (float)$amount;
                         }
                         
-                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances + $holiday_pay + $night_diff_pay;
+                $gross_pay = $basic_pay + $load_pay + $overtime + $differential + $substitution + $adj_plus + $honorarium + $total_allowances;
 
                         // Use PayrollTaxEngine for government contributions
                         $tax_engine = new PayrollTaxEngine($pdo, $company_id);
@@ -1278,7 +1271,6 @@ case 'reset_password_with_token':
 
                         $total_deduction = $absences_deduction + $late_ut + $hdmf_cont + $hdmf_loans + $hdmf_mp2 + $employee_specific_deductions
                             + $gov_contributions['sss_employee'] + $gov_contributions['philhealth_employee'] + $gov_contributions['pagibig_employee'] + $gov_contributions['bir_tax'];
-                        $honorarium = 0;
                         $net_pay = $gross_pay - $total_deduction;
 
                         // Validate net_pay is not negative
@@ -1318,8 +1310,9 @@ case 'reset_password_with_token':
                             'bir_tax' => $gov_contributions['bir_tax']
                         ];
 
-                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
-                                         VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                         VALUES (?, ?, 'Faculty', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)
+                                         ON DUPLICATE KEY UPDATE basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), total_hours = VALUES(total_hours), breakdown = VALUES(breakdown), gross_pay = VALUES(gross_pay), sss_employee = VALUES(sss_employee), sss_employer = VALUES(sss_employer), philhealth_employee = VALUES(philhealth_employee), philhealth_employer = VALUES(philhealth_employer), pagibig_employee = VALUES(pagibig_employee), pagibig_employer = VALUES(pagibig_employer), bir_tax = VALUES(bir_tax)");
                         $stmt->execute([$company_id, $emp['id'], $period, $basic_pay, $total_deduction, $net_pay, $effective_hours, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
                     } else {
                         // Utility specific calculations - HOURS BASED
@@ -1421,8 +1414,9 @@ case 'reset_password_with_token':
                             'bir_tax' => $gov_contributions['bir_tax']
                         ];
 
-                        $stmt = $pdo->prepare("REPLACE INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
-                                         VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt = $pdo->prepare("INSERT INTO payroll (company_id, employee_id, payroll_type, period, basic_pay, deductions, net_pay, total_hours, breakdown, status, gross_pay, sss_employee, sss_employer, philhealth_employee, philhealth_employer, pagibig_employee, pagibig_employer, bir_tax) 
+                                         VALUES (?, ?, 'Utility', ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?)
+                                         ON DUPLICATE KEY UPDATE basic_pay = VALUES(basic_pay), deductions = VALUES(deductions), net_pay = VALUES(net_pay), total_hours = VALUES(total_hours), breakdown = VALUES(breakdown), gross_pay = VALUES(gross_pay), sss_employee = VALUES(sss_employee), sss_employer = VALUES(sss_employer), philhealth_employee = VALUES(philhealth_employee), philhealth_employer = VALUES(philhealth_employer), pagibig_employee = VALUES(pagibig_employee), pagibig_employer = VALUES(pagibig_employer), bir_tax = VALUES(bir_tax)");
                         $stmt->execute([$company_id, $emp['id'], $period, $earned, $total_deduction, $net_pay, $total_hours_util, json_encode($breakdown), $gross_pay, $gov_contributions['sss_employee'], $gov_contributions['sss_employer'], $gov_contributions['philhealth_employee'], $gov_contributions['philhealth_employer'], $gov_contributions['pagibig_employee'], $gov_contributions['pagibig_employer'], $gov_contributions['bir_tax']]);
                     }
                 }
@@ -1636,7 +1630,7 @@ case 'reset_password_with_token':
 
             try {
                 $pdo->beginTransaction();
-                $stmt = $pdo->prepare("UPDATE companies SET name=?, timezone=?, work_start=?, work_end=?, lunch_out_start=?, lunch_out_end=?, lunch_in_start=?, lunch_in_end=?, lunch_buffer=?, checkout_buffer=?, ot_percentage=?, deduction_per_sec=?, deduction_per_min=?, deduction_per_hour=? WHERE id=?");
+                $stmt = $pdo->prepare("UPDATE companies SET name=?, timezone=?, work_start=?, work_end=?, lunch_out_start=?, lunch_out_end=?, lunch_in_start=?, lunch_in_end=?, lunch_buffer=?, checkout_buffer=?, ot_percentage=?, deduction_per_sec=?, deduction_per_min=?, deduction_per_hour=?, admin_hour_active=? WHERE id=?");
                 $success = $stmt->execute([
                     $data['companyName'],
                     $data['timezone'] ?: 'Asia/Manila',
@@ -1652,6 +1646,7 @@ case 'reset_password_with_token':
                     (float) ($data['deductionPerSec'] ?? 0.0083),
                     (float) ($data['deductionPerMin'] ?? 0.50),
                     (float) ($data['deductionPerHour'] ?? 30.00),
+                    isset($data['adminHourActive']) ? 1 : 0,
                     $company_id
                 ]);
 
@@ -2140,44 +2135,50 @@ case 'reset_password_with_token':
             if (!isset($_SESSION['company_id']))
                 exit(json_encode([]));
             $date = $_GET['date'] ?? date('Y-m-d');
-            $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code, e.position FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? ORDER BY a.log_date DESC, a.check_in DESC");
-            $stmt->execute([$_SESSION['company_id']]);
+            $stmt = $pdo->prepare("SELECT a.*, e.full_name, e.employee_id as emp_code, e.position FROM attendance a JOIN employees e ON a.employee_id = e.id WHERE a.company_id = ? AND a.log_date = ? ORDER BY a.check_in DESC");
+            $stmt->execute([$_SESSION['company_id'], $date]);
             $attendance = $stmt->fetchAll();
             
-            // Enrich with schedule data for faculty
+            // Batch-fetch all Faculty schedules for the company to avoid N+1 queries
             $day_map = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             $today_day_name = $day_map[(int)date('N', strtotime($date)) - 1];
+            
+            $all_schedules = [];
+            if (!empty($attendance)) {
+                $faculty_ids = array_unique(array_column(array_filter($attendance, fn($r) => $r['position'] === 'Faculty'), 'employee_id'));
+                if (!empty($faculty_ids)) {
+                    $placeholders = implode(',', array_fill(0, count($faculty_ids), '?'));
+                    $stmt_all_sched = $pdo->prepare("
+                        SELECT sl.faculty_id, ss.day_of_week, ss.time_start, ss.time_end, ss.room, 
+                               sl.description as subject_description, sl.code as subject_code
+                        FROM subject_schedules ss 
+                        JOIN subject_loads sl ON ss.subject_load_id = sl.id 
+                        WHERE sl.faculty_id IN ($placeholders) AND ss.company_id = ?
+                        ORDER BY sl.faculty_id, ss.time_start
+                    ");
+                    $stmt_all_sched->execute(array_merge($faculty_ids, [$_SESSION['company_id']]));
+                    while ($s = $stmt_all_sched->fetch(PDO::FETCH_ASSOC)) {
+                        $all_schedules[$s['faculty_id']][$s['day_of_week']][] = $s;
+                    }
+                }
+            }
             
             foreach ($attendance as &$row) {
                 $row['schedule'] = [];
                 if ($row['position'] === 'Faculty') {
-                    $stmt_sched = $pdo->prepare("
-                        SELECT ss.day_of_week, ss.time_start, ss.time_end, ss.room, 
-                               sl.description as subject_description, sl.code as subject_code
-                        FROM subject_schedules ss 
-                        JOIN subject_loads sl ON ss.subject_load_id = sl.id 
-                        WHERE sl.faculty_id = ? AND ss.day_of_week = ? AND ss.company_id = ?
-                        ORDER BY ss.time_start
-                    ");
-                    $stmt_sched->execute([$row['employee_id'], $today_day_name, $_SESSION['company_id']]);
-                    $schedules = $stmt_sched->fetchAll();
+                    $fid = $row['employee_id'];
+                    $schedules = $all_schedules[$fid][$today_day_name] ?? [];
                     
-                    // Fallback: if not found for today, try matching log_date day name
+                    // Fallback: try matching log_date day name
                     if (empty($schedules)) {
                         $log_day_name = $day_map[(int)date('N', strtotime($row['log_date'])) - 1];
-                        $stmt_sched->execute([$row['employee_id'], $log_day_name, $_SESSION['company_id']]);
-                        $schedules = $stmt_sched->fetchAll();
+                        $schedules = $all_schedules[$fid][$log_day_name] ?? [];
                     }
                     $row['schedule'] = $schedules;
                     
-                    // Calculate on-time based on schedule
                     if (!empty($schedules) && $row['check_in']) {
                         $first_start = $schedules[0]['time_start'];
-                        if ($row['check_in'] <= $first_start) {
-                            $row['schedule_ontime_in'] = true;
-                        } else {
-                            $row['schedule_ontime_in'] = false;
-                        }
+                        $row['schedule_ontime_in'] = $row['check_in'] <= $first_start;
                         
                         $last_end = end($schedules)['time_end'];
                         if ($row['check_out'] && $row['check_out'] >= $last_end) {
@@ -2190,6 +2191,179 @@ case 'reset_password_with_token':
             }
             
             echo json_encode($attendance);
+            break;
+
+        case 'add_attendance':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] ?? '') !== 'HR') {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $employee_id = $data['employee_id'] ?? null;
+            $log_date = $data['log_date'] ?? null;
+            $check_in = $data['check_in'] ?? null;
+            $lunch_out = $data['lunch_out'] ?? null;
+            $lunch_in = $data['lunch_in'] ?? null;
+            $check_out = $data['check_out'] ?? null;
+            $status = $data['status'] ?? 'On-Time';
+            $notes = $data['notes'] ?? null;
+
+            if (!$employee_id || !$log_date) {
+                echo json_encode(['success' => false, 'message' => 'Employee ID and date are required']);
+                break;
+            }
+
+            // Check for duplicate
+            $checkDup = $pdo->prepare("SELECT id FROM attendance WHERE employee_id = ? AND log_date = ?");
+            $checkDup->execute([$employee_id, $log_date]);
+            if ($checkDup->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Attendance record already exists for this employee on this date']);
+                break;
+            }
+
+            // Calculate late_minutes if check_in and status is Late
+            $late_minutes = 0;
+            if ($status === 'Late' && $check_in) {
+                $emp_stmt = $pdo->prepare("SELECT e.company_id, c.work_start, c.grace_period FROM employees e JOIN companies c ON e.company_id = c.id WHERE e.id = ?");
+                $emp_stmt->execute([$employee_id]);
+                $emp_info = $emp_stmt->fetch(PDO::FETCH_ASSOC);
+                if ($emp_info) {
+                    $work_start = strtotime($emp_info['work_start']);
+                    $ci_time = strtotime($check_in);
+                    $grace = (int) ($emp_info['grace_period'] ?? 0);
+                    $diff = ($ci_time - $work_start) / 60;
+                    if ($diff > $grace) {
+                        $late_minutes = (int) round($diff - $grace);
+                    }
+                }
+            }
+
+            // Calculate total_hours
+            $total_hours = null;
+            if ($check_in && $check_out) {
+                $ci = new DateTime($check_in);
+                $co = new DateTime($check_out);
+                $total_min = ($co->getTimestamp() - $ci->getTimestamp()) / 60;
+                if ($lunch_out && $lunch_in) {
+                    $lo = new DateTime($lunch_out);
+                    $li = new DateTime($lunch_in);
+                    $lunch_min = ($li->getTimestamp() - $lo->getTimestamp()) / 60;
+                    $total_min -= max(0, $lunch_min);
+                }
+                $total_hours = round(max(0, $total_min / 60), 2);
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO attendance (company_id, employee_id, log_date, check_in, lunch_out, lunch_in, check_out, status, late_minutes, total_hours, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $employee_id, $log_date, $check_in, $lunch_out, $lunch_in, $check_out, $status, $late_minutes, $total_hours, $notes]);
+            echo json_encode(['success' => true, 'message' => 'Attendance record added successfully']);
+            break;
+
+        case 'update_attendance':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] ?? '') !== 'HR') {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $att_id = $data['id'] ?? null;
+            $check_in = $data['check_in'] ?? null;
+            $lunch_out = $data['lunch_out'] ?? null;
+            $lunch_in = $data['lunch_in'] ?? null;
+            $check_out = $data['check_out'] ?? null;
+            $status = $data['status'] ?? null;
+            $notes = $data['notes'] ?? null;
+
+            if (!$att_id) {
+                echo json_encode(['success' => false, 'message' => 'Attendance ID is required']);
+                break;
+            }
+
+            // Verify ownership
+            $checkOwn = $pdo->prepare("SELECT id FROM attendance WHERE id = ? AND company_id = ?");
+            $checkOwn->execute([$att_id, $_SESSION['company_id']]);
+            if (!$checkOwn->fetch()) {
+                echo json_encode(['success' => false, 'message' => 'Record not found']);
+                break;
+            }
+
+            // Calculate late_minutes
+            $late_minutes = null;
+            if ($status === 'Late' && $check_in) {
+                $emp_stmt = $pdo->prepare("SELECT e.company_id, c.work_start, c.grace_period FROM employees e JOIN companies c ON e.company_id = c.id WHERE e.id = (SELECT employee_id FROM attendance WHERE id = ?)");
+                $emp_stmt->execute([$att_id]);
+                $emp_info = $emp_stmt->fetch(PDO::FETCH_ASSOC);
+                if ($emp_info) {
+                    $work_start = strtotime($emp_info['work_start']);
+                    $ci_time = strtotime($check_in);
+                    $grace = (int) ($emp_info['grace_period'] ?? 0);
+                    $diff = ($ci_time - $work_start) / 60;
+                    $late_minutes = $diff > $grace ? (int) round($diff - $grace) : 0;
+                }
+            } elseif ($status === 'On-Time') {
+                $late_minutes = 0;
+            }
+
+            // Calculate total_hours
+            $total_hours = null;
+            if ($check_in && $check_out) {
+                $ci = new DateTime($check_in);
+                $co = new DateTime($check_out);
+                $total_min = ($co->getTimestamp() - $ci->getTimestamp()) / 60;
+                if ($lunch_out && $lunch_in) {
+                    $lo = new DateTime($lunch_out);
+                    $li = new DateTime($lunch_in);
+                    $lunch_min = ($li->getTimestamp() - $lo->getTimestamp()) / 60;
+                    $total_min -= max(0, $lunch_min);
+                }
+                $total_hours = round(max(0, $total_min / 60), 2);
+            }
+
+            $updates = [];
+            $params = [];
+            if ($check_in !== null) { $updates[] = 'check_in = ?'; $params[] = $check_in; }
+            if ($lunch_out !== null) { $updates[] = 'lunch_out = ?'; $params[] = $lunch_out; }
+            if ($lunch_in !== null) { $updates[] = 'lunch_in = ?'; $params[] = $lunch_in; }
+            if ($check_out !== null) { $updates[] = 'check_out = ?'; $params[] = $check_out; }
+            if ($status !== null) { $updates[] = 'status = ?'; $params[] = $status; }
+            if ($late_minutes !== null) { $updates[] = 'late_minutes = ?'; $params[] = $late_minutes; }
+            if ($total_hours !== null) { $updates[] = 'total_hours = ?'; $params[] = $total_hours; }
+            if ($notes !== null) { $updates[] = 'notes = ?'; $params[] = $notes; }
+
+            if (empty($updates)) {
+                echo json_encode(['success' => false, 'message' => 'No fields to update']);
+                break;
+            }
+
+            $params[] = $att_id;
+            $stmt = $pdo->prepare("UPDATE attendance SET " . implode(', ', $updates) . " WHERE id = ?");
+            $stmt->execute($params);
+            echo json_encode(['success' => true, 'message' => 'Attendance record updated successfully']);
+            break;
+
+        case 'flag_attendance':
+            if (!isset($_SESSION['company_id']) || ($_SESSION['role'] ?? '') !== 'HR') {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $att_id = $data['id'] ?? null;
+
+            if (!$att_id) {
+                echo json_encode(['success' => false, 'message' => 'Attendance ID is required']);
+                break;
+            }
+
+            $checkOwn = $pdo->prepare("SELECT id, status FROM attendance WHERE id = ? AND company_id = ?");
+            $checkOwn->execute([$att_id, $_SESSION['company_id']]);
+            $record = $checkOwn->fetch(PDO::FETCH_ASSOC);
+            if (!$record) {
+                echo json_encode(['success' => false, 'message' => 'Record not found']);
+                break;
+            }
+
+            $newStatus = ($record['status'] === 'Flagged') ? 'On-Time' : 'Flagged';
+            $stmt = $pdo->prepare("UPDATE attendance SET status = ? WHERE id = ?");
+            $stmt->execute([$newStatus, $att_id]);
+            echo json_encode(['success' => true, 'message' => 'Attendance record ' . ($newStatus === 'Flagged' ? 'flagged' : 'unflagged') . ' successfully']);
             break;
 
         case 'kiosk_scan':
@@ -2304,42 +2478,48 @@ case 'reset_password_with_token':
             $emp_data = $stmt_emp->fetch();
 
             // SCHEDULE GATE: Faculty with subject_loads must have a matching schedule
+            $faculty_schedule_end = null;
+            $faculty_first_start = null;
+            $admin_hour_active = !empty($config['admin_hour_active']);
             if ($emp_data['position'] === 'Faculty') {
                 $current_day = date('l'); // e.g., 'Monday'
                 $current_time_ts = $time; // H:i:s
 
-                $stmt_sched = $pdo->prepare("
-                    SELECT ss.id, ss.time_start, ss.time_end, sl.code, sl.description
+                // Get last schedule end for today (used for both gate and checkout)
+                $stmt_last_sched = $pdo->prepare("
+                    SELECT ss.time_end
                     FROM subject_schedules ss
                     JOIN subject_loads sl ON ss.subject_load_id = sl.id
                     WHERE sl.faculty_id = ?
                       AND ss.day_of_week = ?
-                      AND ss.time_start <= ?
-                      AND ss.time_end >= ?
+                    ORDER BY ss.time_end DESC
                     LIMIT 1
                 ");
-                $stmt_sched->execute([$employee_id, $current_day, $current_time_ts, $current_time_ts]);
-                $matching_schedule = $stmt_sched->fetch();
+                $stmt_last_sched->execute([$employee_id, $current_day]);
+                $faculty_schedule_end = $stmt_last_sched->fetchColumn();
+                if ($faculty_schedule_end === false) $faculty_schedule_end = null;
 
-                // Also allow scan within 30 minutes before scheduled start
-                if (!$matching_schedule) {
-                    $stmt_sched = $pdo->prepare("
-                        SELECT ss.id, ss.time_start, ss.time_end, sl.code, sl.description
-                        FROM subject_schedules ss
-                        JOIN subject_loads sl ON ss.subject_load_id = sl.id
-                        WHERE sl.faculty_id = ?
-                          AND ss.day_of_week = ?
-                          AND TIME_TO_SEC(TIMEDIFF(ss.time_start, ?)) BETWEEN 0 AND 1800
-                        LIMIT 1
-                    ");
-                    $stmt_sched->execute([$employee_id, $current_day, $current_time_ts]);
-                    $matching_schedule = $stmt_sched->fetch();
-                }
+                // Get first schedule start for today (for early scan check)
+                $stmt_first_sched = $pdo->prepare("
+                    SELECT ss.time_start
+                    FROM subject_schedules ss
+                    JOIN subject_loads sl ON ss.subject_load_id = sl.id
+                    WHERE sl.faculty_id = ?
+                      AND ss.day_of_week = ?
+                    ORDER BY ss.time_start ASC
+                    LIMIT 1
+                ");
+                $stmt_first_sched->execute([$employee_id, $current_day]);
+                $faculty_first_start = $stmt_first_sched->fetchColumn();
+                if ($faculty_first_start === false) $faculty_first_start = null;
 
-                if (!$matching_schedule) {
+                // Check if faculty has any schedule today at all
+                $has_schedule_today = ($faculty_first_start !== null);
+
+                if (!$has_schedule_today) {
                     echo json_encode([
                         'success' => false,
-                        'message' => 'No class schedule found for today at this time. Please input your Class Schedule first.',
+                        'message' => 'No class schedule found for today. Please input your Class Schedule first.',
                         'scan_type' => 'rejected',
                         'name' => $best_match['full_name'],
                         'employee_id' => $emp_data['employee_id'],
@@ -2347,6 +2527,43 @@ case 'reset_password_with_token':
                         'match_percentage' => $match_percentage
                     ]);
                     break;
+                }
+
+                // If Admin Hour is ACTIVE, Faculty follows admin time windows — just need schedule today
+                // If Admin Hour is INACTIVE, Faculty follows schedule — need time within schedule range
+                if (!$admin_hour_active) {
+                    $matching_schedule = false;
+
+                    // Check 1: Current time falls within a scheduled class
+                    if ($faculty_first_start && $faculty_schedule_end && $time >= $faculty_first_start && $time <= $faculty_schedule_end) {
+                        $matching_schedule = true;
+                    }
+
+                    // Check 2: Within 30 minutes before first schedule starts
+                    if (!$matching_schedule && $faculty_first_start) {
+                        $diff_seconds = strtotime($faculty_first_start) - strtotime($time);
+                        if ($diff_seconds > 0 && $diff_seconds <= 1800) {
+                            $matching_schedule = true;
+                        }
+                    }
+
+                    // Check 3: After last schedule ends (for checkout)
+                    if (!$matching_schedule && $faculty_schedule_end && $time >= $faculty_schedule_end) {
+                        $matching_schedule = true;
+                    }
+
+                    if (!$matching_schedule) {
+                        echo json_encode([
+                            'success' => false,
+                            'message' => 'No class schedule found for today at this time.',
+                            'scan_type' => 'rejected',
+                            'name' => $best_match['full_name'],
+                            'employee_id' => $emp_data['employee_id'],
+                            'position' => $emp_data['position'],
+                            'match_percentage' => $match_percentage
+                        ]);
+                        break;
+                    }
                 }
             }
 
@@ -2360,21 +2577,56 @@ case 'reset_password_with_token':
             $stmt_stats->execute([$employee_id]);
             $stats = $stmt_stats->fetch();
 
-            // Absence calculation - current payroll period (current month)
-            $period_start = date('Y-m-01');
-            $period_end = date('Y-m-t');
-            $work_days = 0;
-            $temp_date = new DateTime($period_start);
-            $period_end_dt = new DateTime($period_end);
-            while ($temp_date <= $period_end_dt) {
-                if ($temp_date->format('N') < 6)
-                    $work_days++;
-                $temp_date->modify('+1 day');
+            $is_faculty = ($emp_data['position'] === 'Faculty');
+
+            // Absence calculation - Faculty: count missed scheduled days; Others: work_days - present
+            $absent_count = 0;
+            if ($is_faculty) {
+                $period_start = date('Y-m-01');
+                $period_end = date('Y-m-t');
+                $stmt_schedules = $pdo->prepare("
+                    SELECT ss.day_of_week
+                    FROM subject_schedules ss
+                    JOIN subject_loads sl ON ss.subject_load_id = sl.id
+                    WHERE sl.faculty_id = ?
+                ");
+                $stmt_schedules->execute([$employee_id]);
+                $schedule_days = $stmt_schedules->fetchAll(PDO::FETCH_COLUMN);
+                $schedule_days = array_unique($schedule_days);
+                $day_name_to_num = ['Monday'=>1,'Tuesday'=>2,'Wednesday'=>3,'Thursday'=>4,'Friday'=>5,'Saturday'=>6,'Sunday'=>7];
+                $sched_day_nums = [];
+                foreach ($schedule_days as $d) {
+                    if (isset($day_name_to_num[$d])) $sched_day_nums[] = $day_name_to_num[$d];
+                }
+                $stmt_present = $pdo->prepare("SELECT DISTINCT log_date FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
+                $stmt_present->execute([$employee_id, $period_start, $period_end]);
+                $present_dates = $stmt_present->fetchAll(PDO::FETCH_COLUMN);
+                $temp_date = new DateTime($period_start);
+                $period_end_dt = new DateTime($period_end);
+                while ($temp_date <= $period_end_dt) {
+                    $day_num = (int) $temp_date->format('N');
+                    if (in_array($day_num, $sched_day_nums) && $temp_date->format('Y-m-d') <= date('Y-m-d')) {
+                        if (!in_array($temp_date->format('Y-m-d'), $present_dates)) {
+                            $absent_count++;
+                        }
+                    }
+                    $temp_date->modify('+1 day');
+                }
+            } else {
+                $period_start = date('Y-m-01');
+                $period_end = date('Y-m-t');
+                $work_days = 0;
+                $temp_date = new DateTime($period_start);
+                $period_end_dt = new DateTime($period_end);
+                while ($temp_date <= $period_end_dt) {
+                    if ($temp_date->format('N') < 6) $work_days++;
+                    $temp_date->modify('+1 day');
+                }
+                $stmt_abs = $pdo->prepare("SELECT COUNT(DISTINCT log_date) as days_present FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
+                $stmt_abs->execute([$employee_id, $period_start, $period_end]);
+                $days_present_period = (int) ($stmt_abs->fetch()['days_present'] ?? 0);
+                $absent_count = max(0, $work_days - $days_present_period);
             }
-            $stmt_abs = $pdo->prepare("SELECT COUNT(DISTINCT log_date) as days_present FROM attendance WHERE employee_id = ? AND log_date BETWEEN ? AND ? AND check_in IS NOT NULL");
-            $stmt_abs->execute([$employee_id, $period_start, $period_end]);
-            $days_present_period = (int) ($stmt_abs->fetch()['days_present'] ?? 0);
-            $absent_count = max(0, $work_days - $days_present_period);
 
             $common_data = [
                 'name' => $best_match['full_name'],
@@ -2404,6 +2656,9 @@ case 'reset_password_with_token':
             if (!$log || empty($log['check_in'])) {
                 // No log or no check_in yet: always Time In
                 $column = 'check_in';
+            } elseif ($is_faculty && !$admin_hour_active) {
+                // Faculty with Admin Hour OFF: skip lunch, go straight to check_out
+                $column = 'check_out';
             } elseif (empty($log['lunch_out'])) {
                 // Check In exists, no Lunch Out yet
                 if ($time >= $lunch_out_start && $time <= $lunch_out_end) {
@@ -2456,13 +2711,51 @@ case 'reset_password_with_token':
                 }
             }
 
+            // Fallback: ensure faculty_schedule_end and faculty_first_start are set
+            if ($is_faculty) {
+                if ($faculty_schedule_end === null) {
+                    $stmt_fallback = $pdo->prepare("
+                        SELECT ss.time_end
+                        FROM subject_schedules ss
+                        JOIN subject_loads sl ON ss.subject_load_id = sl.id
+                        WHERE sl.faculty_id = ?
+                          AND ss.day_of_week = ?
+                        ORDER BY ss.time_end DESC
+                        LIMIT 1
+                    ");
+                    $stmt_fallback->execute([$employee_id, date('l')]);
+                    $result_fb = $stmt_fallback->fetchColumn();
+                    $faculty_schedule_end = ($result_fb !== false) ? $result_fb : null;
+                }
+                if ($faculty_first_start === null) {
+                    $stmt_fb_start = $pdo->prepare("
+                        SELECT ss.time_start
+                        FROM subject_schedules ss
+                        JOIN subject_loads sl ON ss.subject_load_id = sl.id
+                        WHERE sl.faculty_id = ?
+                          AND ss.day_of_week = ?
+                        ORDER BY ss.time_start ASC
+                        LIMIT 1
+                    ");
+                    $stmt_fb_start->execute([$employee_id, date('l')]);
+                    $result_fbs = $stmt_fb_start->fetchColumn();
+                    $faculty_first_start = ($result_fbs !== false) ? $result_fbs : null;
+                }
+            }
+
             if ($column === 'check_out') {
-                if ($time < $work_end) {
-                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR TIME OUT (Shift ends " . date('h:i A', strtotime($work_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
+                $effective_work_end = $work_end;
+                if ($is_faculty && !$admin_hour_active && $faculty_schedule_end) {
+                    $effective_work_end = $faculty_schedule_end;
+                }
+                if ($time < $effective_work_end) {
+                    $end_label = ($is_faculty && !$admin_hour_active && $faculty_schedule_end) ? 'Schedule ends' : 'Shift ends';
+                    echo json_encode(array_merge(['success' => false, 'message' => "TOO EARLY FOR TIME OUT ($end_label " . date('h:i A', strtotime($effective_work_end)) . ")", 'action' => $column, 'server_time' => $time], $common_data));
                     break;
                 }
-                // Buffer check
-                if ($log && !empty($log['lunch_in'])) {
+                // Buffer check (skip for Faculty with Admin Hour OFF - no lunch break)
+                $skip_buffer = ($is_faculty && !$admin_hour_active);
+                if (!$skip_buffer && $log && !empty($log['lunch_in'])) {
                     $diff_minutes = round((strtotime($time) - strtotime($log['lunch_in'])) / 60);
                     if ($diff_minutes < $checkout_buffer) {
                         echo json_encode(array_merge(['success' => false, 'message' => "TIME OUT BUFFER: Wait " . ($checkout_buffer - $diff_minutes) . " more mins.", 'action' => $column, 'server_time' => $time], $common_data));
@@ -2474,6 +2767,9 @@ case 'reset_password_with_token':
             // Late status calculation (only for check_in)
             if ($column === 'check_in') {
                 $late_ref_time = $work_start;
+                if ($is_faculty && !$admin_hour_active && $faculty_first_start) {
+                    $late_ref_time = $faculty_first_start;
+                }
                 $late_time = date('H:i:s', strtotime($late_ref_time . " + $grace_period minutes"));
                 if ($time > $late_time) {
                     $status = 'Late';
@@ -2524,13 +2820,6 @@ case 'reset_password_with_token':
                 break;
             }
 
-            // Update status for Half-Day if they missed a major slot
-            if ($column === 'check_out' && $log) {
-                if (empty($log['check_in']) || empty($log['lunch_in'])) {
-                    $status = 'Half-Day';
-                }
-            }
-
             // Save to Database
             $total_hours = null;
             if ($column === 'check_out' && $log && !empty($log['check_in'])) {
@@ -2544,6 +2833,13 @@ case 'reset_password_with_token':
                     $total_min -= max(0, $lunch_min);
                 }
                 $total_hours = round(max(0, $total_min / 60), 2);
+            }
+
+            // Update status for Half-Day if total hours are less than half the workday
+            if ($column === 'check_out' && $log && $total_hours !== null) {
+                if ($total_hours < 4) {
+                    $status = 'Half-Day';
+                }
             }
 
             if (!$log) {
@@ -2571,14 +2867,18 @@ case 'reset_password_with_token':
             ];
             $display_action = $labels[$column] ?? strtoupper($column);
 
-            echo json_encode(array_merge([
+            $response = [
                 'success' => true,
                 'action' => $display_action,
                 'time' => date('h:i A', strtotime($time)),
                 'status' => $status,
                 'late_minutes' => $late_minutes,
                 'missed_morning' => $missed_morning
-            ], $common_data));
+            ];
+            if ($emp_data['position'] === 'Faculty' && $faculty_schedule_end) {
+                $response['faculty_schedule_end'] = $faculty_schedule_end;
+            }
+            echo json_encode(array_merge($response, $common_data));
             break;
 
         case 'run_payroll':
@@ -3586,6 +3886,18 @@ case 'reset_password_with_token':
             echo json_encode($stmt->fetch());
             break;
 
+        case 'toggle_admin_hour':
+            if (!isHR()) {
+                echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+                break;
+            }
+            $data = json_decode(file_get_contents('php://input'), true);
+            $active = (int) ($data['active'] ?? 1);
+            $stmt_ah = $pdo->prepare("UPDATE companies SET admin_hour_active = ? WHERE id = ?");
+            $stmt_ah->execute([$active, $_SESSION['company_id']]);
+            echo json_encode(['success' => true, 'admin_hour_active' => $active]);
+            break;
+
         case 'get_payroll_schedule':
             if (!isPayrollOrHigher()) {
                 exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
@@ -4067,8 +4379,8 @@ case 'reset_password_with_token':
         case 'save_subject_load':
             if (!isHR()) exit(json_encode(['success' => false, 'message' => 'Unauthorized']));
             $data = json_decode(file_get_contents('php://input'), true);
-            $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+            $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours, load_pay) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_SESSION['company_id'], $data['faculty_id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $data['load_pay'] ?? 0]);
             echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
             break;
 
@@ -4105,11 +4417,11 @@ case 'reset_password_with_token':
             $data = json_decode(file_get_contents('php://input'), true);
             $load_id = $data['id'] ?? null;
             if ($load_id) {
-                $stmt = $pdo->prepare("UPDATE subject_loads SET code = ?, description = ?, units = ?, hours = ? WHERE id = ? AND faculty_id = ? AND company_id = ?");
-                $stmt->execute([$data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $load_id, $emp['id'], $_SESSION['company_id']]);
+                $stmt = $pdo->prepare("UPDATE subject_loads SET code = ?, description = ?, units = ?, hours = ?, load_pay = ? WHERE id = ? AND faculty_id = ? AND company_id = ?");
+                $stmt->execute([$data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $data['load_pay'] ?? 0, $load_id, $emp['id'], $_SESSION['company_id']]);
             } else {
-                $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$_SESSION['company_id'], $emp['id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3]);
+                $stmt = $pdo->prepare("INSERT INTO subject_loads (company_id, faculty_id, code, description, units, hours, load_pay) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$_SESSION['company_id'], $emp['id'], $data['code'], $data['description'], $data['units'] ?? 3, $data['hours'] ?? 3, $data['load_pay'] ?? 0]);
             }
             echo json_encode(['success' => true]);
             break;

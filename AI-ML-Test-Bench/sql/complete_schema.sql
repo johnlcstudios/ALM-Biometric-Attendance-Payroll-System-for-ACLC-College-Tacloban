@@ -745,7 +745,8 @@ ALTER TABLE `employees`
   ADD UNIQUE KEY `company_id` (`company_id`,`employee_id`),
   ADD KEY `user_id` (`user_id`),
   ADD KEY `idx_employee_profile_picture` (`profile_picture`),
-  ADD KEY `idx_employee_user` (`user_id`);
+  ADD KEY `idx_employee_user` (`user_id`),
+  ADD KEY `idx_employee_company_position_status` (`company_id`,`position`,`status`);
 
 --
 -- Indexes for table `employee_allowances`
@@ -804,7 +805,7 @@ ALTER TABLE `password_resets`
 --
 ALTER TABLE `payroll`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uq_payroll_company_emp_period` (`company_id`,`employee_id`,`period`),
+  ADD UNIQUE KEY `uq_payroll_company_emp_period_type` (`company_id`,`employee_id`,`period`,`payroll_type`),
   ADD KEY `employee_id` (`employee_id`),
   ADD KEY `idx_payroll_period` (`period`),
   ADD KEY `idx_payroll_company_period` (`company_id`,`period`),

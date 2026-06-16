@@ -93,6 +93,26 @@ if (!$company) {
                     </div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group" style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px; background: #fafafa;">
+                        <label style="font-weight: 700; margin-bottom: 8px; display: block;">Admin Hour (Time In/Out Setting)</label>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                                <input type="checkbox" name="adminHourActive" id="adminHourActive" <?php echo ($company['admin_hour_active'] ?? 0) ? 'checked' : ''; ?> onchange="toggleAdminHour(this)">
+                                <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 26px;"><span style="position: absolute; content: ''; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%;"></span></span>
+                            </label>
+                            <div>
+                                <span id="adminHourLabel" style="font-weight: 600; color: <?php echo ($company['admin_hour_active'] ?? 0) ? '#27ae60' : '#e74c3c'; ?>;">
+                                    <?php echo ($company['admin_hour_active'] ?? 0) ? 'ACTIVE' : 'INACTIVE'; ?>
+                                </span>
+                                <p class="small text-muted" style="margin: 4px 0 0 0;">
+                                    When <b>ACTIVE</b>: Faculty follows admin Time In/Out settings.<br>
+                                    When <b>INACTIVE</b>: Faculty follows their own class schedule only.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label>Deduction Per Second (₱)</label>
                         <input type="number" step="0.0001" name="deductionPerSec" value="<?php echo $company['deduction_per_sec'] ?? '0.0083'; ?>">
@@ -171,3 +191,25 @@ if (!$company) {
         
     </div>
 </section>
+<script>
+function toggleAdminHour(el) {
+    const label = document.getElementById('adminHourLabel');
+    if (el.checked) {
+        label.textContent = 'ACTIVE';
+        label.style.color = '#27ae60';
+    } else {
+        label.textContent = 'INACTIVE';
+        label.style.color = '#e74c3c';
+    }
+    toggleAdminHourSave(el.checked);
+}
+async function toggleAdminHourSave(active) {
+    try {
+        await fetch('backend/api.php?action=toggle_admin_hour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: active ? 1 : 0 })
+        });
+    } catch (e) { console.error(e); }
+}
+</script>

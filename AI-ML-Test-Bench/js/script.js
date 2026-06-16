@@ -2125,6 +2125,7 @@ function renderAttendanceTable() {
                     options: [
                         { value: 'On-Time', label: 'On-Time' },
                         { value: 'Late', label: 'Late Arrivals' },
+                        { value: 'Half-Day', label: 'Half-Day' },
                         { value: 'Absent', label: 'Absences' }
                     ]
                 }
@@ -2204,6 +2205,7 @@ function renderAttendanceTable() {
             <td><span class="text-muted">${log.lunch_out ? formatTime(log.lunch_out) : '---'}</span></td>
             <td><span class="text-muted">${log.lunch_in ? formatTime(log.lunch_in) : '---'}</span></td>
             <td><strong>${log.check_out ? formatTime(log.check_out) : '---'}</strong></td>
+            <td><span class="text-muted">${log.total_hours ? log.total_hours + 'h' : '---'}</span></td>
             <td>
                 <div class="status-pill-container">
                     <span class="status-badge status-${statusClass}">${escapeHTML(status)}</span>
@@ -2214,25 +2216,154 @@ function renderAttendanceTable() {
             <td>
                 <div class="table-actions">
                     <button class="btn-icon" title="View Details" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye"></i></button>
-                    <button class="btn-icon delete" title="Flag/Report" onclick="flagAttendance(${log.id})"><i class="fas fa-flag"></i></button>
+                    <button class="btn-icon" title="Flag/Report" onclick="flagAttendance(${log.id})"><i class="fas fa-flag"></i></button>
                 </div>
             </td>
         </tr>
     `;
-    }).join('') || '<tr><td colspan="9" class="text-center text-muted">No attendance records found.</td></tr>';
+    }).join('') || '<tr><td colspan="10" class="text-center text-muted">No attendance records found.</td></tr>';
     
     // Render pagination
     renderPagination('attendance', filteredAttendance.length);
 }
 
 function viewAttendanceDetails(id) {
-    // Implement detail view if needed
-    console.log("Viewing attendance details for ID:", id);
+    const log = attendanceLogs.find(l => l.id === id);
+    if (!log) return;
+
+    const scheduleHtml = (log.schedule && log.schedule.length > 0)
+        ? log.schedule.map(s => `<div style="margin-bottom:4px"><strong>${escapeHTML(s.subject_code || '')}</strong> ${escapeHTML(s.subject_description || '')} — ${formatTime(s.time_start)} to ${formatTime(s.time_end)} ${s.room ? '(' + escapeHTML(s.room) + ')' : ''}</div>`).join('')
+        : '<span class="text-muted">No schedule</span>';
+
+    Swal.fire({
+        title: 'Attendance Details',
+        html: `
+            <div style="text-align:left; font-size:14px;">
+                <p><strong>Employee:</strong> ${escapeHTML(log.full_name || '---')} (${escapeHTML(log.emp_code || '---')})</p>
+                <p><strong>Date:</strong> ${escapeHTML(log.log_date)}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-${(log.status || '').toLowerCase().replace(' ', '-')}">${escapeHTML(log.status || '---')}</span>${log.late_minutes > 0 ? ` <span class="late-tag">${log.late_minutes}m late</span>` : ''}</p>
+                <hr>
+                <p><strong>Check-In:</strong> ${log.check_in ? formatTime(log.check_in) : '---'}</p>
+                <p><strong>Lunch-Out:</strong> ${log.lunch_out ? formatTime(log.lunch_out) : '---'}</p>
+                <p><strong>Lunch-In:</strong> ${log.lunch_in ? formatTime(log.lunch_in) : '---'}</p>
+                <p><strong>Check-Out:</strong> ${log.check_out ? formatTime(log.check_out) : '---'}</p>
+                <p><strong>Total Hours:</strong> ${log.total_hours ? log.total_hours + 'h' : '---'}</p>
+                <hr>
+                <p><strong>Schedule:</strong></p>
+                <div>${scheduleHtml}</div>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Close',
+        customClass: { popup: 'swal-wide' }
+    });
 }
 
 function flagAttendance(id) {
-    // Implement flagging if needed
-    console.log("Flagging attendance ID:", id);
+    const log = attendanceLogs.find(l => l.id === id);
+    if (!log) return;
+    const action = log.status === 'Flagged' ? 'unflag' : 'flag';
+    const label = action === 'flag' ? 'Flag' : 'Unflag';
+
+    Swal.fire({
+        title: `${label} Attendance?`,
+        text: `Are you sure you want to ${action} this attendance record for ${log.full_name}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: label
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('backend/api.php?action=flag_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Done', data.message, 'success');
+                    loadAttendanceData();
+                } else {
+                    Swal.fire('Error', data.message || 'Failed', 'error');
+                }
+            })
+            .catch(err => Swal.fire('Error', 'Network error', 'error'));
+        }
+    });
+}
+
+function addAttendance() {
+    Swal.fire({
+        title: 'Add Manual Attendance',
+        html: `
+            <div style="text-align:left">
+                <label style="font-weight:600">Employee</label>
+                <select id="swal-employee" class="swal2-input" style="width:100%;margin-bottom:12px">
+                    <option value="">-- Select Employee --</option>
+                    ${employees.map(e => `<option value="${e.id}">${escapeHTML(e.full_name)} (${escapeHTML(e.employee_id || e.id)})</option>`).join('')}
+                </select>
+                <label style="font-weight:600">Date</label>
+                <input id="swal-date" type="date" class="swal2-input" value="${new Date().toISOString().split('T')[0]}" style="width:100%;margin-bottom:12px">
+                <label style="font-weight:600">Check-In (HH:MM)</label>
+                <input id="swal-checkin" type="time" class="swal2-input" style="width:100%;margin-bottom:12px">
+                <label style="font-weight:600">Lunch-Out (HH:MM)</label>
+                <input id="swal-lunchout" type="time" class="swal2-input" style="width:100%;margin-bottom:12px">
+                <label style="font-weight:600">Lunch-In (HH:MM)</label>
+                <input id="swal-lunchin" type="time" class="swal2-input" style="width:100%;margin-bottom:12px">
+                <label style="font-weight:600">Check-Out (HH:MM)</label>
+                <input id="swal-checkout" type="time" class="swal2-input" style="width:100%;margin-bottom:12px">
+                <label style="font-weight:600">Status</label>
+                <select id="swal-status" class="swal2-input" style="width:100%;margin-bottom:12px">
+                    <option value="On-Time">On-Time</option>
+                    <option value="Late">Late</option>
+                    <option value="Half-Day">Half-Day</option>
+                    <option value="Absent">Absent</option>
+                </select>
+                <label style="font-weight:600">Notes</label>
+                <textarea id="swal-notes" class="swal2-textarea" style="width:100%" placeholder="Optional notes..."></textarea>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Save',
+        customClass: { popup: 'swal-wide' },
+        preConfirm: () => {
+            const employee_id = document.getElementById('swal-employee').value;
+            const log_date = document.getElementById('swal-date').value;
+            if (!employee_id || !log_date) {
+                Swal.showValidationMessage('Employee and Date are required');
+                return false;
+            }
+            return {
+                employee_id,
+                log_date,
+                check_in: document.getElementById('swal-checkin').value || null,
+                lunch_out: document.getElementById('swal-lunchout').value || null,
+                lunch_in: document.getElementById('swal-lunchin').value || null,
+                check_out: document.getElementById('swal-checkout').value || null,
+                status: document.getElementById('swal-status').value,
+                notes: document.getElementById('swal-notes').value || null
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('backend/api.php?action=add_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(result.value)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Success', data.message, 'success');
+                    loadAttendanceData();
+                } else {
+                    Swal.fire('Error', data.message || 'Failed', 'error');
+                }
+            })
+            .catch(err => Swal.fire('Error', 'Network error', 'error'));
+        }
+    });
 }
 
 function exportAttendance() {
@@ -4855,11 +4986,12 @@ function viewFacultyLoads(empId) {
                 <td>${load.description}</td>
                 <td>${load.units}</td>
                 <td>${load.hours}</td>
+                <td>PHP ${parseFloat(load.load_pay || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                 <td>
                     <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteSubjectLoad('${load.id}'); viewFacultyLoads('${empId}');"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center">No loads assigned to this faculty.</td></tr>';
+        `).join('') || '<tr><td colspan="6" class="text-center">No loads assigned to this faculty.</td></tr>';
     }
     
     selectedSubjectLoadId = null;
@@ -5005,7 +5137,8 @@ async function saveSubjectLoad() {
         code: document.getElementById('loadSubjectCode').value,
         description: document.getElementById('loadDescription').value,
         units: document.getElementById('loadUnits').value,
-        hours: document.getElementById('loadHours').value
+        hours: document.getElementById('loadHours').value,
+        load_pay: document.getElementById('loadPay').value || 0
     };
 
     try {
