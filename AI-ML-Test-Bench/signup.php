@@ -122,12 +122,6 @@ if (isset($_SESSION['user_id'])) {
             color: #999;
         }
 
-        .input-wrapper i.toggle-password {
-            right: 45px;
-            cursor: pointer;
-            pointer-events: auto;
-        }
-
         /* BUTTON */
         .login-btn {
             width: 100%;
@@ -222,7 +216,6 @@ if (isset($_SESSION['user_id'])) {
                 <div class="form-group">
                     <div class="input-wrapper">
                         <input type="password" name="password" id="password" placeholder="Password" required>
-                        <i class="fas fa-eye toggle-password" data-target="password" aria-label="Toggle password visibility" role="button" tabindex="0"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
@@ -231,7 +224,6 @@ if (isset($_SESSION['user_id'])) {
                     <div class="input-wrapper">
                         <input type="password" name="confirm_password" id="confirm_password"
                             placeholder="Confirm Password" required>
-                        <i class="fas fa-eye toggle-password" data-target="confirm_password" aria-label="Toggle confirm password visibility" role="button" tabindex="0"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
@@ -246,27 +238,6 @@ if (isset($_SESSION['user_id'])) {
     </div>
 
     <script>
-        // Toggle Password Visibility
-        document.querySelectorAll('.toggle-password').forEach(toggle => {
-            toggle.addEventListener('click', function() {
-                const targetId = this.getAttribute('data-target');
-                const input = document.getElementById(targetId);
-                if (input) {
-                    const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-                    input.setAttribute('type', type);
-                    this.classList.toggle('fa-eye-slash');
-                }
-            });
-
-            // Handle Enter/Space for accessibility
-            toggle.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this.click();
-                }
-            });
-        });
-
         // Auto-generate company code suggestion
         document.getElementById('company_name').addEventListener('input', function() {
             const companyName = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
