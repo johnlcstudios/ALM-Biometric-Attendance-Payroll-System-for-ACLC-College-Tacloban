@@ -582,28 +582,10 @@ window.addEventListener('load', function() {
 });
 </script>
 
+<script src="js/script.js"></script>
 <script>
 // Toggle Password Visibility
-const togglePassword = document.querySelector('#togglePassword');
-const password = document.querySelector('#password');
-
-if (togglePassword && password) {
-    togglePassword.addEventListener('click', function (e) {
-        // toggle the type attribute
-        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-        password.setAttribute('type', type);
-        // toggle the eye slash icon
-        this.classList.toggle('fa-eye-slash');
-    });
-
-    // Handle Enter/Space for accessibility
-    togglePassword.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.click();
-        }
-    });
-}
+initPasswordToggles();
 
 document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
