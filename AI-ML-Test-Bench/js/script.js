@@ -113,6 +113,53 @@ function showToast(message, type = 'info') {
     });
 }
 
+/**
+ * Initializes password visibility toggles across the application.
+ * Requires an icon with .toggle-password and a sibling input inside .input-wrapper.
+ */
+function initPasswordToggles() {
+    document.querySelectorAll('.toggle-password').forEach(toggle => {
+        // Find the password input within the same .input-wrapper
+        const wrapper = toggle.closest('.input-wrapper');
+        const input = wrapper ? wrapper.querySelector('input') : toggle.parentElement.querySelector('input');
+
+        if (!input) return;
+
+        const toggleVisibility = () => {
+            const isPassword = input.getAttribute('type') === 'password';
+            input.setAttribute('type', isPassword ? 'text' : 'password');
+
+            // Toggle eye icons
+            if (toggle.classList.contains('fas')) {
+                toggle.classList.toggle('fa-eye', !isPassword);
+                toggle.classList.toggle('fa-eye-slash', isPassword);
+            }
+
+            // Toggle aria-label for accessibility
+            toggle.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+        };
+
+        // Click event
+        toggle.onclick = (e) => {
+            e.preventDefault();
+            toggleVisibility();
+        };
+
+        // Keyboard Accessibility (Enter/Space)
+        toggle.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleVisibility();
+            }
+        };
+
+        // Ensure proper ARIA roles and attributes
+        if (!toggle.getAttribute('role')) toggle.setAttribute('role', 'button');
+        if (!toggle.getAttribute('tabindex')) toggle.setAttribute('tabindex', '0');
+        if (!toggle.getAttribute('aria-label')) toggle.setAttribute('aria-label', 'Show password');
+    });
+}
+
 // ==========================================
 // TABLE PAGINATION, SEARCH & FILTER SYSTEM
 // ==========================================
@@ -4739,7 +4786,14 @@ async function logout() {
 
 // Initialize on Load
 window.onload = () => {
-    fetchData();
+    // Only fetch dashboard data if we're on a page with a title (indicates main dashboard/admin area)
+    if (document.getElementById('current-page-title')) {
+        fetchData();
+    }
+
+    // Initialize password visibility toggles
+    initPasswordToggles();
+
     const dateFilter = document.getElementById('attendanceDateFilter');
     if (dateFilter) dateFilter.addEventListener('change', renderAttendanceTable);
     

@@ -1427,6 +1427,22 @@ tr:last-child td {
     background-color: #ccc !important;
 }
 
+/* Password Field & Toggle Enhancements */
+.password-field {
+    padding-right: 75px !important;
+}
+
+.toggle-password {
+    right: 45px !important;
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: auto !important;
+}
+
+.input-wrapper {
+    position: relative;
+}
+
 .btn.loading {
     position: relative;
 }
