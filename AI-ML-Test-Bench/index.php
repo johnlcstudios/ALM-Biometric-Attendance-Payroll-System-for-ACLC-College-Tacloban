@@ -80,6 +80,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script src="js/face-api-manager.js?v=2.1"></script>
     <script src="js/jspdf.umd.min.js"></script>
     <script src="js/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/password-toggle.js"></script>
     
     <!-- SweetAlert2 (local with CDN fallback) -->
     <script src="js/sweetalert2.all.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/sweetalert2@11'"></script>
