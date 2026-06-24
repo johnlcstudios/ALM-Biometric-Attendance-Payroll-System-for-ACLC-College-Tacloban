@@ -1378,6 +1378,25 @@ tr:last-child td {
     color: #ffffff !important;
 }
 
+/* Password Field Styles */
+.password-field {
+    padding-right: 75px !important;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}
+
 .status-active {
     background-color: rgba(39, 174, 96, 0.15);
     color: #27ae60;
