@@ -1174,6 +1174,30 @@ body {
     width: fit-content;
 }
 
+/* Password Field Styling */
+.password-field {
+    padding-right: 75px !important;
+}
+
+i.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 10;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s;
+}
+
+i.toggle-password:hover {
+    color: #fff;
+}
+
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}
+
 /* Action Buttons */
 .table-actions {
     display: flex;
