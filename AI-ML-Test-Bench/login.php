@@ -33,6 +33,8 @@ if (isset($_SESSION['user_id'])) {
 
 <!-- Custom Context Menu Styles -->
 <link rel="stylesheet" href="css/style.css">
+<!-- Password Toggle Script -->
+<script src="js/password-toggle.js"></script>
 
 <style>
 * {
@@ -132,12 +134,6 @@ body {
     top: 50%;
     transform: translateY(-50%);
     color: rgba(255,255,255,0.7);
-}
-
-.input-wrapper i.toggle-password {
-    right: 45px;
-    cursor: pointer;
-    pointer-events: auto;
 }
 
 /* LOGIN BUTTON (macOS style gradient) */
@@ -383,8 +379,8 @@ body {
 
             <div class="form-group">
                 <div class="input-wrapper">
-                    <input type="password" name="password" id="password" placeholder="Password" required>
-                    <i class="fas fa-eye toggle-password" id="togglePassword" aria-label="Toggle password visibility" role="button" tabindex="0"></i>
+                    <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                    <i class="fas fa-eye toggle-password"></i>
                     <i class="fas fa-lock"></i>
                 </div>
             </div>
@@ -583,28 +579,6 @@ window.addEventListener('load', function() {
 </script>
 
 <script>
-// Toggle Password Visibility
-const togglePassword = document.querySelector('#togglePassword');
-const password = document.querySelector('#password');
-
-if (togglePassword && password) {
-    togglePassword.addEventListener('click', function (e) {
-        // toggle the type attribute
-        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-        password.setAttribute('type', type);
-        // toggle the eye slash icon
-        this.classList.toggle('fa-eye-slash');
-    });
-
-    // Handle Enter/Space for accessibility
-    togglePassword.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.click();
-        }
-    });
-}
-
 document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
 

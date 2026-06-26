@@ -3076,3 +3076,39 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* ============================================================================
+   PASSWORD FIELD STYLING
+   ============================================================================ */
+.input-wrapper {
+    position: relative;
+}
+
+.input-wrapper input.password-field {
+    padding-right: 75px !important;
+}
+
+.input-wrapper i.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    pointer-events: auto;
+    color: rgba(255, 255, 255, 0.7);
+    z-index: 10;
+}
+
+/* Dual icon handling: When toggle is followed by another icon (like lock) */
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}
+
+/* Darker backgrounds (like login) icon color */
+.login-card .input-wrapper i.toggle-password {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Default light backgrounds icon color */
+body:not(.login-page) .input-wrapper i.toggle-password {
+    color: #999;
+}
