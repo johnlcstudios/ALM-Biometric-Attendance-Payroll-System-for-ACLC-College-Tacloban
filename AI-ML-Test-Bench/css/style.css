@@ -3076,3 +3076,45 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+
+/* ============================================================================
+   PASSWORD FIELD STYLING
+   Centralized classes for consistent password visibility toggles
+   ============================================================================ */
+
+.password-field {
+    padding-right: 75px !important; /* Space for toggle icon + potential status icon */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.2s ease;
+    z-index: 10;
+    pointer-events: auto !important;
+}
+
+.toggle-password:hover {
+    color: #fff;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Handle dual-icon scenarios (e.g., toggle eye + lock icon) */
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}
+
+/* Login/Signup specific overrides for visibility icons when they aren't white */
+.login-card .toggle-password,
+.auth-page .toggle-password {
+    color: #999;
+}
+
+.login-card .toggle-password:hover,
+.auth-page .toggle-password:hover {
+    color: #667eea;
+}
