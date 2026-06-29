@@ -3076,3 +3076,27 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+
+/* Password Toggle Enhancements */
+.password-field {
+    padding-right: 75px !important;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #95a5a6;
+    transition: color 0.2s ease;
+    z-index: 10;
+}
+
+.toggle-password:hover {
+    color: #2c3e50;
+}
+
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}

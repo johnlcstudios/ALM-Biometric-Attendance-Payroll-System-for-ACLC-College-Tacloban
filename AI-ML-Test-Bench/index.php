@@ -86,6 +86,8 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="css/style.css">
+    <!-- Password Toggle -->
+    <script src="js/password-toggle.js"></script>
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
     <?php if ($showSplash): ?>

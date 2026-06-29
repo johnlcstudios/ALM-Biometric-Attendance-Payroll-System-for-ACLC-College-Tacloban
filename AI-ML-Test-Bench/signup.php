@@ -215,7 +215,8 @@ if (isset($_SESSION['user_id'])) {
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="password" id="password" placeholder="Password" required>
+                        <input type="password" name="password" id="password" placeholder="Password" class="password-field" required>
+                        <i class="fas fa-eye-slash toggle-password" aria-label="Show password"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
@@ -223,7 +224,8 @@ if (isset($_SESSION['user_id'])) {
                 <div class="form-group">
                     <div class="input-wrapper">
                         <input type="password" name="confirm_password" id="confirm_password"
-                            placeholder="Confirm Password" required>
+                            placeholder="Confirm Password" class="password-field" required>
+                        <i class="fas fa-eye-slash toggle-password" aria-label="Show password"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
@@ -309,6 +311,9 @@ if (isset($_SESSION['user_id'])) {
             }
         };
     </script>
+
+<!-- Password Toggle Script -->
+<script src="js/password-toggle.js"></script>
 
 <!-- Custom Context Menu -->
 <script src="js/context-menu.js?v=1.0"></script>
