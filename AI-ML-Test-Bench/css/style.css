@@ -3076,3 +3076,22 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* Centralized Password Field Styling */
+.password-field {
+    padding-right: 75px !important;
+}
+
+.input-wrapper i.toggle-password {
+    right: 15px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: color 0.2s;
+}
+
+.input-wrapper i.toggle-password:hover {
+    color: var(--primary-color, #1e0178);
+}
+
+.input-wrapper i.toggle-password:not(:last-child) {
+    right: 45px;
+}
