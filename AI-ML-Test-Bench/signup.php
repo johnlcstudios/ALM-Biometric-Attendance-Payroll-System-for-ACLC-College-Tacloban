@@ -114,12 +114,29 @@ if (isset($_SESSION['user_id'])) {
             border-color: #2400b3;
         }
 
+        .input-wrapper .has-toggle {
+            padding-right: 70px;
+        }
+
         .input-wrapper i {
             position: absolute;
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
             color: #999;
+        }
+
+        .input-wrapper i.toggle-password {
+            right: 45px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: color 0.2s ease;
+        }
+
+        .input-wrapper i.toggle-password:hover,
+        .input-wrapper i.toggle-password:focus {
+            color: #4800b3;
+            outline: none;
         }
 
         /* BUTTON */
@@ -215,15 +232,17 @@ if (isset($_SESSION['user_id'])) {
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="password" id="password" placeholder="Password" required>
+                        <input type="password" name="password" id="password" class="has-toggle" placeholder="Password" required>
+                        <i class="fas fa-eye toggle-password" id="togglePassword" aria-label="Show password" title="Show password" role="button" tabindex="0"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="confirm_password" id="confirm_password"
+                        <input type="password" name="confirm_password" id="confirm_password" class="has-toggle"
                             placeholder="Confirm Password" required>
+                        <i class="fas fa-eye toggle-password" id="toggleConfirmPassword" aria-label="Show confirm password" title="Show confirm password" role="button" tabindex="0"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
@@ -238,6 +257,47 @@ if (isset($_SESSION['user_id'])) {
     </div>
 
     <script>
+        // Toggle Password Visibility Logic
+        function setupPasswordToggle(toggleId, passwordId) {
+            const toggleElement = document.getElementById(toggleId);
+            const passwordElement = document.getElementById(passwordId);
+
+            if (toggleElement && passwordElement) {
+                const toggleAction = () => {
+                    const isPassword = passwordElement.getAttribute('type') === 'password';
+                    const newType = isPassword ? 'text' : 'password';
+                    const baseAriaLabel = toggleId === 'togglePassword' ? 'password' : 'confirm password';
+
+                    passwordElement.setAttribute('type', newType);
+
+                    if (isPassword) {
+                        toggleElement.classList.remove('fa-eye');
+                        toggleElement.classList.add('fa-eye-slash');
+                        toggleElement.setAttribute('aria-label', `Hide ${baseAriaLabel}`);
+                        toggleElement.setAttribute('title', `Hide ${baseAriaLabel}`);
+                    } else {
+                        toggleElement.classList.remove('fa-eye-slash');
+                        toggleElement.classList.add('fa-eye');
+                        toggleElement.setAttribute('aria-label', `Show ${baseAriaLabel}`);
+                        toggleElement.setAttribute('title', `Show ${baseAriaLabel}`);
+                    }
+                };
+
+                toggleElement.addEventListener('click', toggleAction);
+
+                toggleElement.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleAction();
+                    }
+                });
+            }
+        }
+
+        // Initialize toggles
+        setupPasswordToggle('togglePassword', 'password');
+        setupPasswordToggle('toggleConfirmPassword', 'confirm_password');
+
         // Auto-generate company code suggestion
         document.getElementById('company_name').addEventListener('input', function() {
             const companyName = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
