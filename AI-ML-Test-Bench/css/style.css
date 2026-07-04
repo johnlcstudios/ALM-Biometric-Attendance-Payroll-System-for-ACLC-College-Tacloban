@@ -3076,3 +3076,31 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* Password Toggle Styles */
+.password-field {
+    padding-right: 70px !important;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 45px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 10;
+    transition: color 0.2s ease;
+}
+
+/* Ensure icons in login/signup cards are positioned correctly */
+.input-wrapper .toggle-password {
+    right: 45px !important;
+}
+
+/* Login/Signup specific password toggle coloring */
+.login-card .toggle-password, .signup-card .toggle-password, .login-left .toggle-password {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.login-card .toggle-password:hover, .signup-card .toggle-password:hover, .login-left .toggle-password:hover {
+    color: #fff;
+}
