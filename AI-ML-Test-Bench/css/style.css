@@ -3076,3 +3076,10 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* Password Toggle Styles */
+.input-wrapper { position: relative; }
+.password-field { padding-right: 70px !important; }
+.toggle-password { position: absolute; right: 45px; top: 50%; transform: translateY(-50%); cursor: pointer; z-index: 10; color: rgba(0,0,0,0.5); }
+.glass-modal .toggle-password, .login-card .toggle-password { color: rgba(255,255,255,0.7); }
+.toggle-password:hover { color: var(--primary-color, #1e0178); }
+.glass-modal .toggle-password:hover, .login-card .toggle-password:hover { color: #fff; }
