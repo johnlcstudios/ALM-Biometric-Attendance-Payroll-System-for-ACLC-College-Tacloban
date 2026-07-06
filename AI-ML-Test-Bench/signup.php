@@ -31,6 +31,9 @@ if (isset($_SESSION['user_id'])) {
 <!-- Custom Context Menu Styles -->
 <link rel="stylesheet" href="css/style.css">
 
+<!-- Password Toggle Script -->
+<script src="js/password-toggle.js" defer></script>
+
     <style>
         * {
             margin: 0;
@@ -215,15 +218,17 @@ if (isset($_SESSION['user_id'])) {
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="password" id="password" placeholder="Password" required>
+                        <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                        <i class="fas fa-eye toggle-password"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="confirm_password" id="confirm_password"
+                        <input type="password" name="confirm_password" id="confirm_password" class="password-field"
                             placeholder="Confirm Password" required>
+                        <i class="fas fa-eye toggle-password"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>

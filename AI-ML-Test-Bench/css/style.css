@@ -3076,3 +3076,35 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* ==========================================
+   PASSWORD VISIBILITY TOGGLE
+   ========================================== */
+.input-wrapper {
+    position: relative;
+}
+
+.input-wrapper .password-field {
+    padding-right: 70px !important;
+}
+
+.input-wrapper i.toggle-password {
+    position: absolute;
+    right: 45px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 10;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.3s ease;
+    pointer-events: auto !important;
+}
+
+.input-wrapper i.toggle-password:hover {
+    color: #fff;
+}
+
+.input-wrapper i.toggle-password:focus {
+    outline: none;
+    color: #fff;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
