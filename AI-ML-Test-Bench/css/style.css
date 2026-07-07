@@ -1206,6 +1206,40 @@ body {
     border-color: var(--danger-color);
 }
 
+/* Password Field Toggles */
+.input-wrapper {
+    position: relative;
+}
+
+.input-wrapper .password-field {
+    padding-right: 70px !important;
+}
+
+.input-wrapper .toggle-password {
+    position: absolute;
+    right: 45px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    padding: 5px;
+    transition: color 0.2s ease;
+}
+
+.input-wrapper .toggle-password:hover {
+    color: var(--primary-color);
+}
+
+/* For glass morphic inputs (login/signup) */
+.login-card .input-wrapper .toggle-password {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.login-card .input-wrapper .toggle-password:hover {
+    color: #fff;
+}
+
 /* P0 FIX: Button disabled/loading states */
 .btn:disabled,
 .btn.disabled {
