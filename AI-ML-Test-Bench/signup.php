@@ -119,7 +119,18 @@ if (isset($_SESSION['user_id'])) {
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #999;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .input-wrapper i.toggle-password {
+            right: 45px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .input-wrapper input[type="password"],
+        .input-wrapper input[type="text"] {
+            padding-right: 70px;
         }
 
         /* BUTTON */
@@ -216,6 +227,7 @@ if (isset($_SESSION['user_id'])) {
                 <div class="form-group">
                     <div class="input-wrapper">
                         <input type="password" name="password" id="password" placeholder="Password" required>
+                        <i class="fas fa-eye toggle-password" data-target="#password"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
@@ -224,6 +236,7 @@ if (isset($_SESSION['user_id'])) {
                     <div class="input-wrapper">
                         <input type="password" name="confirm_password" id="confirm_password"
                             placeholder="Confirm Password" required>
+                        <i class="fas fa-eye toggle-password" data-target="#confirm_password"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
@@ -310,6 +323,8 @@ if (isset($_SESSION['user_id'])) {
         };
     </script>
 
+<!-- Password Toggle Script -->
+<script src="js/password-toggle.js"></script>
 <!-- Custom Context Menu -->
 <script src="js/context-menu.js?v=1.0"></script>
 
