@@ -3076,3 +3076,42 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* Centralized Password Toggle Styles */
+.input-wrapper {
+    position: relative;
+}
+
+.password-field {
+    padding-right: 70px !important;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 45px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    pointer-events: auto !important;
+    z-index: 10;
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+}
+
+.toggle-password:focus {
+    outline: 2px solid var(--primary-color, #1e0178);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Color overrides for glass morphism cards */
+.login-card .toggle-password {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.login-card .toggle-password:hover {
+    color: #fff !important;
+}
