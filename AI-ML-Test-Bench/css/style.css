@@ -3076,3 +3076,48 @@ body.dark-mode .context-menu-divider {
 .load-row:hover {
     background: #f5f7fa;
 }
+/* --- Password Toggle System --- */
+.input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.input-wrapper input.password-field {
+    padding-right: 70px !important; /* Space for dual icons: toggle + decoration */
+}
+
+.input-wrapper i {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    transition: color 0.3s ease;
+}
+
+/* Decorative icon (usually on the far right) */
+.input-wrapper i:not(.toggle-password) {
+    right: 15px;
+    pointer-events: none;
+}
+
+/* Visibility toggle icon (positioned to the left of the decorative icon) */
+.input-wrapper i.toggle-password {
+    right: 45px;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 10;
+}
+
+.input-wrapper i.toggle-password:hover {
+    color: var(--primary-color);
+}
+
+/* Glass-morphic overrides for login/signup pages */
+.login-card .input-wrapper i,
+.login-card .input-wrapper i.toggle-password {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.login-card .input-wrapper i.toggle-password:hover {
+    color: #fff;
+}

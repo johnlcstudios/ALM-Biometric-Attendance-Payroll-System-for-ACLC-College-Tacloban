@@ -90,10 +90,6 @@ if (isset($_SESSION['user_id'])) {
             margin-bottom: 20px;
         }
 
-        .input-wrapper {
-            position: relative;
-        }
-
         .input-wrapper input {
             width: 100%;
             padding: 12px 40px 12px 15px;
@@ -114,13 +110,6 @@ if (isset($_SESSION['user_id'])) {
             border-color: #2400b3;
         }
 
-        .input-wrapper i {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-        }
 
         /* BUTTON */
         .login-btn {
@@ -215,15 +204,17 @@ if (isset($_SESSION['user_id'])) {
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="password" id="password" placeholder="Password" required>
+                        <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                        <i class="fas fa-eye toggle-password" data-target="password"></i>
                         <i class="fas fa-lock"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="confirm_password" id="confirm_password"
+                        <input type="password" name="confirm_password" id="confirm_password" class="password-field"
                             placeholder="Confirm Password" required>
+                        <i class="fas fa-eye toggle-password" data-target="confirm_password"></i>
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
@@ -309,6 +300,9 @@ if (isset($_SESSION['user_id'])) {
             }
         };
     </script>
+
+    <!-- Password Toggle Utility -->
+    <script src="js/password-toggle.js"></script>
 
 <!-- Custom Context Menu -->
 <script src="js/context-menu.js?v=1.0"></script>
