@@ -446,13 +446,21 @@ window.addEventListener('load', function() {
                 
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" required placeholder="Create a strong password">
+                    <div class="input-wrapper">
+                        <input type="password" name="password" id="password" class="password-field" required placeholder="Create a strong password">
+                        <i class="fas fa-eye toggle-password" data-target="password"></i>
+                        <i class="fas fa-lock"></i>
+                    </div>
                     <p class="password-hint">Must be at least 8 characters with uppercase, lowercase, and numbers</p>
                 </div>
                 
                 <div class="form-group">
                     <label>Confirm Password</label>
-                    <input type="password" name="confirm_password" required placeholder="Confirm your password">
+                    <div class="input-wrapper">
+                        <input type="password" name="confirm_password" id="confirm_password" class="password-field" required placeholder="Confirm your password">
+                        <i class="fas fa-eye toggle-password" data-target="confirm_password"></i>
+                        <i class="fas fa-lock"></i>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn">

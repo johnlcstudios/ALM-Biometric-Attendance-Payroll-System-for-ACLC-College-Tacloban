@@ -172,6 +172,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <script>
         const USER_ROLE = "<?php echo htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>";
     </script>
+    <script src="js/password-toggle.js"></script>
     <script src="js/script.js"></script>
     <script src="js/context-menu.js?v=1.0"></script>
 </body>
