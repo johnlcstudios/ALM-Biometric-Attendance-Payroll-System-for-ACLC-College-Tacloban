@@ -134,12 +134,6 @@ body {
     color: rgba(255,255,255,0.7);
 }
 
-.input-wrapper i.toggle-password {
-    right: 45px;
-    cursor: pointer;
-    pointer-events: auto;
-}
-
 /* LOGIN BUTTON (macOS style gradient) */
 .login-btn {
     width: 100%;

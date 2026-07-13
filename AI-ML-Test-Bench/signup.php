@@ -324,6 +324,7 @@ if (isset($_SESSION['user_id'])) {
         };
     </script>
 
+<script src="js/script.js"></script>
 <!-- Custom Context Menu -->
 <script src="js/context-menu.js?v=1.0"></script>
 
