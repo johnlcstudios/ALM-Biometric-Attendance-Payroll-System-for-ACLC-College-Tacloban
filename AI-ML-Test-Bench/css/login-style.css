@@ -74,7 +74,7 @@ body {
     background: transparent;
     border: none;
     color: white;
-    padding: 10px 35px 10px 5px; /* Adjusted padding */
+    padding: 10px 35px 10px 30px; /* Left padding for icons, right for toggle */
     outline: none;
     font-size: 1rem;
 }
@@ -85,11 +85,25 @@ body {
 
 .input-wrapper i {
     position: absolute;
-    right: 5px;
     top: 50%;
     transform: translateY(-50%);
     color: #666;
     font-size: 0.9rem;
+}
+
+.input-wrapper i:not(.toggle-password) {
+    left: 5px;
+}
+
+.input-wrapper i.toggle-password {
+    right: 10px;
+    cursor: pointer;
+    z-index: 5;
+    transition: color 0.2s;
+}
+
+.input-wrapper i.toggle-password:hover {
+    color: #6e00ff;
 }
 
 .login-btn {

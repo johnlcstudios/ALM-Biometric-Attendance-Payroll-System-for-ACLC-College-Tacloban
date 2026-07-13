@@ -96,7 +96,7 @@ if (isset($_SESSION['user_id'])) {
 
         .input-wrapper input {
             width: 100%;
-            padding: 12px 40px 12px 15px;
+            padding: 12px 40px 12px 40px;
 
             border-radius: 25px;
 
@@ -116,10 +116,19 @@ if (isset($_SESSION['user_id'])) {
 
         .input-wrapper i {
             position: absolute;
-            right: 15px;
             top: 50%;
             transform: translateY(-50%);
             color: #999;
+        }
+
+        .input-wrapper i:not(.toggle-password) {
+            left: 15px;
+        }
+
+        .input-wrapper i.toggle-password {
+            right: 15px;
+            cursor: pointer;
+            z-index: 5;
         }
 
         /* BUTTON */
@@ -242,6 +251,7 @@ if (isset($_SESSION['user_id'])) {
     <script src="js/password-toggle.js"></script>
 
     <script>
+        initPasswordToggles();
         // Auto-generate company code suggestion
         document.getElementById('company_name').addEventListener('input', function() {
             const companyName = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
