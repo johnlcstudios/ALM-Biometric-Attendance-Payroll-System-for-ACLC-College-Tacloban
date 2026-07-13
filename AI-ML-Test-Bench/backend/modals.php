@@ -364,14 +364,14 @@
                 <div class="form-group">
                     <label>Current Password</label>
                     <div class="input-wrapper">
-                        <input type="password" id="oldPass" class="password-field" required>
+                        <input type="password" id="oldPass" required>
                         <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>New Password</label>
                     <div class="input-wrapper">
-                        <input type="password" id="newPass" class="password-field" required oninput="checkPasswordStrength()">
+                        <input type="password" id="newPass" required oninput="checkPasswordStrength()">
                         <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
                     </div>
                     <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
@@ -385,7 +385,7 @@
                 <div class="form-group">
                     <label>Confirm New Password</label>
                     <div class="input-wrapper">
-                        <input type="password" id="confirmPass" class="password-field" required>
+                        <input type="password" id="confirmPass" required>
                         <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
                     </div>
                 </div>

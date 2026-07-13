@@ -174,6 +174,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .form-group {
             margin-bottom: 20px;
         }
+
+        .input-wrapper {
+            position: relative;
+        }
         
         label {
             display: block;
@@ -190,6 +194,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.3s;
+        }
+
+        .input-wrapper input {
+            padding-right: 40px;
+        }
+
+        .input-wrapper .toggle-password {
+            right: 12px;
+            color: #666;
         }
         
         input:focus {
@@ -446,13 +459,19 @@ window.addEventListener('load', function() {
                 
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" required placeholder="Create a strong password">
+                    <div class="input-wrapper">
+                        <input type="password" name="password" id="password" required placeholder="Create a strong password">
+                        <i class="fas fa-eye toggle-password" data-target="password"></i>
+                    </div>
                     <p class="password-hint">Must be at least 8 characters with uppercase, lowercase, and numbers</p>
                 </div>
                 
                 <div class="form-group">
                     <label>Confirm Password</label>
-                    <input type="password" name="confirm_password" required placeholder="Confirm your password">
+                    <div class="input-wrapper">
+                        <input type="password" name="confirm_password" id="confirm_password" required placeholder="Confirm your password">
+                        <i class="fas fa-eye toggle-password" data-target="confirm_password"></i>
+                    </div>
                 </div>
                 
                 <button type="submit" class="btn">
@@ -461,5 +480,6 @@ window.addEventListener('load', function() {
             </form>
         <?php endif; ?>
     </div>
+    <script src="js/password-toggle.js"></script>
 </body>
 </html>

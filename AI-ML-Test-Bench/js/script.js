@@ -58,6 +58,36 @@ function validateRequired(value) {
     return value && typeof value === 'string' && value.trim() !== '';
 }
 
+function initPasswordToggles() {
+    const toggles = document.querySelectorAll('.toggle-password');
+    toggles.forEach(toggle => {
+        // Accessibility
+        toggle.setAttribute('role', 'button');
+        toggle.setAttribute('tabindex', '0');
+        if (!toggle.hasAttribute('aria-label')) {
+            toggle.setAttribute('aria-label', 'Toggle password visibility');
+        }
+
+        const toggleVisibility = () => {
+            const input = toggle.parentElement.querySelector('input');
+            if (input) {
+                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                toggle.classList.toggle('fa-eye');
+                toggle.classList.toggle('fa-eye-slash');
+            }
+        };
+
+        toggle.addEventListener('click', toggleVisibility);
+        toggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleVisibility();
+            }
+        });
+    });
+}
+
 function validateGovernmentID(id, type) {
     if (!id || id.trim() === '') return true; // Optional
     // Basic format validation for Philippine government IDs
