@@ -383,8 +383,8 @@ body {
 
             <div class="form-group">
                 <div class="input-wrapper">
-                    <input type="password" name="password" id="password" placeholder="Password" required>
-                    <i class="fas fa-eye toggle-password" id="togglePassword" aria-label="Toggle password visibility" role="button" tabindex="0"></i>
+                    <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                    <i class="fas fa-eye toggle-password" data-target="password"></i>
                     <i class="fas fa-lock"></i>
                 </div>
             </div>
@@ -582,11 +582,9 @@ window.addEventListener('load', function() {
 });
 </script>
 
-<script src="js/script.js"></script>
-<script>
-// Toggle Password Visibility
-initPasswordToggles();
+<script src="js/password-toggle.js"></script>
 
+<script>
 document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
 
