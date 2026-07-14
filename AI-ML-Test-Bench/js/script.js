@@ -144,6 +144,30 @@ function showToast(message, type = 'info') {
 }
 
 /**
+ * Copies the value of an input element to the clipboard.
+ * @param {string} elementId - The ID of the input element to copy from.
+ */
+function copyToClipboard(elementId) {
+    const input = document.getElementById(elementId);
+    if (!input) return;
+
+    // Use modern clipboard API
+    navigator.clipboard.writeText(input.value).then(() => {
+        showToast('Company code copied to clipboard!', 'success');
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        // Fallback for older browsers if needed, but modern API is preferred
+        input.select();
+        try {
+            document.execCommand('copy');
+            showToast('Company code copied to clipboard!', 'success');
+        } catch (err) {
+            showToast('Failed to copy company code.', 'error');
+        }
+    });
+}
+
+/**
  * Initializes password visibility toggles across the application.
  * Requires an icon with .toggle-password and a sibling input inside .input-wrapper.
  */

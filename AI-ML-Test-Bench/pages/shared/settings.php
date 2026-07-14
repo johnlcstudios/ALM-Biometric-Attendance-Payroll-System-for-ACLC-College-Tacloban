@@ -135,8 +135,12 @@ if (!$company) {
                     <strong>Company Code</strong>
                     <p class="small text-muted">Unique identifier for your company.</p>
                 </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex: 1;">
+                    <input type="text" id="company-code-input" value="<?php echo htmlspecialchars($company['company_code'], ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color); margin: 0;">
+                    <button type="button" class="btn-icon" onclick="copyToClipboard('company-code-input')" aria-label="Copy Company Code" title="Copy Company Code">
+                        <i class="fas fa-copy"></i>
+                    </button>
                 </div>
-                <input type="text" value="<?php echo htmlspecialchars($company['company_code'], ENT_QUOTES, 'UTF-8'); ?>" class="form-control-large-gray" readonly style="font-weight: 700; color: var(--primary-color);">
             </div>
             <div class="settings-card">
             <h3>Backup & Security</h3>
