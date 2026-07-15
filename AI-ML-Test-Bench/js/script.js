@@ -58,33 +58,30 @@ function validateRequired(value) {
     return value && typeof value === 'string' && value.trim() !== '';
 }
 
-function initPasswordToggles() {
-    const toggles = document.querySelectorAll('.toggle-password');
-    toggles.forEach(toggle => {
-        // Accessibility
-        toggle.setAttribute('role', 'button');
-        toggle.setAttribute('tabindex', '0');
-        if (!toggle.hasAttribute('aria-label')) {
-            toggle.setAttribute('aria-label', 'Toggle password visibility');
+/**
+ * Copies the text content or value of an element to the clipboard.
+ * Supports both input/textarea and regular text elements.
+ * @param {string} elementId - The ID of the element to copy from.
+ */
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    let textToCopy = '';
+    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+        textToCopy = element.value;
+    } else {
+        textToCopy = element.textContent;
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        if (typeof showToast === 'function') {
+            showToast('Copied to clipboard!', 'success');
+        } else {
+            alert('Copied to clipboard!');
         }
-
-        const toggleVisibility = () => {
-            const input = toggle.parentElement.querySelector('input');
-            if (input) {
-                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-                input.setAttribute('type', type);
-                toggle.classList.toggle('fa-eye');
-                toggle.classList.toggle('fa-eye-slash');
-            }
-        };
-
-        toggle.addEventListener('click', toggleVisibility);
-        toggle.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                toggleVisibility();
-            }
-        });
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
     });
 }
 

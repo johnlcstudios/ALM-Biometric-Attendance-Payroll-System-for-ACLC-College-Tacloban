@@ -173,7 +173,12 @@ $position = $emp['position'] ?? 'Staff';
                         <div class="stat-icon blue"><i class="fas fa-building"></i></div>
                         <div class="stat-info">
                             <h3>Company Code</h3>
-                            <div class="stat-value" style="font-size: 1.2rem;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div class="stat-value" style="font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                                <span id="ess-company-code"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <button class="btn-icon" onclick="copyToClipboard('ess-company-code')" title="Copy Company Code" style="width: 24px; height: 24px; font-size: 0.8rem; border: none; background: rgba(30, 1, 120, 0.1); color: var(--primary-color);">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -195,13 +200,6 @@ $position = $emp['position'] ?? 'Staff';
                         <div class="stat-info">
                             <h3>Leave Balance</h3>
                             <div class="stat-value" id="stat-leave-balance">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon red"><i class="fas fa-clock"></i></div>
-                        <div class="stat-info">
-                            <h3>Late Minutes</h3>
-                            <div class="stat-value" id="stat-late">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -1130,7 +1128,7 @@ $position = $emp['position'] ?? 'Staff';
                     <td><span class="status-tag status-approved">${p.status}</span></td>
                     <td>${new Date(p.created_at).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn-icon" onclick="exportPayslip(${p.id})"><i class="fas fa-file-pdf"></i></button>
+                        <button class="btn-icon" onclick="exportPayslip(${p.id})" title="Download Payslip"><i class="fas fa-file-pdf"></i></button>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="7" class="text-center">No payroll records</td></tr>';
