@@ -678,11 +678,17 @@ $position = $emp['position'] ?? 'Staff';
                             <form onsubmit="changePassword(event)">
                                 <div class="form-group-custom">
                                     <label>Current Password</label>
-                                    <input type="password" name="current_password" class="form-control-large-gray" required>
+                                    <div class="input-wrapper">
+                                        <input type="password" name="current_password" class="form-control-large-gray password-field" required>
+                                        <i class="fas fa-eye toggle-password" aria-label="Show password" role="button" tabindex="0"></i>
+                                    </div>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>New Password</label>
-                                    <input type="password" name="new_password" class="form-control-large-gray" required oninput="checkPasswordStrength()">
+                                    <div class="input-wrapper">
+                                        <input type="password" name="new_password" class="form-control-large-gray password-field" required oninput="checkPasswordStrength()">
+                                        <i class="fas fa-eye toggle-password" aria-label="Show password" role="button" tabindex="0"></i>
+                                    </div>
                                     <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
                                         <div id="req-length" class="req-item">At least 8 characters</div>
                                         <div id="req-uppercase" class="req-item">One uppercase letter</div>
@@ -693,7 +699,10 @@ $position = $emp['position'] ?? 'Staff';
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Confirm New Password</label>
-                                    <input type="password" name="confirm_password" class="form-control-large-gray" required>
+                                    <div class="input-wrapper">
+                                        <input type="password" name="confirm_password" class="form-control-large-gray password-field" required>
+                                        <i class="fas fa-eye toggle-password" aria-label="Show password" role="button" tabindex="0"></i>
+                                    </div>
                                 </div>
                                 <button type="submit" class="btn btn-dark-purple">Update Password</button>
                             </form>
