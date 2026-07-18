@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername')" aria-label="Copy username to clipboard" title="Copy Username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword')" aria-label="Copy password to clipboard" title="Copy Password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
