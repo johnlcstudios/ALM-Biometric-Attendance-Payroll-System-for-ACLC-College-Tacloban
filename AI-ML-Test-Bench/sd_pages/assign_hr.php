@@ -31,7 +31,7 @@ require_once 'header.php';
                         <td>2026-03-15</td>
                         <td><span class="badge bg-success">Active</span></td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" onclick="removeHRRole(1)">
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeHRRole(1)" aria-label="Remove HR Role from Jane Doe" title="Remove HR Role from Jane Doe">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
@@ -75,9 +75,19 @@ require_once 'header.php';
 
         <div id="generatedCredentials" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <p style="margin-bottom: 10px;"><strong>Generated Credentials:</strong></p>
-            <p style="margin: 5px 0;"><strong>Username:</strong> <code id="genUsername"></code></p>
-            <p style="margin: 5px 0;"><strong>Password:</strong> <code id="genPassword"></code></p>
-            <p style="margin: 10px 0; color: #dc3545; font-size: 0.9rem;"><i class="fas fa-warning me-2"></i>Save these credentials securely!</p>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span><strong>Username:</strong> <code id="genUsername"></code></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="copyValue('genUsername')" aria-label="Copy username to clipboard" title="Copy Username">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <span><strong>Password:</strong> <code id="genPassword"></code></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="copyValue('genPassword')" aria-label="Copy password to clipboard" title="Copy Password">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </div>
+            <p style="margin: 10px 0 0; color: #dc3545; font-size: 0.9rem;"><i class="fas fa-triangle-exclamation me-2"></i>Save these credentials securely!</p>
         </div>
 
         <div style="display: flex; gap: 10px;">
@@ -125,6 +135,31 @@ function removeHRRole(id) {
     if (confirm('Are you sure you want to remove HR role from this user?')) {
         location.reload();
     }
+}
+
+function copyValue(elementId) {
+    const codeElem = document.getElementById(elementId);
+    const text = codeElem.innerText || codeElem.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const button = document.querySelector(`[onclick="copyValue('${elementId}')"]`);
+        if (button) {
+            const icon = button.querySelector('i');
+            const originalClass = icon.className;
+            const originalTitle = button.getAttribute('title') || 'Copy';
+
+            icon.className = 'fas fa-check text-success';
+            button.setAttribute('title', 'Copied!');
+            button.setAttribute('aria-label', 'Copied!');
+
+            setTimeout(() => {
+                icon.className = originalClass;
+                button.setAttribute('title', originalTitle);
+                button.setAttribute('aria-label', originalTitle === 'Copy Username' ? 'Copy username to clipboard' : 'Copy password to clipboard');
+            }, 1500);
+        }
+    }).catch(err => {
+        console.error('Failed to copy text: ', err);
+    });
 }
 </script>
 
