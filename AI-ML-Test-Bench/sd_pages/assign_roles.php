@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username to clipboard" title="Copy username to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password to clipboard" title="Copy password to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,18 +420,65 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
+        // Copy to clipboard with robust fallback for non-secure contexts/headless browsers
+        function copyToClipboard(elementId, buttonEl) {
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
+
+            function showSuccess() {
+                if (buttonEl) {
+                    if (buttonEl.getAttribute('data-copied') === 'true') return;
+                    buttonEl.setAttribute('data-copied', 'true');
+
+                    const originalIcon = buttonEl.innerHTML;
+                    const originalTitle = buttonEl.getAttribute('title');
+                    const originalAria = buttonEl.getAttribute('aria-label');
+
+                    buttonEl.innerHTML = '<i class="fas fa-check text-success"></i>';
+                    buttonEl.setAttribute('title', 'Copied!');
+                    buttonEl.setAttribute('aria-label', 'Copied!');
+
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalIcon;
+                        buttonEl.setAttribute('title', originalTitle);
+                        buttonEl.setAttribute('aria-label', originalAria);
+                        buttonEl.removeAttribute('data-copied');
+                    }, 1500);
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(showSuccess).catch(() => {
+                    fallbackCopyToClipboard(text, showSuccess);
                 });
-            });
+            } else {
+                fallbackCopyToClipboard(text, showSuccess);
+            }
+        }
+
+        function fallbackCopyToClipboard(text, callback) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                if (callback) callback();
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
         }
         
         // Handle form submission
