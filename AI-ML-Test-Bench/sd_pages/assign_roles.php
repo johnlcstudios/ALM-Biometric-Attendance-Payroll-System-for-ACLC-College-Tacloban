@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button class="copy-btn" type="button" aria-label="Copy Username" title="Copy to clipboard" onclick="copyToClipboard('genUsername')">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button class="copy-btn" type="button" aria-label="Copy Password" title="Copy to clipboard" onclick="copyToClipboard('genPassword')">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,18 +420,68 @@ try {
             return password;
         }
         
-        // Copy to clipboard
+        // Copy to clipboard with micro-UX enhancement and resilient fallback
         function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-            });
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.textContent;
+
+            // Find the associated copy button
+            const btn = el.nextElementSibling || el.parentElement.querySelector('.copy-btn');
+            if (btn) {
+                // Prevent overlapping/duplicate clicks
+                if (btn.getAttribute('data-copied') === 'true') return;
+                btn.setAttribute('data-copied', 'true');
+            }
+
+            // Fallback clipboard function for maximum compatibility in non-secure or headless/restricted environments
+            function fallbackCopyTextToClipboard(textToCopy) {
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                // Avoid scrolling to bottom
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showFeedback();
+                } catch (err) {
+                    console.error('Fallback copy failed', err);
+                }
+                document.body.removeChild(textArea);
+            }
+
+            function showFeedback() {
+                if (btn) {
+                    const originalHTML = btn.innerHTML;
+                    const originalTitle = btn.getAttribute('title') || 'Copy to clipboard';
+                    const originalAria = btn.getAttribute('aria-label') || 'Copy';
+
+                    // Update visual state and accessibility attributes
+                    btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                    btn.setAttribute('title', 'Copied!');
+                    btn.setAttribute('aria-label', 'Copied!');
+
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.setAttribute('title', originalTitle);
+                        btn.setAttribute('aria-label', originalAria);
+                        btn.removeAttribute('data-copied');
+                    }, 1500);
+                }
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(showFeedback)
+                    .catch(() => fallbackCopyTextToClipboard(text));
+            } else {
+                fallbackCopyTextToClipboard(text);
+            }
         }
         
         // Handle form submission
