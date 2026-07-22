@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" aria-label="Copy Username" title="Copy Username" onclick="copyToClipboard('genUsername', this)">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" aria-label="Copy Password" title="Copy Password" onclick="copyToClipboard('genPassword', this)">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,10 +420,34 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
+        // Copy to clipboard with micro-UX feedback and resilient fallback
+        function copyToClipboard(elementId, btn) {
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
+
+            // Prevent double click/overlapping timeouts
+            if (btn && btn.getAttribute('data-copied') === 'true') {
+                return;
+            }
+
+            const performVisualFeedback = () => {
+                if (btn) {
+                    btn.setAttribute('data-copied', 'true');
+                    const originalIcon = btn.innerHTML;
+                    const originalTitle = btn.getAttribute('title');
+                    const originalAria = btn.getAttribute('aria-label');
+
+                    btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                    btn.setAttribute('title', 'Copied!');
+                    btn.setAttribute('aria-label', 'Copied!');
+
+                    setTimeout(() => {
+                        btn.innerHTML = originalIcon;
+                        if (originalTitle) btn.setAttribute('title', originalTitle);
+                        if (originalAria) btn.setAttribute('aria-label', originalAria);
+                        btn.removeAttribute('data-copied');
+                    }, 1500);
+                }
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Copied!',
@@ -431,7 +455,39 @@ try {
                     timer: 1500,
                     showConfirmButton: false
                 });
-            });
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(performVisualFeedback).catch(err => {
+                    fallbackCopyToClipboard(text, performVisualFeedback);
+                });
+            } else {
+                fallbackCopyToClipboard(text, performVisualFeedback);
+            }
+        }
+
+        // Resilient fallback for non-secure contexts/headless testing
+        function fallbackCopyToClipboard(text, callback) {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                // Avoid scrolling to bottom
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.position = "fixed";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                if (successful) {
+                    callback();
+                } else {
+                    Swal.fire('Error', 'Failed to copy text', 'error');
+                }
+            } catch (err) {
+                Swal.fire('Error', 'Failed to copy text: ' + err.message, 'error');
+            }
         }
         
         // Handle form submission
