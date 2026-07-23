@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy to clipboard" title="Copy to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy to clipboard" title="Copy to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -421,15 +421,62 @@ try {
         }
         
         // Copy to clipboard
-        function copyToClipboard(elementId) {
+        function copyToClipboard(elementId, btn) {
+            if (btn && btn.dataset.copied === 'true') return;
+
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
+
+            // Fallback for clipboard copying in non-secure/headless contexts
+            const performCopy = () => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                        return Promise.resolve();
+                    } catch (err) {
+                        document.body.removeChild(textarea);
+                        return Promise.reject(err);
+                    }
+                }
+            };
+
+            performCopy().then(() => {
+                if (btn) {
+                    btn.dataset.copied = 'true';
+                    const icon = btn.querySelector('i');
+                    const originalIconClass = icon ? icon.className : 'fas fa-copy';
+
+                    if (icon) {
+                        icon.className = 'fas fa-check';
+                    }
+                    btn.style.backgroundColor = '#27ae60';
+                    btn.setAttribute('aria-label', 'Copied!');
+                    btn.setAttribute('title', 'Copied!');
+
+                    setTimeout(() => {
+                        if (icon) {
+                            icon.className = originalIconClass;
+                        }
+                        btn.style.backgroundColor = '';
+                        btn.setAttribute('aria-label', 'Copy to clipboard');
+                        btn.setAttribute('title', 'Copy to clipboard');
+                        delete btn.dataset.copied;
+                    }, 1500);
+                }
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
                 Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
+                    icon: 'error',
+                    title: 'Copy Failed',
+                    text: 'Please select and copy manually.'
                 });
             });
         }
