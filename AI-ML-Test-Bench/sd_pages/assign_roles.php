@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" id="copyUsernameBtn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username to clipboard" title="Copy username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" id="copyPasswordBtn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password to clipboard" title="Copy password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,18 +420,73 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
+        // Fallback copy implementation
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";  // Avoid scrolling to bottom
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Copy to clipboard with visual and screen reader feedback
+        function copyToClipboard(elementId, btnEl) {
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
+
+            // Prevent spamming clicks and overlapping timers
+            if (btnEl.getAttribute('data-copied') === 'true') {
+                return;
+            }
+
+            const performCopy = () => {
+                // Visual & screen-reader feedback swap
+                btnEl.setAttribute('data-copied', 'true');
+                const originalIconHtml = btnEl.innerHTML;
+                const originalAriaLabel = btnEl.getAttribute('aria-label') || '';
+                const originalTitle = btnEl.getAttribute('title') || '';
+
+                btnEl.innerHTML = '<i class="fas fa-check text-success" style="color: #27ae60;"></i>';
+                btnEl.setAttribute('aria-label', 'Copied!');
+                btnEl.setAttribute('title', 'Copied!');
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                setTimeout(() => {
+                    btnEl.innerHTML = originalIconHtml;
+                    btnEl.setAttribute('aria-label', originalAriaLabel);
+                    btnEl.setAttribute('title', originalTitle);
+                    btnEl.removeAttribute('data-copied');
+                }, 1500);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    performCopy();
+                }).catch((err) => {
+                    fallbackCopyToClipboard(text);
+                    performCopy();
                 });
-            });
+            } else {
+                fallbackCopyToClipboard(text);
+                performCopy();
+            }
         }
         
         // Handle form submission
