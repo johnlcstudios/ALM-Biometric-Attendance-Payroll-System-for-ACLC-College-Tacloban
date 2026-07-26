@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy Username" title="Copy Username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy Password" title="Copy Password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -421,16 +421,72 @@ try {
         }
         
         // Copy to clipboard
-        function copyToClipboard(elementId) {
+        function copyToClipboard(elementId, btn) {
+            if (!btn || btn.getAttribute('data-copied') === 'true') {
+                return;
+            }
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+
+            // Resilient fallback for navigator.clipboard
+            const performCopy = (txt) => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(txt);
+                } else {
+                    return new Promise((resolve, reject) => {
+                        try {
+                            const textarea = document.createElement('textarea');
+                            textarea.value = txt;
+                            textarea.style.position = 'fixed';
+                            textarea.style.top = '0';
+                            textarea.style.left = '0';
+                            textarea.style.opacity = '0';
+                            document.body.appendChild(textarea);
+                            textarea.select();
+                            const success = document.execCommand('copy');
+                            document.body.removeChild(textarea);
+                            if (success) {
+                                resolve();
+                            } else {
+                                reject(new Error('execCommand copy failed'));
+                            }
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+                }
+            };
+
+            performCopy(text).then(() => {
+                btn.setAttribute('data-copied', 'true');
+                const originalHtml = btn.innerHTML;
+                const originalLabel = btn.getAttribute('aria-label') || '';
+                const originalTitle = btn.getAttribute('title') || '';
+
+                btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                btn.setAttribute('aria-label', 'Copied!');
+                btn.setAttribute('title', 'Copied!');
+
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.setAttribute('aria-label', originalLabel);
+                    btn.setAttribute('title', originalTitle);
+                    btn.removeAttribute('data-copied');
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                if (typeof Swal !== "undefined") {
+                    Swal.fire('Error', 'Failed to copy to clipboard', 'error');
+                }
             });
         }
         
