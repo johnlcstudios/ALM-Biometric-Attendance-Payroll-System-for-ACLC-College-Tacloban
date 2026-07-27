@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username to clipboard" title="Copy username to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password to clipboard" title="Copy password to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -421,16 +421,93 @@ try {
         }
         
         // Copy to clipboard
-        function copyToClipboard(elementId) {
+        function copyToClipboard(elementId, btn) {
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+
+            // Guard against rapid duplicate clicks
+            if (btn && btn.getAttribute('data-copied') === 'true') return;
+
+            // Fallback for non-secure / headless browser contexts
+            const performCopy = () => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    return new Promise((resolve, reject) => {
+                        try {
+                            const textarea = document.createElement('textarea');
+                            textarea.value = text;
+                            textarea.style.position = 'fixed';
+                            textarea.style.opacity = '0';
+                            document.body.appendChild(textarea);
+                            textarea.select();
+                            const successful = document.execCommand('copy');
+                            document.body.removeChild(textarea);
+                            if (successful) {
+                                resolve();
+                            } else {
+                                reject(new Error('Copy command failed'));
+                            }
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+                }
+            };
+
+            performCopy().then(() => {
+                if (btn) {
+                    // Set copied state
+                    btn.setAttribute('data-copied', 'true');
+                    btn.setAttribute('aria-label', 'Copied!');
+                    btn.setAttribute('title', 'Copied!');
+
+                    // Backup original icon and color
+                    const icon = btn.querySelector('i');
+                    const originalClass = icon ? icon.className : 'fas fa-copy';
+
+                    if (icon) {
+                        icon.className = 'fas fa-check text-success';
+                    }
+
+                    // Show a sweetalert only if Swal is defined and not blocked
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Copied!',
+                            text: 'Copied to clipboard',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+
+                    // Restore state after 1.5s
+                    setTimeout(() => {
+                        btn.removeAttribute('data-copied');
+                        const defaultLabel = elementId.includes('Password') ? 'Copy password to clipboard' : 'Copy username to clipboard';
+                        btn.setAttribute('aria-label', defaultLabel);
+                        btn.setAttribute('title', defaultLabel);
+                        if (icon) {
+                            icon.className = originalClass;
+                        }
+                    }, 1500);
+                } else if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            }).catch(err => {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Failed to copy to clipboard',
+                        confirmButtonColor: '#1e0178'
+                    });
+                }
             });
         }
         
