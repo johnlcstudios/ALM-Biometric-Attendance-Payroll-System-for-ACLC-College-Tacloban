@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username" title="Copy username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password" title="Copy password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,17 +420,87 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+        // Copy to clipboard with micro-UX enhancement, guard condition, and fallback
+        function copyToClipboard(elementId, btn) {
+            // Guard condition: prevent overlapping animation timers from rapid clicks
+            if (btn && btn.getAttribute('data-copied') === 'true') {
+                return;
+            }
+
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            const text = element.textContent || element.value || '';
+
+            // Fallback copy using temporary textarea
+            const fallbackCopy = () => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    return Promise.resolve();
+                } catch (err) {
+                    document.body.removeChild(textarea);
+                    return Promise.reject(err);
+                }
+            };
+
+            // Resilient method for copy to clipboard
+            const performCopy = () => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text).catch(() => {
+                        // If writeText fails (e.g. permission denied in headless), try fallback
+                        return fallbackCopy();
+                    });
+                } else {
+                    return fallbackCopy();
+                }
+            };
+
+            performCopy().then(() => {
+                // UI feedback
+                if (btn) {
+                    btn.setAttribute('data-copied', 'true');
+                    const originalAriaLabel = btn.getAttribute('aria-label') || 'Copy';
+                    const originalTitle = btn.getAttribute('title') || 'Copy';
+
+                    btn.setAttribute('aria-label', 'Copied!');
+                    btn.setAttribute('title', 'Copied!');
+
+                    const icon = btn.querySelector('i');
+                    let originalClass = '';
+                    if (icon) {
+                        originalClass = icon.className;
+                        icon.className = 'fas fa-check text-success';
+                    }
+
+                    setTimeout(() => {
+                        btn.removeAttribute('data-copied');
+                        btn.setAttribute('aria-label', originalAriaLabel);
+                        btn.setAttribute('title', originalTitle);
+                        if (icon) {
+                            icon.className = originalClass;
+                        }
+                    }, 1500);
+                }
+
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            }).catch(() => {
+                if (typeof Swal !== "undefined") {
+                    Swal.fire('Error', 'Failed to copy to clipboard', 'error');
+                }
             });
         }
         
