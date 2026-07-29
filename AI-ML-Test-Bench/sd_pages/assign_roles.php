@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username" title="Copy username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password" title="Copy password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,18 +420,73 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
+        // Copy to clipboard with micro-UX feedback and a resilient fallback
+        function copyToClipboard(elementId, btn) {
+            if (!btn || btn.getAttribute('data-copied') === 'true') return;
+
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
+
+            function showSuccessFeedback() {
+                btn.setAttribute('data-copied', 'true');
+                const icon = btn.querySelector('i');
+                const origClass = icon ? icon.className : '';
+                const origAriaLabel = btn.getAttribute('aria-label') || '';
+                const origTitle = btn.getAttribute('title') || '';
+
+                if (icon) icon.className = 'fas fa-check text-success';
+                btn.setAttribute('aria-label', 'Copied!');
+                btn.setAttribute('title', 'Copied!');
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+
+                setTimeout(() => {
+                    if (icon) icon.className = origClass;
+                    btn.setAttribute('aria-label', origAriaLabel);
+                    btn.setAttribute('title', origTitle);
+                    btn.removeAttribute('data-copied');
+                }, 1500);
+            }
+
+            function fallbackCopyToClipboard(val) {
+                const textArea = document.createElement('textarea');
+                textArea.value = val;
+                textArea.style.position = 'fixed';
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showSuccessFeedback();
+                    } else {
+                        console.error('Fallback copy was unsuccessful');
+                    }
+                } catch (err) {
+                    console.error('Fallback copy failed', err);
+                }
+                document.body.removeChild(textArea);
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showSuccessFeedback();
+                }).catch(() => {
+                    fallbackCopyToClipboard(text);
                 });
-            });
+            } else {
+                fallbackCopyToClipboard(text);
+            }
         }
         
         // Handle form submission
