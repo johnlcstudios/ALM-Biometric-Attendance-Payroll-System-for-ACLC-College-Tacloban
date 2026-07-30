@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard(this, 'genUsername')" aria-label="Copy username to clipboard" title="Copy username">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard(this, 'genPassword')" aria-label="Copy password to clipboard" title="Copy password">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -421,9 +421,37 @@ try {
         }
         
         // Copy to clipboard
-        function copyToClipboard(elementId) {
+        function copyToClipboard(btn, elementId) {
+            if (btn.getAttribute('data-copied') === 'true') return;
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
+
+            const doCopyFallback = () => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showFeedback();
+                } catch (err) {
+                    Swal.fire('Error', 'Failed to copy to clipboard', 'error');
+                } finally {
+                    document.body.removeChild(textarea);
+                }
+            };
+
+            const showFeedback = () => {
+                btn.setAttribute('data-copied', 'true');
+                const origIcon = btn.innerHTML;
+                const origLabel = btn.getAttribute('aria-label');
+                const origTitle = btn.getAttribute('title');
+
+                btn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                btn.setAttribute('aria-label', 'Copied!');
+                btn.setAttribute('title', 'Copied!');
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Copied!',
@@ -431,7 +459,20 @@ try {
                     timer: 1500,
                     showConfirmButton: false
                 });
-            });
+
+                setTimeout(() => {
+                    btn.innerHTML = origIcon;
+                    btn.setAttribute('aria-label', origLabel);
+                    btn.setAttribute('title', origTitle);
+                    btn.removeAttribute('data-copied');
+                }, 1500);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(showFeedback).catch(doCopyFallback);
+            } else {
+                doCopyFallback();
+            }
         }
         
         // Handle form submission
