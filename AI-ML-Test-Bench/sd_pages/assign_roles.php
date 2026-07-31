@@ -321,7 +321,7 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy Username to clipboard" title="Copy to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -330,7 +330,7 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy Password to clipboard" title="Copy to clipboard">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -420,18 +420,75 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
+        // Copy to clipboard with resilient fallback and micro-UX feedback
+        function copyToClipboard(elementId, btn) {
+            if (btn && btn.getAttribute('data-copied') === 'true') return;
+
             const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-            });
+
+            const triggerFeedback = () => {
+                if (!btn) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+
+                btn.setAttribute('data-copied', 'true');
+                const originalAriaLabel = btn.getAttribute('aria-label') || 'Copy to clipboard';
+                const originalTitle = btn.getAttribute('title') || 'Copy to clipboard';
+
+                const icon = btn.querySelector('i');
+                let originalClass = '';
+                if (icon) {
+                    originalClass = icon.className;
+                    icon.className = 'fas fa-check text-success';
+                }
+
+                btn.setAttribute('aria-label', 'Copied!');
+                btn.setAttribute('title', 'Copied!');
+
+                setTimeout(() => {
+                    btn.removeAttribute('data-copied');
+                    if (icon) {
+                        icon.className = originalClass;
+                    }
+                    btn.setAttribute('aria-label', originalAriaLabel);
+                    btn.setAttribute('title', originalTitle);
+                }, 1500);
+            };
+
+            const fallbackCopy = (val) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = val;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    triggerFeedback();
+                } catch (err) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops...',
+                        text: 'Failed to copy credentials automatically. Please copy them manually.'
+                    });
+                }
+                document.body.removeChild(textarea);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(triggerFeedback)
+                    .catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
         }
         
         // Handle form submission
