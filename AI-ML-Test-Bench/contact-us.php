@@ -84,7 +84,19 @@ body {
     transition: all 0.3s ease;
 }
 
-.info-item:hover {
+a.info-item {
+    text-decoration: none;
+    color: inherit;
+}
+
+a.info-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(10px);
+}
+
+a.info-item:focus-visible {
+    outline: 2px solid #4facfe;
+    outline-offset: 4px;
     background: rgba(255, 255, 255, 0.15);
     transform: translateX(10px);
 }
@@ -147,31 +159,31 @@ body {
     </div>
 
     <div class="contact-info">
-        <div class="info-item">
+        <a class="info-item" href="mailto:support@alm.edu" aria-label="Email Support: support@alm.edu">
             <i class="fas fa-envelope"></i>
             <div class="info-content">
                 <h3>Email Support</h3>
                 <p>support@alm.edu</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a class="info-item" href="tel:0531234567" aria-label="Phone Support: (053) 123-4567">
             <i class="fas fa-phone-alt"></i>
             <div class="info-content">
                 <h3>Phone</h3>
                 <p>(053) 123-4567</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a class="info-item" href="https://maps.google.com/?q=ACLC+College+Tacloban" target="_blank" rel="noopener noreferrer" aria-label="Address: ACLC College Tacloban Campus, opens in Google Maps">
             <i class="fas fa-map-marker-alt"></i>
             <div class="info-content">
                 <h3>Address</h3>
-                <p>ACLC College Tacloban Campus</p>
+                <p>ACLC College Tacloban Campus <i class="fas fa-external-link-alt" style="font-size: 0.75rem; margin-left: 4px; opacity: 0.7; vertical-align: middle;"></i></p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <div class="info-item" style="cursor: default;">
             <i class="fas fa-clock"></i>
             <div class="info-content">
                 <h3>Working Hours</h3>
