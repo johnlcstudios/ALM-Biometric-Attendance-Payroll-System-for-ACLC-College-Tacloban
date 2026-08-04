@@ -270,6 +270,12 @@ if (session_status() === PHP_SESSION_NONE) {
             background-color: var(--primary-blue);
         }
 
+        .team-btn:focus-visible {
+            outline: 3px solid var(--accent-blue);
+            outline-offset: -3px;
+            background-color: #1a1a1a;
+        }
+
         .team-detail {
             display: none;
             opacity: 0;
@@ -284,6 +290,12 @@ if (session_status() === PHP_SESSION_NONE) {
             align-items: start;
             opacity: 1;
             transform: translateY(0) scale(1);
+        }
+
+        .team-detail:focus-visible {
+            outline: 2px dashed rgba(255, 255, 255, 0.3);
+            outline-offset: 10px;
+            border-radius: 8px;
         }
 
         @media (max-width: 768px) {
@@ -354,6 +366,14 @@ if (session_status() === PHP_SESSION_NONE) {
             padding-left: 16px;
         }
 
+        .member-list li a:focus-visible {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: 2px;
+            background: rgba(79, 172, 254, 0.1);
+            color: var(--accent-blue);
+            padding-left: 16px;
+        }
+
         .member-list li a::after {
             content: '\f061';
             font-family: 'Font Awesome 6 Free';
@@ -407,6 +427,16 @@ if (session_status() === PHP_SESSION_NONE) {
             background-color: var(--primary-blue);
             color: var(--pure-white);
             border: 1px solid var(--pure-white);
+        }
+
+        .btn-premium:focus-visible {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            background-color: var(--primary-blue);
+            color: var(--pure-white);
+            border: 1px solid var(--pure-white);
+            outline: 3px solid var(--accent-blue);
+            outline-offset: 4px;
         }
 
         /* Animations */
@@ -493,18 +523,18 @@ if (session_status() === PHP_SESSION_NONE) {
                 <div class="team-container">
                     <img src="assets/BSIT3A.JPG" alt="BSIT 3A Team" class="main-team-image">
 
-                    <div class="team-controls">
-                        <button class="team-btn active" onclick="toggleTeam('team-leads', this)">01. Leads</button>
-                        <button class="team-btn" onclick="toggleTeam('admin-team', this)">02. Admin</button>
-                        <button class="team-btn" onclick="toggleTeam('frontend-team', this)">03. Front</button>
-                        <button class="team-btn" onclick="toggleTeam('backend-team', this)">04. Back</button>
-                        <button class="team-btn" onclick="toggleTeam('biometrics-team', this)">05. Bio</button>
-                        <button class="team-btn" onclick="toggleTeam('testing-team', this)">06. QA</button>
+                    <div class="team-controls" role="tablist" aria-label="Developer Teams">
+                        <button class="team-btn active" id="tab-team-leads" role="tab" aria-selected="true" aria-controls="team-leads" tabindex="0" onclick="toggleTeam('team-leads', this)">01. Leads</button>
+                        <button class="team-btn" id="tab-admin-team" role="tab" aria-selected="false" aria-controls="admin-team" tabindex="-1" onclick="toggleTeam('admin-team', this)">02. Admin</button>
+                        <button class="team-btn" id="tab-frontend-team" role="tab" aria-selected="false" aria-controls="frontend-team" tabindex="-1" onclick="toggleTeam('frontend-team', this)">03. Front</button>
+                        <button class="team-btn" id="tab-backend-team" role="tab" aria-selected="false" aria-controls="backend-team" tabindex="-1" onclick="toggleTeam('backend-team', this)">04. Back</button>
+                        <button class="team-btn" id="tab-biometrics-team" role="tab" aria-selected="false" aria-controls="biometrics-team" tabindex="-1" onclick="toggleTeam('biometrics-team', this)">05. Bio</button>
+                        <button class="team-btn" id="tab-testing-team" role="tab" aria-selected="false" aria-controls="testing-team" tabindex="-1" onclick="toggleTeam('testing-team', this)">06. QA</button>
                     </div>
 
                     <div id="team-details">
                         <!-- Team Leads -->
-                        <div id="team-leads" class="team-detail active">
+                        <div id="team-leads" class="team-detail active" role="tabpanel" aria-labelledby="tab-team-leads" tabindex="0">
                             <img src="assets/Team Leads.JPG" alt="Team Leads">
                             <div class="member-info">
                                 <h3>Team Leads</h3>
@@ -529,7 +559,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Admin Team -->
-                        <div id="admin-team" class="team-detail">
+                        <div id="admin-team" class="team-detail" role="tabpanel" aria-labelledby="tab-admin-team" tabindex="0">
                             <img src="assets/Administrative.JPG" alt="Administrative Team">
                             <div class="member-info">
                                 <h3>Admin & Accounting</h3>
@@ -546,7 +576,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Frontend Team -->
-                        <div id="frontend-team" class="team-detail">
+                        <div id="frontend-team" class="team-detail" role="tabpanel" aria-labelledby="tab-frontend-team" tabindex="0">
                             <img src="assets/Frontend.JPG" alt="Frontend Team">
                             <div class="member-info">
                                 <h3>Frontend Dev</h3>
@@ -569,7 +599,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Backend Team -->
-                        <div id="backend-team" class="team-detail">
+                        <div id="backend-team" class="team-detail" role="tabpanel" aria-labelledby="tab-backend-team" tabindex="0">
                             <img src="assets/Backend.JPG" alt="Backend Team">
                             <div class="member-info">
                                 <h3>Backend Dev</h3>
@@ -589,7 +619,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Biometrics Team -->
-                        <div id="biometrics-team" class="team-detail">
+                        <div id="biometrics-team" class="team-detail" role="tabpanel" aria-labelledby="tab-biometrics-team" tabindex="0">
                             <img src="assets/Biometrics.JPG" alt="Biometrics Team">
                             <div class="member-info">
                                 <h3>Biometrics</h3>
@@ -612,7 +642,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Testing Team -->
-                        <div id="testing-team" class="team-detail">
+                        <div id="testing-team" class="team-detail" role="tabpanel" aria-labelledby="tab-testing-team" tabindex="0">
                             <img src="assets/TESTING.JPG" alt="Testing Team">
                             <div class="member-info">
                                 <h3>QA & Testing</h3>
@@ -644,9 +674,15 @@ if (session_status() === PHP_SESSION_NONE) {
             const details = document.querySelectorAll('.team-detail');
             const buttons = document.querySelectorAll('.team-btn');
 
-            // Toggle buttons
-            buttons.forEach(b => b.classList.remove('active'));
+            // Toggle buttons and update ARIA attributes
+            buttons.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+                b.setAttribute('tabindex', '-1');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            btn.setAttribute('tabindex', '0');
 
             // Find current active
             const currentActive = document.querySelector('.team-detail.active');
@@ -673,6 +709,32 @@ if (session_status() === PHP_SESSION_NONE) {
                 target.style.transform = 'translateY(0) scale(1)';
             }
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabList = document.querySelector('.team-controls');
+            const tabs = document.querySelectorAll('.team-btn');
+
+            if (tabList) {
+                tabList.addEventListener('keydown', e => {
+                    let index = Array.from(tabs).indexOf(document.activeElement);
+                    if (index < 0) return;
+
+                    let nextIndex = index;
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                        nextIndex = (index + 1) % tabs.length;
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                        nextIndex = (index - 1 + tabs.length) % tabs.length;
+                        e.preventDefault();
+                    }
+
+                    if (nextIndex !== index) {
+                        tabs[nextIndex].focus();
+                        tabs[nextIndex].click();
+                    }
+                });
+            }
+        });
 
         // Particle generation
         (function() {
