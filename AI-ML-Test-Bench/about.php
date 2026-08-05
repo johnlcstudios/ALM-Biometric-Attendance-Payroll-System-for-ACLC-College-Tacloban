@@ -270,6 +270,25 @@ if (session_status() === PHP_SESSION_NONE) {
             background-color: var(--primary-blue);
         }
 
+        .team-btn:focus-visible {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: -2px;
+            background-color: #1a1a1a;
+        }
+
+        .btn-premium:focus-visible {
+            outline: 2px solid var(--pure-white);
+            outline-offset: 4px;
+        }
+
+        .member-list li a:focus-visible {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: 2px;
+            background: rgba(79, 172, 254, 0.15);
+            color: var(--accent-blue);
+            padding-left: 16px;
+        }
+
         .team-detail {
             display: none;
             opacity: 0;
@@ -493,18 +512,18 @@ if (session_status() === PHP_SESSION_NONE) {
                 <div class="team-container">
                     <img src="assets/BSIT3A.JPG" alt="BSIT 3A Team" class="main-team-image">
 
-                    <div class="team-controls">
-                        <button class="team-btn active" onclick="toggleTeam('team-leads', this)">01. Leads</button>
-                        <button class="team-btn" onclick="toggleTeam('admin-team', this)">02. Admin</button>
-                        <button class="team-btn" onclick="toggleTeam('frontend-team', this)">03. Front</button>
-                        <button class="team-btn" onclick="toggleTeam('backend-team', this)">04. Back</button>
-                        <button class="team-btn" onclick="toggleTeam('biometrics-team', this)">05. Bio</button>
-                        <button class="team-btn" onclick="toggleTeam('testing-team', this)">06. QA</button>
+                    <div class="team-controls" role="tablist" aria-label="Developer Teams">
+                        <button id="tab-team-leads" class="team-btn active" role="tab" aria-selected="true" aria-controls="team-leads" tabindex="0" onclick="toggleTeam('team-leads', this)">01. Leads</button>
+                        <button id="tab-admin-team" class="team-btn" role="tab" aria-selected="false" aria-controls="admin-team" tabindex="-1" onclick="toggleTeam('admin-team', this)">02. Admin</button>
+                        <button id="tab-frontend-team" class="team-btn" role="tab" aria-selected="false" aria-controls="frontend-team" tabindex="-1" onclick="toggleTeam('frontend-team', this)">03. Front</button>
+                        <button id="tab-backend-team" class="team-btn" role="tab" aria-selected="false" aria-controls="backend-team" tabindex="-1" onclick="toggleTeam('backend-team', this)">04. Back</button>
+                        <button id="tab-biometrics-team" class="team-btn" role="tab" aria-selected="false" aria-controls="biometrics-team" tabindex="-1" onclick="toggleTeam('biometrics-team', this)">05. Bio</button>
+                        <button id="tab-testing-team" class="team-btn" role="tab" aria-selected="false" aria-controls="testing-team" tabindex="-1" onclick="toggleTeam('testing-team', this)">06. QA</button>
                     </div>
 
                     <div id="team-details">
                         <!-- Team Leads -->
-                        <div id="team-leads" class="team-detail active">
+                        <div id="team-leads" class="team-detail active" role="tabpanel" aria-labelledby="tab-team-leads">
                             <img src="assets/Team Leads.JPG" alt="Team Leads">
                             <div class="member-info">
                                 <h3>Team Leads</h3>
@@ -529,7 +548,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Admin Team -->
-                        <div id="admin-team" class="team-detail">
+                        <div id="admin-team" class="team-detail" role="tabpanel" aria-labelledby="tab-admin-team">
                             <img src="assets/Administrative.JPG" alt="Administrative Team">
                             <div class="member-info">
                                 <h3>Admin & Accounting</h3>
@@ -546,7 +565,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Frontend Team -->
-                        <div id="frontend-team" class="team-detail">
+                        <div id="frontend-team" class="team-detail" role="tabpanel" aria-labelledby="tab-frontend-team">
                             <img src="assets/Frontend.JPG" alt="Frontend Team">
                             <div class="member-info">
                                 <h3>Frontend Dev</h3>
@@ -569,7 +588,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Backend Team -->
-                        <div id="backend-team" class="team-detail">
+                        <div id="backend-team" class="team-detail" role="tabpanel" aria-labelledby="tab-backend-team">
                             <img src="assets/Backend.JPG" alt="Backend Team">
                             <div class="member-info">
                                 <h3>Backend Dev</h3>
@@ -589,7 +608,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Biometrics Team -->
-                        <div id="biometrics-team" class="team-detail">
+                        <div id="biometrics-team" class="team-detail" role="tabpanel" aria-labelledby="tab-biometrics-team">
                             <img src="assets/Biometrics.JPG" alt="Biometrics Team">
                             <div class="member-info">
                                 <h3>Biometrics</h3>
@@ -612,7 +631,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Testing Team -->
-                        <div id="testing-team" class="team-detail">
+                        <div id="testing-team" class="team-detail" role="tabpanel" aria-labelledby="tab-testing-team">
                             <img src="assets/TESTING.JPG" alt="Testing Team">
                             <div class="member-info">
                                 <h3>QA & Testing</h3>
@@ -644,9 +663,15 @@ if (session_status() === PHP_SESSION_NONE) {
             const details = document.querySelectorAll('.team-detail');
             const buttons = document.querySelectorAll('.team-btn');
 
-            // Toggle buttons
-            buttons.forEach(b => b.classList.remove('active'));
+            // Toggle buttons and update WAI-ARIA states
+            buttons.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+                b.setAttribute('tabindex', '-1');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            btn.setAttribute('tabindex', '0');
 
             // Find current active
             const currentActive = document.querySelector('.team-detail.active');
@@ -673,6 +698,36 @@ if (session_status() === PHP_SESSION_NONE) {
                 target.style.transform = 'translateY(0) scale(1)';
             }
         }
+
+        // Add WAI-ARIA Keyboard Navigation for Tab List
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabList = document.querySelector('.team-controls');
+            if (tabList) {
+                const tabs = tabList.querySelectorAll('.team-btn');
+                tabList.addEventListener('keydown', (e) => {
+                    const activeElement = document.activeElement;
+                    let index = Array.from(tabs).indexOf(activeElement);
+                    if (index === -1) return;
+
+                    let nextIndex;
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                        nextIndex = (index + 1) % tabs.length;
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                        nextIndex = (index - 1 + tabs.length) % tabs.length;
+                    } else if (e.key === 'Home') {
+                        nextIndex = 0;
+                    } else if (e.key === 'End') {
+                        nextIndex = tabs.length - 1;
+                    } else {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    tabs[nextIndex].focus();
+                    tabs[nextIndex].click();
+                });
+            }
+        });
 
         // Particle generation
         (function() {
