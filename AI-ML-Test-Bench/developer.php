@@ -343,6 +343,12 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
             transform: translateX(-5px);
         }
 
+        .back-btn:focus-visible {
+            outline: 2px solid var(--team-color);
+            outline-offset: 4px;
+            color: var(--pure-white);
+        }
+
         .back-btn i {
             font-size: 1.1rem;
             transition: transform 0.3s ease;
