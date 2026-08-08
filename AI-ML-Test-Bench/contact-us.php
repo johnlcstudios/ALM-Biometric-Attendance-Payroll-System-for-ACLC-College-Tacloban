@@ -82,10 +82,19 @@ body {
     border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
 }
 
 .info-item:hover {
     background: rgba(255, 255, 255, 0.15);
+    transform: translateX(10px);
+}
+
+.info-item:focus-visible {
+    outline: 3px solid #4facfe;
+    outline-offset: 2px;
+    background: rgba(255, 255, 255, 0.25);
     transform: translateX(10px);
 }
 
@@ -125,6 +134,11 @@ body {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
+.back-btn:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -147,29 +161,29 @@ body {
     </div>
 
     <div class="contact-info">
-        <div class="info-item">
+        <a href="mailto:support@alm.edu" class="info-item" aria-label="Send email to support@alm.edu">
             <i class="fas fa-envelope"></i>
             <div class="info-content">
                 <h3>Email Support</h3>
                 <p>support@alm.edu</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a href="tel:(053)123-4567" class="info-item" aria-label="Call support at (053) 123-4567">
             <i class="fas fa-phone-alt"></i>
             <div class="info-content">
                 <h3>Phone</h3>
                 <p>(053) 123-4567</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a href="https://maps.google.com/?q=ACLC+College+Tacloban+Campus" target="_blank" rel="noopener noreferrer" class="info-item" aria-label="View ACLC College Tacloban Campus on Google Maps">
             <i class="fas fa-map-marker-alt"></i>
             <div class="info-content">
                 <h3>Address</h3>
                 <p>ACLC College Tacloban Campus</p>
             </div>
-        </div>
+        </a>
 
         <div class="info-item">
             <i class="fas fa-clock"></i>
