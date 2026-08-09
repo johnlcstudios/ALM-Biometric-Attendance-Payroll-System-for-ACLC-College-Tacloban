@@ -352,6 +352,13 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
             transform: translateX(-4px);
         }
 
+        .back-btn:focus-visible {
+            outline: 2px dashed var(--pure-white);
+            outline-offset: 6px;
+            border-radius: 4px;
+            color: var(--pure-white);
+        }
+
         /* Profile Card */
         .profile-card {
             background-color: var(--deep-black);
