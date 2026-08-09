@@ -82,10 +82,19 @@ body {
     border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
+    text-decoration: none;
+    color: #fff;
 }
 
 .info-item:hover {
     background: rgba(255, 255, 255, 0.15);
+    transform: translateX(10px);
+}
+
+.info-item:focus-visible {
+    outline: 3px dashed #4facfe;
+    outline-offset: 4px;
+    background: rgba(255, 255, 255, 0.2);
     transform: translateX(10px);
 }
 
@@ -125,6 +134,12 @@ body {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
+.back-btn:focus-visible {
+    outline: 3px dashed #4facfe;
+    outline-offset: 4px;
+    transform: translateY(-2px);
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -147,31 +162,31 @@ body {
     </div>
 
     <div class="contact-info">
-        <div class="info-item">
+        <a href="mailto:support@alm.edu" class="info-item" aria-label="Email Support: support@alm.edu">
             <i class="fas fa-envelope"></i>
             <div class="info-content">
                 <h3>Email Support</h3>
                 <p>support@alm.edu</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a href="tel:0531234567" class="info-item" aria-label="Call Phone Support: (053) 123-4567">
             <i class="fas fa-phone-alt"></i>
             <div class="info-content">
                 <h3>Phone</h3>
                 <p>(053) 123-4567</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <a href="https://maps.google.com/?q=ACLC+College+Tacloban+Campus" target="_blank" rel="noopener noreferrer" class="info-item" aria-label="View ACLC College Tacloban Campus on Google Maps (opens in a new tab)">
             <i class="fas fa-map-marker-alt"></i>
             <div class="info-content">
                 <h3>Address</h3>
                 <p>ACLC College Tacloban Campus</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
+        <div class="info-item" aria-label="Working Hours: Monday to Friday, 8:00 AM to 5:00 PM">
             <i class="fas fa-clock"></i>
             <div class="info-content">
                 <h3>Working Hours</h3>
