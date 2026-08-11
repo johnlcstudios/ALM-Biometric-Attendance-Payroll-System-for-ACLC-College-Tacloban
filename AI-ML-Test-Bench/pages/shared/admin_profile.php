@@ -107,11 +107,17 @@ $emp = $stmt_emp->fetch();
                 <form onsubmit="changePassword(event)">
                     <div class="form-group-custom">
                         <label>Current Password</label>
-                        <input type="password" id="oldPass" required>
+                        <div class="profile-password-wrapper">
+                            <input type="password" id="oldPass" required>
+                            <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
+                        </div>
                     </div>
-                    <div class="form-group-custom">
+                    <div class="form-group-custom" style="margin-top: 15px;">
                         <label>New Password</label>
-                        <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                        <div class="profile-password-wrapper">
+                            <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                            <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
+                        </div>
                         <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
                             <div id="req-length" class="req-item">At least 8 characters</div>
                             <div id="req-uppercase" class="req-item">One uppercase letter</div>
@@ -120,11 +126,14 @@ $emp = $stmt_emp->fetch();
                             <div id="req-special" class="req-item">One special character</div>
                         </div>
                     </div>
-                    <div class="form-group-custom">
+                    <div class="form-group-custom" style="margin-top: 15px;">
                         <label>Confirm New Password</label>
-                        <input type="password" id="confirmPass" required>
+                        <div class="profile-password-wrapper">
+                            <input type="password" id="confirmPass" required>
+                            <i class="fas fa-eye toggle-password" aria-label="Toggle password visibility"></i>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary">Update Password</button>
+                    <button type="submit" class="btn btn-primary" style="margin-top: 15px;">Update Password</button>
                 </form>
             </div>
 

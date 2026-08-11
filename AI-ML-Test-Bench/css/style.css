@@ -3126,3 +3126,17 @@ body.dark-mode .context-menu-divider {
     outline-offset: 2px;
     border-radius: 4px;
 }
+
+/* Custom Profile Password Toggle Wrapper */
+.profile-password-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.profile-password-wrapper input {
+    padding-right: 40px !important;
+}
+
+.profile-password-wrapper .toggle-password {
+    right: 15px !important;
+}
