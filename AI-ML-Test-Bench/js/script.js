@@ -1074,13 +1074,13 @@ function renderEmployeeTable() {
 
         const buttonsHtml = isResigned ? `
             <div class="action-buttons">
-                <button class="btn-icon text-success" title="Reinstate Employee" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
-                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-icon text-success" title="Reinstate Employee" aria-label="Reinstate Employee" onclick="reinstateEmployee('${emp.id}', '${escapeHTML(emp.full_name)}')"><i class="fas fa-user-check"></i></button>
+                <button type="button" class="btn-icon" title="Edit Employee" aria-label="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
             </div>
         ` : `
             <div class="action-buttons">
-                <button class="btn-icon" title="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                <button class="btn-icon text-danger" title="Delete Employee" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                <button type="button" class="btn-icon" title="Edit Employee" aria-label="Edit Employee" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
+                <button type="button" class="btn-icon text-danger" title="Delete Employee" aria-label="Delete Employee" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
             </div>
         `;
 
@@ -1937,8 +1937,8 @@ function renderAttendanceTable() {
             <td class="schedule-cell">${scheduleHtml}</td>
             <td>
                 <div class="table-actions">
-                    <button class="btn-icon" title="View Details" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye"></i></button>
-                    <button class="btn-icon delete" title="Flag/Report" onclick="flagAttendance(${log.id})"><i class="fas fa-flag"></i></button>
+                    <button type="button" class="btn-icon" title="View Details" aria-label="View Details" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye"></i></button>
+                    <button type="button" class="btn-icon delete" title="Flag/Report" aria-label="Flag/Report" onclick="flagAttendance(${log.id})"><i class="fas fa-flag"></i></button>
                 </div>
             </td>
         </tr>
@@ -3536,7 +3536,7 @@ async function renderAllowances() {
                 <td>${c.type}</td>
                 <td>Yes</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Allowance Category" aria-label="Delete Allowance Category" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
@@ -3581,7 +3581,7 @@ async function renderAllowances() {
                 <td>₱${parseFloat(b.override_amount || b.category_rate).toLocaleString()}</td>
                 <td>${b.effective_date || '---'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteEmployeeAllowance(${b.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Remove Employee Allowance" aria-label="Remove Employee Allowance" onclick="deleteEmployeeAllowance(${b.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No assignments found.</td></tr>';
@@ -3756,7 +3756,7 @@ async function renderDeductions() {
                 <td>${c.type}</td>
                 <td>${c.is_active ? 'Yes' : 'No'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Deduction Category" aria-label="Delete Deduction Category" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
@@ -3801,7 +3801,7 @@ async function renderDeductions() {
                 <td>₱${parseFloat(b.override_amount || b.category_rate).toLocaleString()}</td>
                 <td>${b.effective_date || '---'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteEmployeeDeduction(${b.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Remove Employee Deduction" aria-label="Remove Employee Deduction" onclick="deleteEmployeeDeduction(${b.id})"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No assignments found.</td></tr>';
