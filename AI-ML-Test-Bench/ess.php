@@ -960,7 +960,7 @@ $position = $emp['position'] ?? 'Staff';
                             <td>${s.description}</td>
                             <td>${s.units}</td>
                             <td>
-                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSubjectLoad(${s.id})"><i class="fas fa-trash"></i></button>
+                                <button type="button" class="btn-icon" style="color:var(--danger-color)" title="Delete Subject Load" aria-label="Delete Subject Load" onclick="deleteSubjectLoad(${s.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                             </td>
                         </tr>
                     `).join('') || '<tr><td colspan="4" class="text-center">No subjects found</td></tr>';
@@ -986,7 +986,7 @@ $position = $emp['position'] ?? 'Staff';
                             <td>${s.time_end}</td>
                             <td>${s.room || 'N/A'}</td>
                             <td>
-                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash"></i></button>
+                                <button type="button" class="btn-icon" style="color:var(--danger-color)" title="Delete Schedule" aria-label="Delete Schedule" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                             </td>
                         </tr>
                     `).join('') || '<tr><td colspan="6" class="text-center">No schedules found</td></tr>';
@@ -1130,7 +1130,7 @@ $position = $emp['position'] ?? 'Staff';
                     <td><span class="status-tag status-approved">${p.status}</span></td>
                     <td>${new Date(p.created_at).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn-icon" onclick="exportPayslip(${p.id})"><i class="fas fa-file-pdf"></i></button>
+                        <button type="button" class="btn-icon" title="Export Payslip PDF" aria-label="Export Payslip PDF" onclick="exportPayslip(${p.id})"><i class="fas fa-file-pdf" aria-hidden="true"></i></button>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="7" class="text-center">No payroll records</td></tr>';
@@ -1155,8 +1155,8 @@ $position = $emp['position'] ?? 'Staff';
                     <td>₱${parseFloat(l.amount).toLocaleString()}</td>
                     <td><span class="status-tag status-${l.status.toLowerCase()}">${l.status}</span></td>
                     <td style="white-space: nowrap;">
-                        <button class="btn-icon" title="Print Request" onclick="printHistoricalCashAdvance(${l.id})">
-                            <i class="fas fa-print"></i>
+                        <button type="button" class="btn-icon" title="Print Request" aria-label="Print Cash Advance Request" onclick="printHistoricalCashAdvance(${l.id})">
+                            <i class="fas fa-print" aria-hidden="true"></i>
                         </button>
                     </td>
                 </tr>
