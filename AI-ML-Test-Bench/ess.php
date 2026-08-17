@@ -678,11 +678,17 @@ $position = $emp['position'] ?? 'Staff';
                             <form onsubmit="changePassword(event)">
                                 <div class="form-group-custom">
                                     <label>Current Password</label>
-                                    <input type="password" name="current_password" class="form-control-large-gray" required>
+                                    <div class="input-wrapper">
+                                        <input type="password" id="current_password" name="current_password" class="form-control-large-gray password-field" required>
+                                        <i class="fas fa-eye toggle-password" data-target="current_password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                                    </div>
                                 </div>
                                 <div class="form-group-custom">
                                     <label>New Password</label>
-                                    <input type="password" name="new_password" class="form-control-large-gray" required oninput="checkPasswordStrength()">
+                                    <div class="input-wrapper">
+                                        <input type="password" id="new_password" name="new_password" class="form-control-large-gray password-field" required oninput="checkPasswordStrength()">
+                                        <i class="fas fa-eye toggle-password" data-target="new_password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                                    </div>
                                     <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
                                         <div id="req-length" class="req-item">At least 8 characters</div>
                                         <div id="req-uppercase" class="req-item">One uppercase letter</div>
@@ -693,7 +699,10 @@ $position = $emp['position'] ?? 'Staff';
                                 </div>
                                 <div class="form-group-custom">
                                     <label>Confirm New Password</label>
-                                    <input type="password" name="confirm_password" class="form-control-large-gray" required>
+                                    <div class="input-wrapper">
+                                        <input type="password" id="confirm_password" name="confirm_password" class="form-control-large-gray password-field" required>
+                                        <i class="fas fa-eye toggle-password" data-target="confirm_password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                                    </div>
                                 </div>
                                 <button type="submit" class="btn btn-dark-purple">Update Password</button>
                             </form>
@@ -1564,6 +1573,7 @@ $position = $emp['position'] ?? 'Staff';
 
         loadESS();
     </script>
+    <script src="js/password-toggle.js"></script>
     <script src="js/context-menu.js?v=1.0"></script>
 </body>
 </html>
