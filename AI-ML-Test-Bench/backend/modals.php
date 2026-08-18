@@ -5,7 +5,7 @@
     <div class="modal-content large-modal">
         <div class="modal-header bg-dark-purple text-white">
             <h3 id="employeeModalTitle">Add New Employee</h3>
-            <span class="close" onclick="closeModal('employeeModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('employeeModal')">&times;</button>
         </div>
         <div class="modal-body">
             <!-- Step Indicator -->
@@ -216,7 +216,7 @@
     <div class="modal-content large">
         <div class="modal-header">
             <h3>Employee Payslip</h3>
-            <span class="close" onclick="closeModal('payslipModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('payslipModal')">&times;</button>
         </div>
         <div class="modal-body" id="payslipContent">
             <!-- Dynamic Content -->
@@ -234,7 +234,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Add Subject Load</h3>
-            <span class="close" onclick="closeModal('addLoadModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('addLoadModal')">&times;</button>
         </div>
         <div class="modal-body">
             <form id="subjectLoadForm">
@@ -279,7 +279,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3 id="subjectModalTitle">Create New Subject</h3>
-            <span class="close" onclick="closeModal('subjectModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('subjectModal')">&times;</button>
         </div>
         <div class="modal-body">
             <form id="masterSubjectForm">
@@ -316,7 +316,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Process New Payroll</h3>
-            <span class="close" onclick="closeModal('runPayrollModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('runPayrollModal')">&times;</button>
         </div>
         <div class="modal-body">
             <form id="runPayrollForm">
@@ -357,7 +357,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Change Admin Password</h3>
-            <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('passwordModal')">&times;</button>
         </div>
         <div class="modal-body">
             <form id="passwordForm">
@@ -412,7 +412,7 @@
     <div class="modal-content large">
         <div class="modal-header">
             <h3 id="viewLoadsTitle">Faculty Subject Loads</h3>
-            <span class="close" onclick="closeModal('viewLoadsModal')">&times;</span>
+            <button type="button" class="close" aria-label="Close modal" onclick="closeModal('viewLoadsModal')">&times;</button>
         </div>
         <div class="modal-body">
             <div class="table-container">
