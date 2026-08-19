@@ -428,61 +428,61 @@ $company_id = $_SESSION['company_id'] ?? 1;
                 <!-- Financial & Payroll Module -->
                 <div class="nav-section-title">Financial & Payroll</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('payroll-submenu')">
+                    <a class="nav-link" role="button" tabindex="0" aria-expanded="false" aria-controls="payroll-submenu" onclick="toggleSubmenu('payroll-submenu', this)" onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleSubmenu('payroll-submenu', this); }">
                         <i class="fas fa-wallet"></i> <span>Payroll Management</span>
                         <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
                     </a>
                     <div class="nav-submenu" id="payroll-submenu">
-                        <a class="nav-link" href="sd_pages/budget_actual.php">Budget vs Actual</a>
-                        <a class="nav-link" href="sd_pages/payroll_auth.php">Payroll Authorization</a>
-                        <a class="nav-link" href="sd_pages/loan_oversight.php">Cash Advance Oversight</a>
-                        <a class="nav-link" href="sd_pages/gov_compliance.php">Government Compliance</a>
+                        <a class="nav-link" href="budget_actual.php">Budget vs Actual</a>
+                        <a class="nav-link" href="payroll_auth.php">Payroll Authorization</a>
+                        <a class="nav-link" href="loan_oversight.php">Cash Advance Oversight</a>
+                        <a class="nav-link" href="gov_compliance.php">Government Compliance</a>
                     </div>
                 </li>
 
                 <!-- Institutional Oversight Module -->
                 <div class="nav-section-title">Institutional Oversight</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('oversight-submenu')">
+                    <a class="nav-link" role="button" tabindex="0" aria-expanded="false" aria-controls="oversight-submenu" onclick="toggleSubmenu('oversight-submenu', this)" onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleSubmenu('oversight-submenu', this); }">
                         <i class="fas fa-building"></i> <span>Institutional Management</span>
                         <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
                     </a>
                     <div class="nav-submenu" id="oversight-submenu">
-                        <a class="nav-link" href="sd_pages/executive_dashboard.php">Executive Dashboard</a>
-                        <a class="nav-link" href="sd_pages/workforce_analytics.php">Workforce Analytics</a>
-                        <a class="nav-link" href="sd_pages/institutional_attendance.php">Attendance Tracking</a>
-                        <a class="nav-link" href="sd_pages/faculty_load_audit.php">Faculty Load Audit</a>
-                        <a class="nav-link" href="sd_pages/assign_roles.php">HR Management</a>
+                        <a class="nav-link" href="executive_dashboard.php">Executive Dashboard</a>
+                        <a class="nav-link" href="workforce_analytics.php">Workforce Analytics</a>
+                        <a class="nav-link" href="institutional_attendance.php">Attendance Tracking</a>
+                        <a class="nav-link" href="faculty_load_audit.php">Faculty Load Audit</a>
+                        <a class="nav-link" href="assign_roles.php">HR Management</a>
                     </div>
                 </li>
 
                 <!-- Reports & Analytics Module -->
                 <div class="nav-section-title">Reports & Analytics</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('reports-submenu')">
+                    <a class="nav-link" role="button" tabindex="0" aria-expanded="false" aria-controls="reports-submenu" onclick="toggleSubmenu('reports-submenu', this)" onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleSubmenu('reports-submenu', this); }">
                         <i class="fas fa-file-chart-line"></i> <span>Reports & Analysis</span>
                         <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
                     </a>
                     <div class="nav-submenu" id="reports-submenu">
-                        <a class="nav-link" href="sd_pages/annual_report.php">Annual Report</a>
-                        <a class="nav-link" href="sd_pages/accreditation.php">Accreditation</a>
-                        <a class="nav-link" href="sd_pages/attrition.php">Attrition Analysis</a>
-                        <a class="nav-link" href="sd_pages/cost_analysis.php">Cost Analysis</a>
+                        <a class="nav-link" href="annual_report.php">Annual Report</a>
+                        <a class="nav-link" href="accreditation.php">Accreditation</a>
+                        <a class="nav-link" href="attrition.php">Attrition Analysis</a>
+                        <a class="nav-link" href="cost_analysis.php">Cost Analysis</a>
                     </div>
                 </li>
 
                 <!-- Security & Governance Module -->
                 <div class="nav-section-title">Security & Governance</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('security-submenu')">
+                    <a class="nav-link" role="button" tabindex="0" aria-expanded="false" aria-controls="security-submenu" onclick="toggleSubmenu('security-submenu', this)" onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleSubmenu('security-submenu', this); }">
                         <i class="fas fa-shield-alt"></i> <span>Security & Governance</span>
                         <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
                     </a>
                     <div class="nav-submenu" id="security-submenu">
-                        <a class="nav-link" href="sd_pages/access_control.php">Access Control</a>
-                        <a class="nav-link" href="sd_pages/audit_log.php">Audit Logs</a>
-                        <a class="nav-link" href="sd_pages/compliance.php">Compliance</a>
-                        <a class="nav-link" href="sd_pages/settings.php">Settings</a>
+                        <a class="nav-link" href="access_control.php">Access Control</a>
+                        <a class="nav-link" href="audit_log.php">Audit Logs</a>
+                        <a class="nav-link" href="compliance.php">Compliance</a>
+                        <a class="nav-link" href="settings.php">Settings</a>
                     </div>
                 </li>
             </div>
@@ -512,15 +512,3 @@ $company_id = $_SESSION['company_id'] ?? 1;
 
             <!-- Content Area -->
             <div class="content-area">
-
-<?php
-/**
- * Helper function to toggle submenu
- */
-function toggleSubmenu($id) {
-    echo "<script>
-        const submenu = document.getElementById('$id');
-        submenu.classList.toggle('show');
-    </script>";
-}
-?>

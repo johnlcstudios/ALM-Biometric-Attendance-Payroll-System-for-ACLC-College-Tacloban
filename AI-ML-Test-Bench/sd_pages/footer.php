@@ -14,20 +14,28 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         /**
-         * Toggle submenu visibility
+         * Toggle submenu visibility and update ARIA attributes
          */
-        function toggleSubmenu(id) {
+        function toggleSubmenu(id, trigger) {
             const submenu = document.getElementById(id);
+            if (!submenu) return;
+
             const isShow = submenu.classList.contains('show');
             
-            // Close all submenus
+            // Close all submenus and update trigger states
             document.querySelectorAll('.nav-submenu').forEach(menu => {
                 menu.classList.remove('show');
+            });
+            document.querySelectorAll('.sidebar-nav [aria-expanded]').forEach(btn => {
+                btn.setAttribute('aria-expanded', 'false');
             });
             
             // Open clicked submenu if it wasn't open
             if (!isShow) {
                 submenu.classList.add('show');
+                if (trigger) {
+                    trigger.setAttribute('aria-expanded', 'true');
+                }
             }
         }
 
