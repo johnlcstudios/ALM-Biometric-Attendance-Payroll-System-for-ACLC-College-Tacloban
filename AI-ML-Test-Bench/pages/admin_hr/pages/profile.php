@@ -124,12 +124,18 @@ if (!empty($profile_picture) && file_exists($profile_picture)) {
             <div id="profile-security" class="profile-tab-section" style="display: none;">
                 <form onsubmit="changePassword(event)">
                     <div class="form-group-custom">
-                        <label>Current Password</label>
-                        <input type="password" id="oldPass" required>
+                        <label for="oldPass">Current Password</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <input type="password" id="oldPass" required>
+                            <i class="fas fa-eye toggle-password" data-target="oldPass" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                     </div>
                     <div class="form-group-custom">
-                        <label>New Password</label>
-                        <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                        <label for="newPass">New Password</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                            <i class="fas fa-eye toggle-password" data-target="newPass" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                         <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
                             <div id="req-length" class="req-item">At least 8 characters</div>
                             <div id="req-uppercase" class="req-item">One uppercase letter</div>
@@ -139,8 +145,11 @@ if (!empty($profile_picture) && file_exists($profile_picture)) {
                         </div>
                     </div>
                     <div class="form-group-custom">
-                        <label>Confirm New Password</label>
-                        <input type="password" id="confirmPass" required>
+                        <label for="confirmPass">Confirm New Password</label>
+                        <div class="input-wrapper" style="position: relative;">
+                            <input type="password" id="confirmPass" required>
+                            <i class="fas fa-eye toggle-password" data-target="confirmPass" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Update Password</button>
                 </form>
@@ -700,6 +709,7 @@ function switchProfileTab(tab, btn) {
     document.getElementById('profile-' + tab).style.display = 'block';
     btn.classList.add('active');
     if (tab === 'loads') loadMySubjectLoads();
+    if (typeof window.initPasswordToggles === 'function') window.initPasswordToggles();
 }
 
 async function loadMySubjectLoads() {
@@ -905,3 +915,4 @@ async function deleteMySchedule(id) {
     }
 }
 </script>
+<script src="js/password-toggle.js"></script>
