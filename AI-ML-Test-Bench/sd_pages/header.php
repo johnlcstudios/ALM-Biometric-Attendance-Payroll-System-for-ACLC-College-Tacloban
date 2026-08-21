@@ -163,6 +163,20 @@ $company_id = $_SESSION['company_id'] ?? 1;
             transform: translateX(5px);
         }
 
+        .nav-link:focus-visible {
+            outline: 2px solid #ffffff;
+            outline-offset: -2px;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.3);
+        }
+
+        .nav-link .fa-chevron-right {
+            transition: transform 0.3s ease;
+        }
+
+        .nav-link[aria-expanded="true"] .fa-chevron-right {
+            transform: rotate(90deg);
+        }
+
         .nav-link.active {
             background-color: var(--secondary-color) !important;
             color: white !important;
@@ -428,9 +442,9 @@ $company_id = $_SESSION['company_id'] ?? 1;
                 <!-- Financial & Payroll Module -->
                 <div class="nav-section-title">Financial & Payroll</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('payroll-submenu')">
-                        <i class="fas fa-wallet"></i> <span>Payroll Management</span>
-                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
+                    <a class="nav-link" href="#" role="button" tabindex="0" aria-expanded="false" aria-controls="payroll-submenu" onclick="toggleSubmenu('payroll-submenu', this)" onkeydown="handleSubmenuKey(event, 'payroll-submenu', this)">
+                        <i class="fas fa-wallet" aria-hidden="true"></i> <span>Payroll Management</span>
+                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;" aria-hidden="true"></i>
                     </a>
                     <div class="nav-submenu" id="payroll-submenu">
                         <a class="nav-link" href="sd_pages/budget_actual.php">Budget vs Actual</a>
@@ -443,9 +457,9 @@ $company_id = $_SESSION['company_id'] ?? 1;
                 <!-- Institutional Oversight Module -->
                 <div class="nav-section-title">Institutional Oversight</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('oversight-submenu')">
-                        <i class="fas fa-building"></i> <span>Institutional Management</span>
-                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
+                    <a class="nav-link" href="#" role="button" tabindex="0" aria-expanded="false" aria-controls="oversight-submenu" onclick="toggleSubmenu('oversight-submenu', this)" onkeydown="handleSubmenuKey(event, 'oversight-submenu', this)">
+                        <i class="fas fa-building" aria-hidden="true"></i> <span>Institutional Management</span>
+                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;" aria-hidden="true"></i>
                     </a>
                     <div class="nav-submenu" id="oversight-submenu">
                         <a class="nav-link" href="sd_pages/executive_dashboard.php">Executive Dashboard</a>
@@ -459,9 +473,9 @@ $company_id = $_SESSION['company_id'] ?? 1;
                 <!-- Reports & Analytics Module -->
                 <div class="nav-section-title">Reports & Analytics</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('reports-submenu')">
-                        <i class="fas fa-file-chart-line"></i> <span>Reports & Analysis</span>
-                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
+                    <a class="nav-link" href="#" role="button" tabindex="0" aria-expanded="false" aria-controls="reports-submenu" onclick="toggleSubmenu('reports-submenu', this)" onkeydown="handleSubmenuKey(event, 'reports-submenu', this)">
+                        <i class="fas fa-file-chart-line" aria-hidden="true"></i> <span>Reports & Analysis</span>
+                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;" aria-hidden="true"></i>
                     </a>
                     <div class="nav-submenu" id="reports-submenu">
                         <a class="nav-link" href="sd_pages/annual_report.php">Annual Report</a>
@@ -474,9 +488,9 @@ $company_id = $_SESSION['company_id'] ?? 1;
                 <!-- Security & Governance Module -->
                 <div class="nav-section-title">Security & Governance</div>
                 <li class="nav-item">
-                    <a class="nav-link" onclick="toggleSubmenu('security-submenu')">
-                        <i class="fas fa-shield-alt"></i> <span>Security & Governance</span>
-                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;"></i>
+                    <a class="nav-link" href="#" role="button" tabindex="0" aria-expanded="false" aria-controls="security-submenu" onclick="toggleSubmenu('security-submenu', this)" onkeydown="handleSubmenuKey(event, 'security-submenu', this)">
+                        <i class="fas fa-shield-alt" aria-hidden="true"></i> <span>Security & Governance</span>
+                        <i class="fas fa-chevron-right ms-auto" style="font-size: 0.7rem;" aria-hidden="true"></i>
                     </a>
                     <div class="nav-submenu" id="security-submenu">
                         <a class="nav-link" href="sd_pages/access_control.php">Access Control</a>
@@ -513,14 +527,3 @@ $company_id = $_SESSION['company_id'] ?? 1;
             <!-- Content Area -->
             <div class="content-area">
 
-<?php
-/**
- * Helper function to toggle submenu
- */
-function toggleSubmenu($id) {
-    echo "<script>
-        const submenu = document.getElementById('$id');
-        submenu.classList.toggle('show');
-    </script>";
-}
-?>

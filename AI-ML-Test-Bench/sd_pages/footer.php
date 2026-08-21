@@ -14,20 +14,41 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         /**
-         * Toggle submenu visibility
+         * Toggle submenu visibility and ARIA expanded state
          */
-        function toggleSubmenu(id) {
+        function toggleSubmenu(id, triggerElement) {
+            if (typeof event !== 'undefined' && event) {
+                event.preventDefault();
+            }
             const submenu = document.getElementById(id);
+            if (!submenu) return;
+
             const isShow = submenu.classList.contains('show');
-            
-            // Close all submenus
+
+            // Close all submenus and reset aria-expanded
             document.querySelectorAll('.nav-submenu').forEach(menu => {
                 menu.classList.remove('show');
             });
-            
+            document.querySelectorAll('.sidebar .nav-link[aria-controls]').forEach(link => {
+                link.setAttribute('aria-expanded', 'false');
+            });
+
             // Open clicked submenu if it wasn't open
             if (!isShow) {
                 submenu.classList.add('show');
+                if (triggerElement) {
+                    triggerElement.setAttribute('aria-expanded', 'true');
+                }
+            }
+        }
+
+        /**
+         * Handle keyboard navigation for submenu triggers
+         */
+        function handleSubmenuKey(event, id, triggerElement) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleSubmenu(id, triggerElement);
             }
         }
 
@@ -103,13 +124,22 @@
         }
 
         /**
-         * Set active navigation link
+         * Set active navigation link & expand parent submenu if active
          */
         document.addEventListener('DOMContentLoaded', function() {
             const currentPage = window.location.pathname.split('/').pop();
             document.querySelectorAll('.nav-link').forEach(link => {
-                if (link.getAttribute('href') === currentPage) {
+                const href = link.getAttribute('href');
+                if (href && href !== '#' && href.endsWith(currentPage)) {
                     link.classList.add('active');
+                    const parentSubmenu = link.closest('.nav-submenu');
+                    if (parentSubmenu) {
+                        parentSubmenu.classList.add('show');
+                        const trigger = document.querySelector(`.sidebar .nav-link[aria-controls="${parentSubmenu.id}"]`);
+                        if (trigger) {
+                            trigger.setAttribute('aria-expanded', 'true');
+                        }
+                    }
                 }
             });
         });
