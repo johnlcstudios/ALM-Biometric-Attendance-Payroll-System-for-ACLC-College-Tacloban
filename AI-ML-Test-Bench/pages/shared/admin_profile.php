@@ -44,12 +44,12 @@ $emp = $stmt_emp->fetch();
         </div>
 
         <div class="profile-details-card">
-            <div class="tab-nav">
-                <button class="tab-link active" onclick="switchProfileTab('info', this)">Account Information</button>
+            <div class="tab-nav" role="tablist">
+                <button type="button" class="tab-link active" role="tab" aria-selected="true" onclick="switchProfileTab('info', this)">Account Information</button>
                 <?php if ($emp && $emp['position'] === 'Faculty'): ?>
-                <button class="tab-link" onclick="switchProfileTab('loads', this)">Teaching Loads</button>
+                <button type="button" class="tab-link" role="tab" aria-selected="false" onclick="switchProfileTab('loads', this)">Teaching Loads</button>
                 <?php endif; ?>
-                <button class="tab-link" onclick="switchProfileTab('security', this)">Security Settings</button>
+                <button type="button" class="tab-link" role="tab" aria-selected="false" onclick="switchProfileTab('security', this)">Security Settings</button>
             </div>
 
             <div id="profile-info" class="profile-tab-section active">
@@ -321,9 +321,13 @@ let mySelectedLoadId = null;
 
 function switchProfileTab(tab, btn) {
     document.querySelectorAll('.profile-tab-section').forEach(s => s.style.display = 'none');
-    document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.tab-link').forEach(l => {
+        l.classList.remove('active');
+        l.setAttribute('aria-selected', 'false');
+    });
     document.getElementById('profile-' + tab).style.display = 'block';
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
     if (tab === 'loads') loadMySubjectLoads();
 }
 
@@ -342,8 +346,8 @@ async function loadMySubjectLoads() {
                 <td>${load.units}</td>
                 <td>${load.hours}</td>
                 <td>
-                    <button class="btn btn-sm" style="background:#667eea;color:white;" onclick="event.stopPropagation();editMySubjectLoad(${load.id})"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteMySubjectLoad(${load.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn btn-sm" style="background:#667eea;color:white;" title="Edit load" aria-label="Edit subject load" onclick="event.stopPropagation();editMySubjectLoad(${load.id})"><i class="fas fa-edit" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-danger btn-sm" title="Delete load" aria-label="Delete subject load" onclick="event.stopPropagation();deleteMySubjectLoad(${load.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center text-muted">No subject loads yet.</td></tr>';
@@ -373,7 +377,7 @@ async function loadMySchedules(loadId) {
                 <td>${formatTime(s.time_start)}</td>
                 <td>${formatTime(s.time_end)}</td>
                 <td>${s.room || '---'}</td>
-                <td><button class="btn btn-danger btn-sm" onclick="deleteMySchedule(${s.id})"><i class="fas fa-trash"></i></button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" title="Delete schedule" aria-label="Delete schedule" onclick="deleteMySchedule(${s.id})"><i class="fas fa-trash" aria-hidden="true"></i></button></td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center text-muted">No schedules.</td></tr>';
     } catch(e) {
