@@ -63,7 +63,8 @@ $position = $emp['position'] ?? 'Staff';
         .request-history-card { background: white; padding: 2rem; border-radius: var(--border-radius); box-shadow: var(--card-shadow); }
         
         .tab-nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-        .tab-link { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; color: var(--text-muted); font-weight: 600; position: relative; }
+        .tab-link { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; color: var(--text-muted); font-weight: 600; position: relative; border-radius: 4px; }
+        .tab-link:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
         .tab-link.active { color: var(--primary-color); }
         .tab-link.active::after { content: ''; position: absolute; bottom: -0.6rem; left: 0; right: 0; height: 3px; background: var(--primary-color); border-radius: 3px; }
         
@@ -322,14 +323,14 @@ $position = $emp['position'] ?? 'Staff';
 
             <!-- Requests Page -->
             <section id="requests" class="page">
-                <div class="tab-nav">
-                    <button class="tab-link active" onclick="switchRequestTab('leave', this)">Leave Requests</button>
-                    <button class="tab-link" onclick="switchRequestTab('loan', this)">Cash Advance</button>
-                    <button class="tab-link" onclick="switchRequestTab('resignation', this)">Resignation</button>
+                <div class="tab-nav" role="tablist" aria-label="Requests navigation">
+                    <button class="tab-link active" role="tab" aria-selected="true" aria-controls="request-leave" id="tab-request-leave" onclick="switchRequestTab('leave', this)">Leave Requests</button>
+                    <button class="tab-link" role="tab" aria-selected="false" aria-controls="request-loan" id="tab-request-loan" onclick="switchRequestTab('loan', this)">Cash Advance</button>
+                    <button class="tab-link" role="tab" aria-selected="false" aria-controls="request-resignation" id="tab-request-resignation" onclick="switchRequestTab('resignation', this)">Resignation</button>
                 </div>
 
                 <!-- Leave Request Section -->
-                <div id="request-leave" class="request-section active">
+                <div id="request-leave" class="request-section active" role="tabpanel" aria-labelledby="tab-request-leave">
                     <div class="ess-request-grid">
                         <div class="request-form-card">
                             <h3>Apply for Leave</h3>
@@ -379,7 +380,7 @@ $position = $emp['position'] ?? 'Staff';
                 </div>
 
                 <!-- Loan Request Section -->
-                <div id="request-loan" class="request-section" style="display: none;">
+                <div id="request-loan" class="request-section" style="display: none;" role="tabpanel" aria-labelledby="tab-request-loan">
                     <div class="ess-request-grid">
                         <div class="request-form-card" style="padding: 0; background: #f8f9fa; border: 1px solid #e9ecef; overflow: hidden;">
                             <div class="printable-form-wrapper" style="background: white; padding: 40px 30px; margin: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-radius: 4px;">
@@ -494,7 +495,7 @@ $position = $emp['position'] ?? 'Staff';
                 </div>
 
                 <!-- Resignation Section -->
-                <div id="request-resignation" class="request-section" style="display: none;">
+                <div id="request-resignation" class="request-section" style="display: none;" role="tabpanel" aria-labelledby="tab-request-resignation">
                     <div class="ess-request-grid">
                         <div class="request-form-card">
                             <h3>Submit Resignation</h3>
@@ -549,15 +550,15 @@ $position = $emp['position'] ?? 'Staff';
                     </div>
                     
                     <div class="profile-details-card">
-                        <div class="tab-nav">
-                            <button class="tab-link active" onclick="switchProfileTab('info', this)">Personal Information</button>
+                        <div class="tab-nav" role="tablist" aria-label="Profile navigation">
+                            <button class="tab-link active" role="tab" aria-selected="true" aria-controls="profile-info" id="tab-profile-info" onclick="switchProfileTab('info', this)">Personal Information</button>
                             <?php if ($position === 'Faculty'): ?>
-                            <button class="tab-link" onclick="switchProfileTab('faculty', this)">Subject Load & Schedule</button>
+                            <button class="tab-link" role="tab" aria-selected="false" aria-controls="profile-faculty" id="tab-profile-faculty" onclick="switchProfileTab('faculty', this)">Subject Load & Schedule</button>
                             <?php endif; ?>
-                            <button class="tab-link" onclick="switchProfileTab('security', this)">Security Settings</button>
+                            <button class="tab-link" role="tab" aria-selected="false" aria-controls="profile-security" id="tab-profile-security" onclick="switchProfileTab('security', this)">Security Settings</button>
                         </div>
                         
-                        <div id="profile-info" class="profile-tab-section active">
+                        <div id="profile-info" class="profile-tab-section active" role="tabpanel" aria-labelledby="tab-profile-info">
                             <form id="employeeProfileForm">
                                 <div class="form-row-custom">
                                     <div class="form-group-custom">
@@ -625,7 +626,7 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                         
                         <?php if ($position === 'Faculty'): ?>
-                        <div id="profile-faculty" class="profile-tab-section" style="display: none;">
+                        <div id="profile-faculty" class="profile-tab-section" style="display: none;" role="tabpanel" aria-labelledby="tab-profile-faculty">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h3>Subject Loads</h3>
                                 <button class="btn btn-dark-purple" onclick="openSubjectLoadModal()">
@@ -674,7 +675,7 @@ $position = $emp['position'] ?? 'Staff';
                         </div>
                         <?php endif; ?>
 
-                        <div id="profile-security" class="profile-tab-section" style="display: none;">
+                        <div id="profile-security" class="profile-tab-section" style="display: none;" role="tabpanel" aria-labelledby="tab-profile-security">
                             <form onsubmit="changePassword(event)">
                                 <div class="form-group-custom">
                                     <label>Current Password</label>
@@ -829,19 +830,28 @@ $position = $emp['position'] ?? 'Staff';
 
         function switchRequestTab(type, btn) {
             document.querySelectorAll('.request-section').forEach(s => s.style.display = 'none');
-            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+            const links = btn.parentElement.querySelectorAll('.tab-link');
+            links.forEach(l => {
+                l.classList.remove('active');
+                l.setAttribute('aria-selected', 'false');
+            });
             
             document.getElementById(`request-${type}`).style.display = 'block';
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
         }
 
         function switchProfileTab(type, btn) {
             document.querySelectorAll('.profile-tab-section').forEach(s => s.style.display = 'none');
             const links = btn.parentElement.querySelectorAll('.tab-link');
-            links.forEach(l => l.classList.remove('active'));
+            links.forEach(l => {
+                l.classList.remove('active');
+                l.setAttribute('aria-selected', 'false');
+            });
             
             document.getElementById(`profile-${type}`).style.display = 'block';
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
         }
 
         async function loadESS() {
