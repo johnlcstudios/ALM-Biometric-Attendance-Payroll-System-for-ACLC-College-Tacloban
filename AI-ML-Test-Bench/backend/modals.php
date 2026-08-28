@@ -198,13 +198,13 @@
             </form>
         </div>
         <div class="modal-footer border-top-0">
-            <button class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
                 <i class="fas fa-arrow-left"></i> Previous
             </button>
-            <button class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
+            <button type="button" class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
                 Next <i class="fas fa-arrow-right"></i>
             </button>
-            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
+            <button type="button" class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
                 <i class="fas fa-check-circle"></i> Save Employee
             </button>
         </div>
@@ -222,7 +222,7 @@
             <!-- Dynamic Content -->
         </div>
         <div class="modal-footer">
-            <button class="btn btn-primary" onclick="exportPayslipPDF()">
+            <button type="button" class="btn btn-primary" onclick="exportPayslipPDF()">
                 <i class="fas fa-file-pdf"></i> Export to PDF
             </button>
         </div>
@@ -268,8 +268,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('addLoadModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveSubjectLoad()">Save Load</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addLoadModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveSubjectLoad()">Save Load</button>
         </div>
     </div>
 </div>
@@ -305,8 +305,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
         </div>
     </div>
 </div>
@@ -346,8 +346,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('runPayrollModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="runPayroll()">Run Payroll Now</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('runPayrollModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="runPayroll()">Run Payroll Now</button>
         </div>
     </div>
 </div>
@@ -392,8 +392,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="changePassword()">Update Password</button>
         </div>
     </div>
 </div>
@@ -462,7 +462,7 @@
                     </div>
                     <div class="form-group-custom">
                         <label>&nbsp;</label>
-                        <button class="btn btn-primary" onclick="saveSchedule()" style="padding:8px 16px;font-size:0.85rem;">Add</button>
+                        <button type="button" class="btn btn-primary" onclick="saveSchedule()" style="padding:8px 16px;font-size:0.85rem;">Add</button>
                     </div>
                 </div>
                 <div style="margin-top:12px;">
@@ -484,7 +484,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('viewLoadsModal')">Close</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('viewLoadsModal')">Close</button>
         </div>
     </div>
 </div>
