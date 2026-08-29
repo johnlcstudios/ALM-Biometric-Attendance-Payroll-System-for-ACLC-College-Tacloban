@@ -8,13 +8,13 @@
             </div>
         </div>
         <div class="header-right" style="display: flex; gap: 10px;">
-            <button class="btn btn-secondary" onclick="printSpecializedPayroll('utilityPayrollTable', 'UTILITY PAYROLL')">
-                <i class="fas fa-print"></i> Print
+            <button type="button" class="btn btn-secondary" onclick="printSpecializedPayroll('utilityPayrollTable', 'UTILITY PAYROLL')">
+                <i class="fas fa-print" aria-hidden="true"></i> Print
             </button>
-            <button class="btn btn-success" onclick="exportUtilityPayroll()">
-                <i class="fas fa-file-excel"></i> Export
+            <button type="button" class="btn btn-success" onclick="exportUtilityPayroll()">
+                <i class="fas fa-file-excel" aria-hidden="true"></i> Export
             </button>
-            <!-- <button class="btn-process-payroll" onclick="showRunUtilityPayroll()">
+            <!-- <button type="button" class="btn-process-payroll" onclick="showRunUtilityPayroll()">
                 Run Utility Payroll
             </button> -->
         </div>
