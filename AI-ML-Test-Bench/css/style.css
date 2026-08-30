@@ -1853,6 +1853,13 @@ tr:last-child td {
     background: rgba(30, 1, 120, 0.05);
 }
 
+.pagination-btn:focus-visible,
+.page-number:focus-visible,
+.btn-icon:focus-visible {
+    outline: 2px solid #1e0178 !important;
+    outline-offset: 2px !important;
+}
+
 .pagination-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

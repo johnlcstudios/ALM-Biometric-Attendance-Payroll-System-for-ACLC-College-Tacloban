@@ -450,12 +450,12 @@ function renderPagination(tableName, totalItems) {
         <div class="pagination-info">
             Showing <strong>${startItem}-${endItem}</strong> of <strong>${totalItems}</strong> records
         </div>
-        <div class="pagination-controls">
-            <button class="pagination-btn" onclick="changePage('${tableName}', 1)" ${state.currentPage === 1 ? 'disabled' : ''}>
-                <i class="fas fa-angle-double-left"></i> First
+        <div class="pagination-controls" role="navigation" aria-label="Table Pagination">
+            <button type="button" class="pagination-btn" onclick="changePage('${tableName}', 1)" ${state.currentPage === 1 ? 'disabled' : ''} aria-label="Go to first page">
+                <i class="fas fa-angle-double-left" aria-hidden="true"></i> First
             </button>
-            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>
-                <i class="fas fa-angle-left"></i> Prev
+            <button type="button" class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''} aria-label="Go to previous page">
+                <i class="fas fa-angle-left" aria-hidden="true"></i> Prev
             </button>
     `;
     
@@ -470,16 +470,17 @@ function renderPagination(tableName, totalItems) {
     }
     
     for (let i = startPage; i <= endPage; i++) {
-        html += `<button class="page-number ${i === state.currentPage ? 'active' : ''}" onclick="changePage('${tableName}', ${i})">${i}</button>`;
+        const isCurrent = i === state.currentPage;
+        html += `<button type="button" class="page-number ${isCurrent ? 'active' : ''}" onclick="changePage('${tableName}', ${i})" aria-label="Go to page ${i}" ${isCurrent ? 'aria-current="page"' : ''}>${i}</button>`;
     }
     html += '</div>';
     
     html += `
-            <button class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage + 1})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
-                Next <i class="fas fa-angle-right"></i>
+            <button type="button" class="pagination-btn" onclick="changePage('${tableName}', ${state.currentPage + 1})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} aria-label="Go to next page">
+                Next <i class="fas fa-angle-right" aria-hidden="true"></i>
             </button>
-            <button class="pagination-btn" onclick="changePage('${tableName}', ${totalPages})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''}>
-                Last <i class="fas fa-angle-double-right"></i>
+            <button type="button" class="pagination-btn" onclick="changePage('${tableName}', ${totalPages})" ${state.currentPage === totalPages || totalPages === 0 ? 'disabled' : ''} aria-label="Go to last page">
+                Last <i class="fas fa-angle-double-right" aria-hidden="true"></i>
             </button>
         </div>
     `;
