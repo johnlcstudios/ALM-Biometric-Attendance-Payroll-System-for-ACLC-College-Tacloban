@@ -4,8 +4,8 @@
             <h2>Master Subject List</h2>
             <p>Create and manage available subjects for the system.</p>
         </div>
-        <button class="btn btn-primary" onclick="openAddSubjectModal()">
-            <i class="fas fa-plus"></i> Create New Subject
+        <button type="button" class="btn btn-primary" onclick="openAddSubjectModal()" aria-label="Create new subject">
+            <i class="fas fa-plus" aria-hidden="true"></i> Create New Subject
         </button>
     </div>
 

@@ -1,8 +1,8 @@
 <section id="employees" class="page">
     <div class="page-header">
         
-        <button class="btn btn-primary" onclick="openModal('employeeModal')">
-            <i class="fas fa-plus"></i> Add Employee
+        <button type="button" class="btn btn-primary" onclick="openModal('employeeModal')" aria-label="Add new employee">
+            <i class="fas fa-plus" aria-hidden="true"></i> Add Employee
         </button>
     </div>
     <div class="table-container">
