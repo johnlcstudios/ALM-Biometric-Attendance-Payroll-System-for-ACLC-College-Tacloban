@@ -108,8 +108,8 @@ try {
                                 </td>
                                 <td><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="toggleUserStatus(<?php echo $user['id']; ?>, <?php echo $user['is_active'] ? 0 : 1; ?>)">
-                                        <i class="fas fa-<?php echo $user['is_active'] ? 'ban' : 'check'; ?>"></i>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleUserStatus(<?php echo $user['id']; ?>, <?php echo $user['is_active'] ? 0 : 1; ?>)" aria-label="<?php echo $user['is_active'] ? 'Deactivate user ' . htmlspecialchars($user['username']) : 'Activate user ' . htmlspecialchars($user['username']); ?>" title="<?php echo $user['is_active'] ? 'Deactivate User' : 'Activate User'; ?>">
+                                        <i class="fas fa-<?php echo $user['is_active'] ? 'ban' : 'check'; ?>" aria-hidden="true"></i>
                                         <?php echo $user['is_active'] ? 'Deactivate' : 'Activate'; ?>
                                     </button>
                                 </td>
