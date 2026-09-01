@@ -5,9 +5,9 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5><i class="fas fa-user-tie me-2"></i>HR Management - User Assignment</h5>
-        <button class="btn btn-primary btn-sm" onclick="openAssignHRModal()">
-            <i class="fas fa-plus me-2"></i>Assign HR Role
+        <h5><i class="fas fa-user-tie me-2" aria-hidden="true"></i>HR Management - User Assignment</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openAssignHRModal()" aria-label="Assign HR Role" title="Assign HR Role">
+            <i class="fas fa-plus me-2" aria-hidden="true"></i>Assign HR Role
         </button>
     </div>
     <div class="card-body">
@@ -31,8 +31,8 @@ require_once 'header.php';
                         <td>2026-03-15</td>
                         <td><span class="badge bg-success">Active</span></td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" onclick="removeHRRole(1)">
-                                <i class="fas fa-trash"></i>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeHRRole(1)" aria-label="Remove HR Role for Jane Doe" title="Remove HR Role">
+                                <i class="fas fa-trash" aria-hidden="true"></i>
                             </button>
                         </td>
                     </tr>
@@ -81,8 +81,8 @@ require_once 'header.php';
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <button class="btn btn-primary flex-grow-1" id="assignBtn" onclick="processAssignHR()">Generate & Assign</button>
-            <button class="btn btn-secondary flex-grow-1" onclick="closeAssignHRModal()">Cancel</button>
+            <button type="button" class="btn btn-primary flex-grow-1" id="assignBtn" onclick="processAssignHR()" aria-label="Generate & Assign HR Role">Generate & Assign</button>
+            <button type="button" class="btn btn-secondary flex-grow-1" onclick="closeAssignHRModal()" aria-label="Cancel modal">Cancel</button>
         </div>
     </div>
 </div>
