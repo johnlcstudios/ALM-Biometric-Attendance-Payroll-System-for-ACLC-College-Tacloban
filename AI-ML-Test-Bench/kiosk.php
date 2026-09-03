@@ -384,14 +384,20 @@
             font-weight: 700;
             color: var(--primary-blue);
             border: 2px solid #e9ecef;
+            width: 100%;
+            text-align: center;
+            font-size: 1rem;
         }
 
-        .company-item:hover {
+        .company-item:hover,
+        .company-item:focus-visible {
             background: white;
             color: var(--primary-blue);
             transform: translateY(-3px);
             border-color: var(--primary-blue);
             box-shadow: 0 10px 20px rgba(30, 1, 120, 0.1);
+            outline: 3px solid var(--primary-blue);
+            outline-offset: 2px;
         }
 
         .change-company-btn {
@@ -409,11 +415,14 @@
             backdrop-filter: blur(5px);
         }
 
-        .change-company-btn:hover {
+        .change-company-btn:hover,
+        .change-company-btn:focus-visible {
             background: var(--primary-blue);
             color: white;
             transform: translateY(-3px) scale(1.02);
             box-shadow: 0 15px 35px rgba(30, 1, 120, 0.3);
+            outline: 3px solid var(--primary-blue);
+            outline-offset: 2px;
         }
 
         .change-company-btn i {
@@ -503,8 +512,8 @@
         </div>
     </div>
 
-    <button class="change-company-btn" onclick="showCompanySelection()">
-        <i class="fas fa-exchange-alt"></i> Change Company
+    <button type="button" class="change-company-btn" onclick="showCompanySelection()" aria-label="Change Company" title="Change Company">
+        <i class="fas fa-exchange-alt" aria-hidden="true"></i> Change Company
     </button>
 
     <div class="kiosk-wrapper">
@@ -666,7 +675,7 @@
             try {
                 const response = await fetch('backend/api.php?action=get_companies');
                 const companies = await response.json();
-                list.innerHTML = companies.map(c => `<div class="company-item" onclick="setCompany(${c.id})">${c.name}</div>`).join('');
+                list.innerHTML = companies.map(c => `<button type="button" class="company-item" onclick="setCompany(${c.id})">${c.name}</button>`).join('');
             } catch (err) { list.innerHTML = '<p class="text-danger">Failed to load companies.</p>'; }
         }
 
