@@ -11,8 +11,8 @@ require_once 'header.php';
         <div class="row mb-4">
             <div class="col-md-4">
                 <div class="form-group">
-                    <label><strong>Department</strong></label>
-                    <select class="form-control">
+                    <label for="dept_select"><strong>Department</strong></label>
+                    <select class="form-control" id="dept_select" name="department">
                         <option value="">All Departments</option>
                         <option value="academics">Academics</option>
                         <option value="operations">Operations</option>
@@ -22,17 +22,18 @@ require_once 'header.php';
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    <label><strong>Academic Year</strong></label>
-                    <select class="form-control">
+                    <label for="ay_select"><strong>Academic Year</strong></label>
+                    <select class="form-control" id="ay_select" name="academic_year">
                         <option value="2026-2027">2026-2027 (Current)</option>
                         <option value="2025-2026">2025-2026</option>
                         <option value="2024-2025">2024-2025</option>
                     </select>
                 </div>
             </div>
-            <div class="col-md-4">
-                <label>&nbsp;</label>
-                <button class="btn btn-primary w-100"><i class="fas fa-search me-2"></i>Search</button>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="button" class="btn btn-primary w-100" aria-label="Search faculty load audit records">
+                    <i class="fas fa-search me-2" aria-hidden="true"></i>Search
+                </button>
             </div>
         </div>
 
@@ -40,14 +41,14 @@ require_once 'header.php';
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Faculty ID</th>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Assigned Units</th>
-                        <th>Teaching Hours</th>
-                        <th>Administrative Hours</th>
-                        <th>Total Load</th>
-                        <th>Status</th>
+                        <th scope="col">Faculty ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Assigned Units</th>
+                        <th scope="col">Teaching Hours</th>
+                        <th scope="col">Administrative Hours</th>
+                        <th scope="col">Total Load</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
