@@ -148,12 +148,23 @@ body {
     cursor: pointer;
 
     transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 /* BUTTON HOVER */
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.login-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* KIOSK BUTTON (secondary glass button) */
@@ -383,7 +394,9 @@ body {
                 </div>
             </div>
 
-            <button type="submit" class="login-btn">Login</button>
+            <button type="submit" class="login-btn" id="loginSubmitBtn">
+                <span class="btn-text">Login</span>
+            </button>
 
             <div style="text-align: center; margin-top: 15px;">
                 <a href="#" id="forgotPasswordLink" style="color: rgba(255,255,255,0.8); font-size: 14px; text-decoration: none;">
@@ -582,34 +595,58 @@ window.addEventListener('load', function() {
 document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
 
-    const formData = new FormData(e.target);
+    const submitBtn = document.getElementById('loginSubmitBtn') || e.target.querySelector('button[type="submit"]');
+    const originalContent = submitBtn.innerHTML;
 
-    const response = await fetch('backend/api.php?action=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(formData))
-    });
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span>Logging in...</span>';
 
-    const result = await response.json();
+    try {
+        const formData = new FormData(e.target);
 
-    if (result.success) {
-        const role = result.role ? result.role.trim() : 'Employee';
-        if (role === 'Payroll' || role === 'Payroll Officer') {
-            window.location.href = 'Payroll-Officer.php';
-        } else if (role === 'Admin' || role === 'SD' || role === 'School Director') {
-            // SD/Admin users go to SD Dashboard
-            window.location.href = 'sd_dashboard.php';
-        } else if (role === 'HR') {
-            // HR users go to regular index
-            window.location.href = 'index.php';
+        const response = await fetch('backend/api.php?action=login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            const role = result.role ? result.role.trim() : 'Employee';
+            if (role === 'Payroll' || role === 'Payroll Officer') {
+                window.location.href = 'Payroll-Officer.php';
+            } else if (role === 'Admin' || role === 'SD' || role === 'School Director') {
+                // SD/Admin users go to SD Dashboard
+                window.location.href = 'sd_dashboard.php';
+            } else if (role === 'HR') {
+                // HR users go to regular index
+                window.location.href = 'index.php';
+            } else {
+                window.location.href = 'ess.php';
+            }
         } else {
-            window.location.href = 'ess.php';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalContent;
+            Swal.fire({
+                icon: 'error',
+                title: 'Login Failed',
+                text: result.message || 'Invalid credentials',
+                customClass: {
+                    popup: 'glass-modal',
+                    container: 'glass-backdrop'
+                },
+                background: 'transparent',
+                confirmButtonColor: '#4facfe'
+            });
         }
-    } else {
+    } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalContent;
         Swal.fire({
             icon: 'error',
-            title: 'Login Failed',
-            text: result.message || 'Invalid credentials',
+            title: 'Login Error',
+            text: 'An unexpected error occurred. Please try again.',
             customClass: {
                 popup: 'glass-modal',
                 container: 'glass-backdrop'
