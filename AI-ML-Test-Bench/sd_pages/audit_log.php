@@ -81,31 +81,31 @@ try {
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-history me-2"></i>System Audit Logs</h5>
+        <h5><i class="fas fa-history me-2" aria-hidden="true"></i>System Audit Logs</h5>
     </div>
     <div class="card-body">
         <form method="GET" class="row mb-4">
             <div class="col-md-3">
                 <div class="form-group">
-                    <label><strong>Date From</strong></label>
-                    <input type="date" class="form-control" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
+                    <label for="date_from"><strong>Date From</strong></label>
+                    <input type="date" class="form-control" id="date_from" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>">
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    <label><strong>Date To</strong></label>
-                    <input type="date" class="form-control" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
+                    <label for="date_to"><strong>Date To</strong></label>
+                    <input type="date" class="form-control" id="date_to" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>">
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="form-group">
-                    <label><strong>User</strong></label>
-                    <input type="text" class="form-control" placeholder="Filter by username" name="user" value="<?php echo htmlspecialchars($user_filter); ?>">
+                    <label for="user"><strong>User</strong></label>
+                    <input type="text" class="form-control" id="user" placeholder="Filter by username" name="user" value="<?php echo htmlspecialchars($user_filter); ?>">
                 </div>
             </div>
             <div class="col-md-3" style="display: flex; align-items: flex-end;">
-                <button class="btn btn-primary w-100" type="submit">
-                    <i class="fas fa-filter me-2"></i>Filter
+                <button class="btn btn-primary w-100" type="submit" aria-label="Filter audit logs">
+                    <i class="fas fa-filter me-2" aria-hidden="true"></i>Filter
                 </button>
             </div>
         </form>
@@ -114,12 +114,12 @@ try {
             <table class="table table-hover table-sm">
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
-                        <th>User</th>
-                        <th>Action</th>
-                        <th>Module</th>
-                        <th>Description</th>
-                        <th>IP Address</th>
+                        <th scope="col">Timestamp</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Module</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">IP Address</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -160,7 +160,7 @@ try {
 
 <div class="card mt-4">
     <div class="card-header">
-        <h5><i class="fas fa-chart-bar me-2"></i>Audit Summary</h5>
+        <h5><i class="fas fa-chart-bar me-2" aria-hidden="true"></i>Audit Summary</h5>
     </div>
     <div class="card-body">
         <div class="row">
