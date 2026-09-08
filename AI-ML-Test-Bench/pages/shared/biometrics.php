@@ -12,18 +12,18 @@
             </div>
             
             <div class="form-group">
-                <label>Target Employee</label>
+                <label for="regEmployeeSelect">Target Employee</label>
                 <select id="regEmployeeSelect" class="form-control">
                     <option value="">Choose Employee...</option>
                 </select>
             </div>
 
             <div class="action-buttons-group">
-                <button id="startRegBtn" class="btn btn-primary btn-lg" onclick="initFaceRegistration()">
-                    <i class="fas fa-camera"></i> Start Registration
+                <button type="button" id="startRegBtn" class="btn btn-primary btn-lg" onclick="initFaceRegistration()">
+                    <i class="fas fa-camera" aria-hidden="true"></i> Start Registration
                 </button>
-                <button id="captureBtn" class="btn btn-success btn-lg" style="display:none;" onclick="saveFaceRegistration()">
-                    <i class="fas fa-user-plus"></i> Manual Capture
+                <button type="button" id="captureBtn" class="btn btn-success btn-lg" style="display:none;" onclick="saveFaceRegistration()">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i> Manual Capture
                 </button>
             </div>
         </div>
@@ -32,7 +32,7 @@
             <canvas id="overlay" style="transform: scaleX(-1);"></canvas>
             <div id="camera-placeholder">
                 <div class="placeholder-content">
-                    <i class="fas fa-video-slash"></i>
+                    <i class="fas fa-video-slash" aria-hidden="true"></i>
                     <p>Camera is currently inactive</p>
                     <small>Select an employee and click "Start Registration"</small>
                 </div>
