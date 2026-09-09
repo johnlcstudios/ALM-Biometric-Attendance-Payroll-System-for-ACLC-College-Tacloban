@@ -36,12 +36,12 @@ require_once 'header.php';
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Policy</th>
-                        <th>Category</th>
-                        <th>Status</th>
-                        <th>Last Reviewed</th>
-                        <th>Next Review</th>
-                        <th>Compliance %</th>
+                        <th scope="col">Policy</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Last Reviewed</th>
+                        <th scope="col">Next Review</th>
+                        <th scope="col">Compliance %</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -107,7 +107,7 @@ require_once 'header.php';
         <div class="alert alert-warning alert-dismissible fade show" role="alert">
             <strong><i class="fas fa-warning me-2"></i>Minor Issue Detected:</strong>
             User Authentication Policy - 85% compliant. Some users do not have multi-factor authentication enabled. 
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         
         <h6 class="mt-4 mb-3"><strong>Recommended Actions:</strong></h6>
