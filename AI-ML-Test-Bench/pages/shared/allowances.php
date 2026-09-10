@@ -54,9 +54,9 @@
                     <div class="form-group-custom">
                         <label>Select Allowance Types</label>
                         <div class="multi-select-container" id="allowanceTypesList">
-                            <div class="multi-select-header" onclick="toggleMultiSelect('allowance')">
+                            <div class="multi-select-header" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle allowance types selector" onclick="toggleMultiSelect('allowance')" onkeydown="if(event.key==='Enter'||event.key===' '||event.code==='Space'){event.preventDefault();toggleMultiSelect('allowance');}">
                                 <span class="multi-select-placeholder">Select allowance types...</span>
-                                <i class="fas fa-chevron-down"></i>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
                             </div>
                             <div class="multi-select-dropdown" id="allowanceDropdown">
                                 <div class="multi-select-search">
