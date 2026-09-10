@@ -54,9 +54,9 @@
                     <div class="form-group-custom">
                         <label>Select Deduction Types</label>
                         <div class="multi-select-container" id="deductionTypesList">
-                            <div class="multi-select-header" onclick="toggleMultiSelect('deduction')">
+                            <div class="multi-select-header" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle deduction types selector" onclick="toggleMultiSelect('deduction')" onkeydown="if(event.key==='Enter'||event.key===' '||event.code==='Space'){event.preventDefault();toggleMultiSelect('deduction');}">
                                 <span class="multi-select-placeholder">Select deduction types...</span>
-                                <i class="fas fa-chevron-down"></i>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
                             </div>
                             <div class="multi-select-dropdown" id="deductionDropdown">
                                 <div class="multi-select-search">

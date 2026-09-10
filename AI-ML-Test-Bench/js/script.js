@@ -3287,13 +3287,22 @@ function toggleMultiSelect(type) {
         // Close all other dropdowns
         document.querySelectorAll('.multi-select-dropdown.show').forEach(d => {
             d.classList.remove('show');
-            d.previousElementSibling?.classList.remove('active');
+            const prevHeader = d.previousElementSibling;
+            if (prevHeader) {
+                prevHeader.classList.remove('active');
+                prevHeader.setAttribute('aria-expanded', 'false');
+            }
         });
         
         // Toggle current dropdown
         if (!isOpen) {
             dropdown.classList.add('show');
-            header?.classList.add('active');
+            if (header) {
+                header.classList.add('active');
+                header.setAttribute('aria-expanded', 'true');
+            }
+        } else if (header) {
+            header.setAttribute('aria-expanded', 'false');
         }
     }
 }
