@@ -960,7 +960,7 @@ $position = $emp['position'] ?? 'Staff';
                             <td>${s.description}</td>
                             <td>${s.units}</td>
                             <td>
-                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSubjectLoad(${s.id})"><i class="fas fa-trash"></i></button>
+                                <button type="button" class="btn-icon" style="color:var(--danger-color)" title="Delete Subject Load" aria-label="Delete subject load" onclick="deleteSubjectLoad(${s.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                             </td>
                         </tr>
                     `).join('') || '<tr><td colspan="4" class="text-center">No subjects found</td></tr>';
@@ -986,7 +986,7 @@ $position = $emp['position'] ?? 'Staff';
                             <td>${s.time_end}</td>
                             <td>${s.room || 'N/A'}</td>
                             <td>
-                                <button class="btn-icon" style="color:var(--danger-color)" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash"></i></button>
+                                <button type="button" class="btn-icon" style="color:var(--danger-color)" title="Delete Schedule" aria-label="Delete schedule" onclick="deleteSchedule(${s.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                             </td>
                         </tr>
                     `).join('') || '<tr><td colspan="6" class="text-center">No schedules found</td></tr>';

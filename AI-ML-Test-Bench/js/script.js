@@ -3536,7 +3536,7 @@ async function renderAllowances() {
                 <td>${c.type}</td>
                 <td>Yes</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Category" aria-label="Delete allowance category" onclick="deleteAllowanceCategory(${c.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
@@ -3581,7 +3581,7 @@ async function renderAllowances() {
                 <td>₱${parseFloat(b.override_amount || b.category_rate).toLocaleString()}</td>
                 <td>${b.effective_date || '---'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteEmployeeAllowance(${b.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Assignment" aria-label="Delete employee allowance" onclick="deleteEmployeeAllowance(${b.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No assignments found.</td></tr>';
@@ -3756,7 +3756,7 @@ async function renderDeductions() {
                 <td>${c.type}</td>
                 <td>${c.is_active ? 'Yes' : 'No'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Category" aria-label="Delete deduction category" onclick="deleteDeductionCategory(${c.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No categories found.</td></tr>';
@@ -3801,7 +3801,7 @@ async function renderDeductions() {
                 <td>₱${parseFloat(b.override_amount || b.category_rate).toLocaleString()}</td>
                 <td>${b.effective_date || '---'}</td>
                 <td>
-                    <button class="btn-icon delete" onclick="deleteEmployeeDeduction(${b.id})"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-icon delete" title="Delete Assignment" aria-label="Delete employee deduction" onclick="deleteEmployeeDeduction(${b.id})"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" class="text-center">No assignments found.</td></tr>';
