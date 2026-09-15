@@ -3,11 +3,11 @@
         <table id="loanTable">
             <thead>
                 <tr>
-                    <th>Employee</th>
-                    <th>Amount</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th scope="col">Employee</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Reason</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody id="loanTableBody">
