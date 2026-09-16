@@ -5,14 +5,14 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-certificate me-2"></i>Accreditation Report</h5>
+        <h5><i class="fas fa-certificate me-2" aria-hidden="true"></i>Accreditation Report</h5>
     </div>
     <div class="card-body">
         <form id="accreditationForm" onsubmit="event.preventDefault(); generateAccreditationReport();">
             <div class="row mb-4">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label><strong>Accrediting Body</strong></label>
+                        <label for="accrediting_body"><strong>Accrediting Body</strong></label>
                         <select class="form-control" name="accrediting_body" id="accrediting_body">
                             <option value="PACUCOA">PACUCOA (Philippine Association of Colleges and Universities Commission on Accreditation)</option>
                             <option value="PAASCU">PAASCU (Philippine Accrediting Association of Schools, Colleges and Universities)</option>
@@ -22,7 +22,7 @@ require_once 'header.php';
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label><strong>Academic Year</strong></label>
+                        <label for="academic_year"><strong>Academic Year</strong></label>
                         <select class="form-control" name="academic_year" id="academic_year">
                             <option value="2027-2028">2027-2028 (Current)</option>
                             <option value="2026-2027">2026-2027</option>
@@ -32,8 +32,8 @@ require_once 'header.php';
                     </div>
                 </div>
                 <div class="col-md-4" style="display: flex; align-items: flex-end;">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-sync me-2"></i>Generate Report
+                    <button type="submit" class="btn btn-primary w-100" aria-label="Generate Report">
+                        <i class="fas fa-sync me-2" aria-hidden="true"></i>Generate Report
                     </button>
                 </div>
             </div>
@@ -44,10 +44,10 @@ require_once 'header.php';
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Accreditation Criteria</th>
-                            <th>Status</th>
-                            <th>Score</th>
-                            <th>Last Evaluated</th>
+                            <th scope="col">Accreditation Criteria</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Score</th>
+                            <th scope="col">Last Evaluated</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,7 +92,7 @@ require_once 'header.php';
             </div>
 
             <div class="alert alert-info mt-3">
-                <strong><i class="fas fa-info-circle me-2"></i>Overall Assessment:</strong> Your institution is on track for full accreditation with minor improvements needed in curriculum standards and research initiatives.
+                <strong><i class="fas fa-info-circle me-2" aria-hidden="true"></i>Overall Assessment:</strong> Your institution is on track for full accreditation with minor improvements needed in curriculum standards and research initiatives.
             </div>
         </div>
     </div>
