@@ -34,15 +34,15 @@
         <table id="attendanceTable" class="modern-table">
             <thead>
                 <tr>
-                    <th>EMPLOYEE</th>
-                    <th>DATE</th>
-                    <th>CHECK-IN</th>
-                    <th>LUNCH-OUT</th>
-                    <th>LUNCH-IN</th>
-                    <th>CHECK-OUT</th>
-                    <th>STATUS</th>
-                    <th>SCHEDULE</th>
-                    <th>ACTION</th>
+                    <th scope="col">EMPLOYEE</th>
+                    <th scope="col">DATE</th>
+                    <th scope="col">CHECK-IN</th>
+                    <th scope="col">LUNCH-OUT</th>
+                    <th scope="col">LUNCH-IN</th>
+                    <th scope="col">CHECK-OUT</th>
+                    <th scope="col">STATUS</th>
+                    <th scope="col">SCHEDULE</th>
+                    <th scope="col">ACTION</th>
                 </tr>
             </thead>
             <tbody id="attendanceTableBody">
