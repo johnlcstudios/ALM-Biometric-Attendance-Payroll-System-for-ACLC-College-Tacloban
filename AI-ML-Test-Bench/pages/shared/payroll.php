@@ -7,33 +7,33 @@
 <div class="header-right">
 
             <div class="dropdown">
-                <button class="btn btn-secondary dropdown-toggle" onclick="printPayrollHistory(); return false;">
-                    <i class="fas fa-print"></i> Print Payroll History
+                <button type="button" class="btn btn-secondary dropdown-toggle" aria-label="Print Payroll History" onclick="printPayrollHistory(); return false;">
+                    <i class="fas fa-print" aria-hidden="true"></i> Print Payroll History
                 </button>
             </div>
             <div class="dropdown">
-                <button class="btn btn-success dropdown-toggle" onclick="exportPayrollHistory(); return false;">
-                    <i class="fas fa-download"></i> Export Payroll History
+                <button type="button" class="btn btn-success dropdown-toggle" aria-label="Export Payroll History" onclick="exportPayrollHistory(); return false;">
+                    <i class="fas fa-download" aria-hidden="true"></i> Export Payroll History
                 </button>
             </div>
             
             <!-- NEW BULK OPERATIONS BUTTONS -->
             <div class="bulk-actions">
-                <button class="btn btn-warning" onclick="bulkSalaryAdjustment(1.05)" title="+5% Salary Boost">
-                    <i class="fas fa-percentage"></i> +5% All
+                <button type="button" class="btn btn-warning" onclick="bulkSalaryAdjustment(1.05)" title="+5% Salary Boost" aria-label="Increase salary by 5 percent for all employees">
+                    <i class="fas fa-percentage" aria-hidden="true"></i> +5% All
                 </button>
-                <button class="btn btn-info" onclick="bulkSalaryAdjustment(0.95)" title="-5% Salary Cut">
-                    <i class="fas fa-minus"></i> -5% All
+                <button type="button" class="btn btn-info" onclick="bulkSalaryAdjustment(0.95)" title="-5% Salary Cut" aria-label="Decrease salary by 5 percent for all employees">
+                    <i class="fas fa-minus" aria-hidden="true"></i> -5% All
                 </button>
-                <button class="btn btn-primary" onclick="selectAllPayrollRows()">
-                    <i class="fas fa-check-square"></i> Select All
+                <button type="button" class="btn btn-primary" onclick="selectAllPayrollRows()" aria-label="Select all payroll rows">
+                    <i class="fas fa-check-square" aria-hidden="true"></i> Select All
                 </button>
-                <button class="btn btn-secondary" onclick="bulkUpdateSelected()">
-                    <i class="fas fa-sync"></i> Apply Bulk
+                <button type="button" class="btn btn-secondary" onclick="bulkUpdateSelected()" aria-label="Apply bulk update to selected rows">
+                    <i class="fas fa-sync" aria-hidden="true"></i> Apply Bulk
                 </button>
             </div>
             
-            <button class="btn-process-payroll" onclick="showPayrollModal()">
+            <button type="button" class="btn-process-payroll" onclick="showPayrollModal()" aria-label="Process New Payroll">
                 + Process New Payroll
             </button>
         <link rel="stylesheet" href="../css/responsive-payroll.css">
@@ -70,13 +70,13 @@
         <table id="payrollTable" class="payroll-table">
             <thead>
                 <tr>
-                    <th>PAYROLL</th>
-                    <th>PERIOD</th>
-                    <th>TOTAL DISBURSED</th>
-                    <th>PROCESSING DATE</th>
-                    <th>CREATED BY</th>
-                    <th>STATUS</th>
-                    <th>ACTION</th>
+                    <th scope="col">PAYROLL</th>
+                    <th scope="col">PERIOD</th>
+                    <th scope="col">TOTAL DISBURSED</th>
+                    <th scope="col">PROCESSING DATE</th>
+                    <th scope="col">CREATED BY</th>
+                    <th scope="col">STATUS</th>
+                    <th scope="col">ACTION</th>
                 </tr>
             </thead>
             <tbody id="payrollTableBody">

@@ -1937,8 +1937,8 @@ function renderAttendanceTable() {
             <td class="schedule-cell">${scheduleHtml}</td>
             <td>
                 <div class="table-actions">
-                    <button class="btn-icon" title="View Details" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye"></i></button>
-                    <button class="btn-icon delete" title="Flag/Report" onclick="flagAttendance(${log.id})"><i class="fas fa-flag"></i></button>
+                    <button type="button" class="btn-icon" title="View Details" aria-label="View Details for ${escapeHTML(log.full_name || 'employee')}" onclick="viewAttendanceDetails(${log.id})"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                    <button type="button" class="btn-icon delete" title="Flag/Report" aria-label="Flag or report attendance for ${escapeHTML(log.full_name || 'employee')}" onclick="flagAttendance(${log.id})"><i class="fas fa-flag" aria-hidden="true"></i></button>
                 </div>
             </td>
         </tr>
