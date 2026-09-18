@@ -3087,11 +3087,11 @@ function renderResignationTable() {
         
         if (req.status === 'Pending') {
             actionButtons = `
-                <button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')">Process</button>
-                <button class="btn btn-danger btn-sm" onclick="declineResignation(${req.id}, '${escapeHTML(req.full_name)}')">Decline</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Processing')" aria-label="Process resignation for ${escapeHTML(req.full_name)}">Process</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="declineResignation(${req.id}, '${escapeHTML(req.full_name)}')" aria-label="Decline resignation for ${escapeHTML(req.full_name)}">Decline</button>
             `;
         } else if (req.status === 'Processing') {
-            actionButtons = `<button class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')">Complete</button>`;
+            actionButtons = `<button type="button" class="btn btn-success btn-sm" onclick="updateResignationStatus(${req.id}, 'Completed')" aria-label="Complete resignation for ${escapeHTML(req.full_name)}">Complete</button>`;
         } else if (req.status === 'Declined') {
             actionButtons = `<span class="badge badge-danger">Declined</span>`;
         } else {
