@@ -5,14 +5,14 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-file-alt me-2"></i>Annual Institutional Report</h5>
+        <h5><i class="fas fa-file-alt me-2" aria-hidden="true"></i>Annual Institutional Report</h5>
     </div>
     <div class="card-body">
         <form id="annualReportForm" onsubmit="event.preventDefault(); generateAnnualReport();">
             <div class="row mb-4">
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label><strong>Fiscal Year</strong></label>
+                        <label for="fiscal_year"><strong>Fiscal Year</strong></label>
                         <select class="form-control" name="fiscal_year" id="fiscal_year">
                             <option value="2026">2026 (Current)</option>
                             <option value="2025">2025</option>
@@ -23,16 +23,16 @@ require_once 'header.php';
                 </div>
                 <div class="col-md-4">
                     <div class="form-group">
-                        <label><strong>Report Type</strong></label>
-                        <select class="form-control" name="report_type">
+                        <label for="report_type"><strong>Report Type</strong></label>
+                        <select class="form-control" name="report_type" id="report_type">
                             <option value="summary">Personnel & Financial Summary</option>
                             <option value="detailed">Detailed Audit Report</option>
                         </select>
                     </div>
                 </div>
                 <div class="col-md-4" style="display: flex; align-items: flex-end;">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-sync me-2"></i>Generate Report
+                    <button type="submit" class="btn btn-primary w-100" aria-label="Generate Report">
+                        <i class="fas fa-sync me-2" aria-hidden="true"></i>Generate Report
                     </button>
                 </div>
             </div>
