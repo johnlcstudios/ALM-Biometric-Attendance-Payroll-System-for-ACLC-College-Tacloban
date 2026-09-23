@@ -321,8 +321,8 @@ try {
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
-                                <i class="fas fa-copy"></i>
+                            <button type="button" class="copy-btn" title="Copy username" aria-label="Copy username" onclick="copyToClipboard('genUsername', this)">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -330,8 +330,8 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
-                                <i class="fas fa-copy"></i>
+                            <button type="button" class="copy-btn" title="Copy password" aria-label="Copy password" onclick="copyToClipboard('genPassword', this)">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -420,18 +420,69 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-            });
+        // Copy to clipboard with micro-UX visual feedback, ARIA update & resilient fallback
+        function copyToClipboard(elementId, btn) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.textContent || el.value || '';
+
+            const performVisualFeedback = () => {
+                if (btn) {
+                    if (btn.getAttribute('data-copied') === 'true') return;
+                    btn.setAttribute('data-copied', 'true');
+
+                    const icon = btn.querySelector('i');
+                    const origIconClass = icon ? icon.className : 'fas fa-copy';
+                    const origTitle = btn.getAttribute('title') || 'Copy';
+                    const origAria = btn.getAttribute('aria-label') || 'Copy';
+
+                    if (icon) icon.className = 'fas fa-check text-success';
+                    btn.setAttribute('title', 'Copied!');
+                    btn.setAttribute('aria-label', 'Copied!');
+
+                    setTimeout(() => {
+                        if (icon) icon.className = origIconClass;
+                        btn.setAttribute('title', origTitle);
+                        btn.setAttribute('aria-label', origAria);
+                        btn.removeAttribute('data-copied');
+                    }, 1500);
+                }
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            };
+
+            const fallbackCopy = (str) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = str;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    performVisualFeedback();
+                } catch (e) {
+                    console.error('Fallback copy failed', e);
+                } finally {
+                    document.body.removeChild(textarea);
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(performVisualFeedback)
+                    .catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
         }
         
         // Handle form submission
