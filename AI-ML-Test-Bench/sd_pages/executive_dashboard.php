@@ -68,7 +68,7 @@ try {
     <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
         <div class="stat-card">
             <div class="stat-icon" style="background: linear-gradient(135deg, #1e0178, #2d0a8f); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                <i class="fas fa-users fa-2x"></i>
+                <i class="fas fa-users fa-2x" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
                 <h3>Total Employees</h3>
@@ -77,7 +77,7 @@ try {
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                <i class="fas fa-user-check fa-2x"></i>
+                <i class="fas fa-user-check fa-2x" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
                 <h3>Present Today</h3>
@@ -86,7 +86,7 @@ try {
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background: linear-gradient(135deg, #dc3545, #e74c3c); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                <i class="fas fa-user-times fa-2x"></i>
+                <i class="fas fa-user-times fa-2x" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
                 <h3>Absent Today</h3>
@@ -95,7 +95,7 @@ try {
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                <i class="fas fa-chart-line fa-2x"></i>
+                <i class="fas fa-chart-line fa-2x" aria-hidden="true"></i>
             </div>
             <div class="stat-info">
                 <h3>Punctuality Score</h3>
@@ -108,7 +108,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-line-chart me-2"></i>Monthly Expenditure (Last 6 Months)</h5>
+                    <h5><i class="fas fa-line-chart me-2" aria-hidden="true"></i>Monthly Expenditure (Last 6 Months)</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="payrollChart" height="80"></canvas>
@@ -118,7 +118,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-trending-up me-2"></i>Attendance Trends (Last 30 Days)</h5>
+                    <h5><i class="fas fa-trending-up me-2" aria-hidden="true"></i>Attendance Trends (Last 30 Days)</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="attendanceTrendChart" height="80"></canvas>
@@ -129,18 +129,18 @@ try {
 
     <div class="card mt-4">
         <div class="card-header">
-            <h5><i class="fas fa-building me-2"></i>Departmental Overview</h5>
+            <h5><i class="fas fa-building me-2" aria-hidden="true"></i>Departmental Overview</h5>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Department</th>
-                            <th>Head Count</th>
-                            <th>Present</th>
-                            <th>Absent</th>
-                            <th>Attendance Rate</th>
+                            <th scope="col">Department</th>
+                            <th scope="col">Head Count</th>
+                            <th scope="col">Present</th>
+                            <th scope="col">Absent</th>
+                            <th scope="col">Attendance Rate</th>
                         </tr>
                     </thead>
                     <tbody>
