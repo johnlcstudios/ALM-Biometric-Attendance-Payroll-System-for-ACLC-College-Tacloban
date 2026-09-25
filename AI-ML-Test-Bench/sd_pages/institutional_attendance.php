@@ -63,17 +63,17 @@ try {
 
 <div class="card mb-4">
     <div class="card-header">
-        <h5><i class="fas fa-calendar-check me-2"></i>Attendance Tracking</h5>
+        <h5><i class="fas fa-calendar-check me-2" aria-hidden="true"></i>Attendance Tracking</h5>
     </div>
     <div class="card-body">
         <form method="GET" class="row mb-4">
             <div class="col-md-4">
-                <label><strong>Select Date</strong></label>
-                <input type="date" class="form-control" name="date" value="<?php echo htmlspecialchars($date_filter); ?>">
+                <label for="attendanceDate"><strong>Select Date</strong></label>
+                <input type="date" class="form-control" id="attendanceDate" name="date" value="<?php echo htmlspecialchars($date_filter); ?>">
             </div>
             <div class="col-md-2" style="display: flex; align-items: flex-end;">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-search me-2"></i>View
+                <button type="submit" class="btn btn-primary w-100" aria-label="View attendance records">
+                    <i class="fas fa-search me-2" aria-hidden="true"></i>View
                 </button>
             </div>
         </form>
@@ -109,13 +109,13 @@ try {
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Employee ID</th>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Position</th>
-                        <th>Check In</th>
-                        <th>Check Out</th>
-                        <th>Status</th>
+                        <th scope="col">Employee ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Department</th>
+                        <th scope="col">Position</th>
+                        <th scope="col">Check In</th>
+                        <th scope="col">Check Out</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
