@@ -3,21 +3,25 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-require_once 'backend/db.php';
-
 $full_name = '';
 $position = '';
 
-if (isset($_SESSION['user_id'])) {
-    $user_id = $_SESSION['user_id'];
-    $stmt = $pdo->prepare("SELECT e.* FROM employees e JOIN users u ON e.user_id = u.id WHERE u.id = ?");
-    $stmt->execute([$user_id]);
-    $emp = $stmt->fetch();
-    
-    if ($emp) {
-        $full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
-        $position = $emp['position'] ?? 'Staff';
+try {
+    require_once 'backend/db.php';
+    if (isset($pdo) && isset($_SESSION['user_id'])) {
+        $user_id = $_SESSION['user_id'];
+        $stmt = $pdo->prepare("SELECT e.* FROM employees e JOIN users u ON e.user_id = u.id WHERE u.id = ?");
+        $stmt->execute([$user_id]);
+        $emp = $stmt->fetch();
+
+        if ($emp) {
+            $full_name = $emp['full_name'] ?? $_SESSION['full_name'] ?? 'Employee';
+            $position = $emp['position'] ?? 'Staff';
+        }
     }
+} catch (Throwable $e) {
+    $full_name = $_SESSION['full_name'] ?? 'Employee';
+    $position = 'Staff';
 }
 
 // Check GET variables
@@ -32,6 +36,7 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Print Cash Advance Forms</title>
+    <link rel="stylesheet" href="css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -55,10 +60,18 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
             font-size: 14px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             z-index: 1000;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .print-btn:hover {
             background: #0056b3;
+        }
+
+        .print-btn:focus-visible {
+            outline: 3px solid #ffd700;
+            outline-offset: 2px;
         }
 
         .page {
@@ -220,13 +233,15 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
 </head>
 <body>
 
-    <button class="print-btn" onclick="window.print()">Print Forms</button>
+    <button type="button" class="print-btn" onclick="window.print()" aria-label="Print Cash Advance Forms">
+        <i class="fas fa-print" aria-hidden="true"></i> Print Forms
+    </button>
 
     <div class="page">
         <?php for($i=0; $i<4; $i++): ?>
         <div class="form-container">
             <div class="header">
-                <img src="assets/logo.jpg" alt="Logo" class="logo">
+                <img src="assets/logo.jpg" alt="ACLC College Logo" class="logo">
                 <div class="header-text">
                     ACLC COLLEGE<br>TACLOBAN
                 </div>
@@ -237,34 +252,34 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
             <div class="row">
                 <div class="label">CA FORM NO.</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input" value="<?= htmlspecialchars($ca_no, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" class="line-input" aria-label="CA Form Number" value="<?= htmlspecialchars($ca_no, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div class="row">
                 <div class="label">Date Filed:</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input" value="<?= htmlspecialchars($date_filed, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" class="line-input" aria-label="Date Filed" value="<?= htmlspecialchars($date_filed, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div class="row">
                 <div class="label">Name of Employee</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input" value="<?= htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" class="line-input" aria-label="Name of Employee" value="<?= htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div class="row">
                 <div class="label">Position</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input" value="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" class="line-input" aria-label="Position" value="<?= htmlspecialchars($position, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div class="row">
                 <div class="label">Amount Loan</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input" value="<?= htmlspecialchars($amount, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="text" class="line-input" aria-label="Amount Loan" value="<?= htmlspecialchars($amount, ENT_QUOTES, 'UTF-8') ?>">
             </div>
             <div class="row" style="align-items: flex-start;">
                 <div class="label" style="margin-top: 2px;">Purpose</div>
                 <div class="colon" style="margin-top: 2px;">:</div>
                 <div class="line-group" style="margin-top: -13px;">
-                    <input type="text" class="line-input" value="<?= htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="text" class="line-input">
+                    <input type="text" class="line-input" aria-label="Purpose Line 1" value="<?= htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="text" class="line-input" aria-label="Purpose Line 2">
                 </div>
             </div>
             
@@ -301,7 +316,7 @@ $ca_no = isset($_GET['ca_no']) ? htmlspecialchars($_GET['ca_no']) : '';
             <div class="row balance-row">
                 <div class="label" style="width: 150px;">Balance</div>
                 <div class="colon">:</div>
-                <input type="text" class="line-input">
+                <input type="text" class="line-input" aria-label="Balance">
             </div>
         </div>
         <?php endfor; ?>
