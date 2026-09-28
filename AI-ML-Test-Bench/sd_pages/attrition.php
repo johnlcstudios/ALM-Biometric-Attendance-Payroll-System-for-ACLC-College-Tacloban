@@ -5,7 +5,7 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-chart-line me-2"></i>Attrition Analysis & Trends</h5>
+        <h5><i class="fas fa-chart-line me-2" aria-hidden="true"></i>Attrition Analysis & Trends</h5>
     </div>
     <div class="card-body">
         <div class="row mb-4">
@@ -46,7 +46,7 @@ require_once 'header.php';
                         <h6>Resignation Trends</h6>
                     </div>
                     <div class="card-body">
-                        <canvas id="resignationTrendChart" height="100"></canvas>
+                        <canvas id="resignationTrendChart" height="100" role="img" aria-label="Bar chart showing annual resignation trends from 2022 to 2026"></canvas>
                     </div>
                 </div>
             </div>
@@ -56,7 +56,7 @@ require_once 'header.php';
                         <h6>Reasons for Attrition</h6>
                     </div>
                     <div class="card-body">
-                        <canvas id="reasonsChart" height="100"></canvas>
+                        <canvas id="reasonsChart" height="100" role="img" aria-label="Doughnut chart showing breakdown of resignation reasons"></canvas>
                     </div>
                 </div>
             </div>
@@ -71,12 +71,12 @@ require_once 'header.php';
                     <table class="table table-sm">
                         <thead>
                             <tr>
-                                <th>Employee Name</th>
-                                <th>Department</th>
-                                <th>Resignation Date</th>
-                                <th>Effective Date</th>
-                                <th>Reason</th>
-                                <th>Tenure</th>
+                                <th scope="col">Employee Name</th>
+                                <th scope="col">Department</th>
+                                <th scope="col">Resignation Date</th>
+                                <th scope="col">Effective Date</th>
+                                <th scope="col">Reason</th>
+                                <th scope="col">Tenure</th>
                             </tr>
                         </thead>
                         <tbody>
