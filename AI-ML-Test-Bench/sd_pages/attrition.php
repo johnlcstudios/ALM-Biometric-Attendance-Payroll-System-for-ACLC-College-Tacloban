@@ -5,7 +5,7 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-chart-line me-2"></i>Attrition Analysis & Trends</h5>
+        <h5><i class="fas fa-chart-line me-2" aria-hidden="true"></i>Attrition Analysis & Trends</h5>
     </div>
     <div class="card-body">
         <div class="row mb-4">
@@ -71,12 +71,12 @@ require_once 'header.php';
                     <table class="table table-sm">
                         <thead>
                             <tr>
-                                <th>Employee Name</th>
-                                <th>Department</th>
-                                <th>Resignation Date</th>
-                                <th>Effective Date</th>
-                                <th>Reason</th>
-                                <th>Tenure</th>
+                                <th scope="col">Employee Name</th>
+                                <th scope="col">Department</th>
+                                <th scope="col">Resignation Date</th>
+                                <th scope="col">Effective Date</th>
+                                <th scope="col">Reason</th>
+                                <th scope="col">Tenure</th>
                             </tr>
                         </thead>
                         <tbody>

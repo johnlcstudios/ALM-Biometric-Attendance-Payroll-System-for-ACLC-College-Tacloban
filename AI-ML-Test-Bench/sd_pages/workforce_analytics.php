@@ -72,7 +72,7 @@ try {
         <div class="col-md-3">
             <div class="stat-card">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #1e0178, #2d0a8f); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                    <i class="fas fa-users fa-2x"></i>
+                    <i class="fas fa-users fa-2x" aria-hidden="true"></i>
                 </div>
                 <div class="stat-info mt-3">
                     <h3>Total Workforce</h3>
@@ -85,7 +85,7 @@ try {
         <div class="col-md-3">
             <div class="stat-card">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                    <i class="fas fa-building fa-2x"></i>
+                    <i class="fas fa-building fa-2x" aria-hidden="true"></i>
                 </div>
                 <div class="stat-info mt-3">
                     <h3>Departments</h3>
@@ -98,7 +98,7 @@ try {
         <div class="col-md-3">
             <div class="stat-card">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                    <i class="fas fa-calendar-check fa-2x"></i>
+                    <i class="fas fa-calendar-check fa-2x" aria-hidden="true"></i>
                 </div>
                 <div class="stat-info mt-3">
                     <h3>Avg Attendance</h3>
@@ -111,7 +111,7 @@ try {
         <div class="col-md-3">
             <div class="stat-card">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #17a2b8, #138496); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-                    <i class="fas fa-briefcase fa-2x"></i>
+                    <i class="fas fa-briefcase fa-2x" aria-hidden="true"></i>
                 </div>
                 <div class="stat-info mt-3">
                     <h3>Positions</h3>
@@ -127,7 +127,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-building me-2"></i>Employees by Department</h5>
+                    <h5><i class="fas fa-building me-2" aria-hidden="true"></i>Employees by Department</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="departmentChart" height="100"></canvas>
@@ -138,7 +138,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-briefcase me-2"></i>Employees by Position</h5>
+                    <h5><i class="fas fa-briefcase me-2" aria-hidden="true"></i>Employees by Position</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="positionChart" height="100"></canvas>
@@ -151,7 +151,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-venus-mars me-2"></i>Gender Distribution</h5>
+                    <h5><i class="fas fa-venus-mars me-2" aria-hidden="true"></i>Gender Distribution</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="genderChart" height="100"></canvas>
@@ -162,7 +162,7 @@ try {
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-chart-pie me-2"></i>Employee Status</h5>
+                    <h5><i class="fas fa-chart-pie me-2" aria-hidden="true"></i>Employee Status</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="statusChart" height="100"></canvas>
