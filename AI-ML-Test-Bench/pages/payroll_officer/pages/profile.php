@@ -125,11 +125,17 @@ if (!empty($profile_picture) && file_exists($profile_picture)) {
                 <form onsubmit="changePassword(event)">
                     <div class="form-group-custom">
                         <label>Current Password</label>
-                        <input type="password" id="oldPass" required>
+                        <div class="input-wrapper">
+                            <input type="password" id="oldPass" required>
+                            <i class="fas fa-eye toggle-password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                     </div>
                     <div class="form-group-custom">
                         <label>New Password</label>
-                        <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                        <div class="input-wrapper">
+                            <input type="password" id="newPass" required oninput="checkPasswordStrength()">
+                            <i class="fas fa-eye toggle-password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                         <div id="password-requirements" style="margin-top: 5px; font-size: 0.8rem;">
                             <div id="req-length" class="req-item">At least 8 characters</div>
                             <div id="req-uppercase" class="req-item">One uppercase letter</div>
@@ -140,7 +146,10 @@ if (!empty($profile_picture) && file_exists($profile_picture)) {
                     </div>
                     <div class="form-group-custom">
                         <label>Confirm New Password</label>
-                        <input type="password" id="confirmPass" required>
+                        <div class="input-wrapper">
+                            <input type="password" id="confirmPass" required>
+                            <i class="fas fa-eye toggle-password" role="button" tabindex="0" aria-label="Show password" title="Show password"></i>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Update Password</button>
                 </form>
@@ -905,3 +914,4 @@ async function deleteMySchedule(id) {
     }
 }
 </script>
+<script src="js/password-toggle.js"></script>

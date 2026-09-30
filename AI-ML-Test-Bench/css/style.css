@@ -3101,7 +3101,7 @@ body.dark-mode .context-menu-divider {
 
 .toggle-password {
     position: absolute;
-    right: 45px;
+    right: 15px;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
@@ -3114,6 +3114,10 @@ body.dark-mode .context-menu-divider {
     justify-content: center;
     width: 24px;
     height: 24px;
+}
+
+.input-wrapper:has(i:not(.toggle-password)) .toggle-password {
+    right: 45px;
 }
 
 .toggle-password:hover {
