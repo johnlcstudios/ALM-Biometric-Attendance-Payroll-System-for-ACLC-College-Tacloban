@@ -48,13 +48,13 @@ $loans = $stmt->fetchAll() ?: [];
         <table class="table table-hover align-middle">
             <thead class="text-muted small text-uppercase">
                 <tr>
-                    <th class="border-0">Employee Name</th>
-                    <th class="border-0">Type</th>
-                    <th class="border-0">Requested Amount</th>
-                    <th class="border-0">Request Date</th>
-                    <th class="border-0">Status</th>
-                    <th class="border-0">Reviewed By</th>
-                    <th class="border-0 text-center">Action</th>
+                    <th scope="col" class="border-0">Employee Name</th>
+                    <th scope="col" class="border-0">Type</th>
+                    <th scope="col" class="border-0">Requested Amount</th>
+                    <th scope="col" class="border-0">Request Date</th>
+                    <th scope="col" class="border-0">Status</th>
+                    <th scope="col" class="border-0">Reviewed By</th>
+                    <th scope="col" class="border-0 text-center">Action</th>
                 </tr>
             </thead>
             <tbody class="border-top-0">
