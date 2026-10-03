@@ -11,7 +11,7 @@ $expenditures = $stmt->fetchAll() ?: [];
     <div class="col-md-12">
         <div class="card p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="fw-bold mb-0 text-primary"><i class="fas fa-chart-bar me-2"></i> Monthly Financial Performance</h5>
+                <h5 class="fw-bold mb-0 text-primary"><i class="fas fa-chart-bar me-2" aria-hidden="true"></i> Monthly Financial Performance</h5>
                 <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">Budget Analysis</span>
             </div>
             
@@ -19,12 +19,12 @@ $expenditures = $stmt->fetchAll() ?: [];
                 <table class="table table-hover align-middle">
                     <thead class="text-muted small text-uppercase">
                         <tr>
-                            <th class="border-0">Month</th>
-                            <th class="border-0">Allocated Budget</th>
-                            <th class="border-0">Actual Payouts</th>
-                            <th class="border-0">Variance</th>
-                            <th class="border-0">Utilization</th>
-                            <th class="border-0">Status</th>
+                            <th scope="col" class="border-0">Month</th>
+                            <th scope="col" class="border-0">Allocated Budget</th>
+                            <th scope="col" class="border-0">Actual Payouts</th>
+                            <th scope="col" class="border-0">Variance</th>
+                            <th scope="col" class="border-0">Utilization</th>
+                            <th scope="col" class="border-0">Status</th>
                         </tr>
                     </thead>
                     <tbody class="border-top-0">
@@ -49,7 +49,7 @@ $expenditures = $stmt->fetchAll() ?: [];
                             <td style="width: 250px;">
                                 <div class="d-flex align-items-center">
                                     <div class="progress flex-grow-1 me-2" style="height: 8px; border-radius: 4px;">
-                                        <div class="progress-bar <?php echo $progress_class; ?>" role="progressbar" style="width: <?php echo min($utilization, 100); ?>%;" aria-valuenow="<?php echo $utilization; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar <?php echo $progress_class; ?>" role="progressbar" style="width: <?php echo min($utilization, 100); ?>%;" aria-valuenow="<?php echo $utilization; ?>" aria-valuemin="0" aria-valuemax="100" aria-label="Budget utilization percentage"></div>
                                     </div>
                                     <small class="fw-bold"><?php echo number_format($utilization, 1); ?>%</small>
                                 </div>
@@ -75,7 +75,7 @@ $expenditures = $stmt->fetchAll() ?: [];
 <div class="row mt-4">
     <div class="col-md-6">
         <div class="card p-4">
-            <h6 class="fw-bold text-uppercase mb-3 small text-muted"><i class="fas fa-info-circle me-2"></i>Summary</h6>
+            <h6 class="fw-bold text-uppercase mb-3 small text-muted"><i class="fas fa-info-circle me-2" aria-hidden="true"></i>Summary</h6>
             <div class="d-flex justify-content-between mb-2">
                 <span>Total Allocated Budget:</span>
                 <strong>₱<?php 
@@ -101,12 +101,12 @@ $expenditures = $stmt->fetchAll() ?: [];
     </div>
     <div class="col-md-6">
         <div class="card p-4 bg-light">
-            <h6 class="fw-bold text-uppercase mb-3 small text-muted"><i class="fas fa-lightbulb me-2"></i>Financial Insights</h6>
+            <h6 class="fw-bold text-uppercase mb-3 small text-muted"><i class="fas fa-lightbulb me-2" aria-hidden="true"></i>Financial Insights</h6>
             <ul class="small text-muted" style="list-style: none; padding: 0;">
-                <li><i class="fas fa-check text-success me-2"></i>Budget utilization is healthy</li>
-                <li><i class="fas fa-chart-line text-info me-2"></i>Month-over-month expenses stable</li>
-                <li><i class="fas fa-arrow-up text-warning me-2"></i>Q2 expenses trending upward</li>
-                <li><i class="fas fa-target text-primary me-2"></i>FY target on pace</li>
+                <li><i class="fas fa-check text-success me-2" aria-hidden="true"></i>Budget utilization is healthy</li>
+                <li><i class="fas fa-chart-line text-info me-2" aria-hidden="true"></i>Month-over-month expenses stable</li>
+                <li><i class="fas fa-arrow-up text-warning me-2" aria-hidden="true"></i>Q2 expenses trending upward</li>
+                <li><i class="fas fa-target text-primary me-2" aria-hidden="true"></i>FY target on pace</li>
             </ul>
         </div>
     </div>

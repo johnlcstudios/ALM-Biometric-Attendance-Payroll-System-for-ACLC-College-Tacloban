@@ -5,7 +5,7 @@ require_once 'header.php';
 
 <div class="card">
     <div class="card-header">
-        <h5><i class="fas fa-money-bill-wave me-2"></i>Departmental Cost Analysis</h5>
+        <h5><i class="fas fa-money-bill-wave me-2" aria-hidden="true"></i>Departmental Cost Analysis</h5>
     </div>
     <div class="card-body">
         <div class="row mb-4">
@@ -71,12 +71,12 @@ require_once 'header.php';
                     <table class="table table-hover table-sm">
                         <thead>
                             <tr>
-                                <th>Department</th>
-                                <th>Headcount</th>
-                                <th>Total Cost</th>
-                                <th>% of Total</th>
-                                <th>Avg Cost/Employee</th>
-                                <th>Cost Trend</th>
+                                <th scope="col">Department</th>
+                                <th scope="col">Headcount</th>
+                                <th scope="col">Total Cost</th>
+                                <th scope="col">% of Total</th>
+                                <th scope="col">Avg Cost/Employee</th>
+                                <th scope="col">Cost Trend</th>
                             </tr>
                         </thead>
                         <tbody>
