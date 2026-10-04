@@ -288,44 +288,44 @@ try {
     <div class="sd-dashboard">
         <!-- Header -->
         <div class="sd-header">
-            <h1><i class="fas fa-chart-line"></i> School Director Dashboard</h1>
+            <h1><i class="fas fa-chart-line" aria-hidden="true"></i> School Director Dashboard</h1>
             <p>Welcome back, <?php echo htmlspecialchars($full_name); ?> | <?php echo htmlspecialchars($company_name); ?></p>
         </div>
         
         <!-- Statistics Grid -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-icon"><i class="fas fa-users" aria-hidden="true"></i></div>
                 <div class="stat-label">Total Employees</div>
                 <div class="stat-value"><?php echo number_format($total_employees); ?></div>
             </div>
             
             <div class="stat-card green">
-                <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+                <div class="stat-icon"><i class="fas fa-user-check" aria-hidden="true"></i></div>
                 <div class="stat-label">Present Today</div>
                 <div class="stat-value" style="color: #27ae60;"><?php echo number_format($present_today); ?></div>
             </div>
             
             <div class="stat-card red">
-                <div class="stat-icon"><i class="fas fa-user-times"></i></div>
+                <div class="stat-icon"><i class="fas fa-user-times" aria-hidden="true"></i></div>
                 <div class="stat-label">Absent Today</div>
                 <div class="stat-value" style="color: #e71d36;"><?php echo number_format($absent_today); ?></div>
             </div>
             
             <div class="stat-card orange">
-                <div class="stat-icon"><i class="fas fa-user-tie"></i></div>
+                <div class="stat-icon"><i class="fas fa-user-tie" aria-hidden="true"></i></div>
                 <div class="stat-label">HR Staff</div>
                 <div class="stat-value" style="color: #f39c12;"><?php echo number_format($total_hr); ?></div>
             </div>
             
             <div class="stat-card blue">
-                <div class="stat-icon"><i class="fas fa-money-check-alt"></i></div>
+                <div class="stat-icon"><i class="fas fa-money-check-alt" aria-hidden="true"></i></div>
                 <div class="stat-label">Payroll Officers</div>
                 <div class="stat-value" style="color: #3498db;"><?php echo number_format($total_payroll); ?></div>
             </div>
             
             <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-peso-sign"></i></div>
+                <div class="stat-icon"><i class="fas fa-peso-sign" aria-hidden="true"></i></div>
                 <div class="stat-label">Monthly Payroll</div>
                 <div class="stat-value">₱<?php echo number_format($monthly_payroll, 2); ?></div>
             </div>
@@ -335,31 +335,31 @@ try {
         <div class="analytics-grid">
             <!-- Department Overview -->
             <div class="analytics-card">
-                <h3><i class="fas fa-building"></i> Department Overview</h3>
+                <h3><i class="fas fa-building" aria-hidden="true"></i> Department Overview</h3>
                 <canvas id="departmentChart" height="100"></canvas>
             </div>
             
             <!-- Quick Actions -->
             <div class="analytics-card">
-                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                <h3><i class="fas fa-bolt" aria-hidden="true"></i> Quick Actions</h3>
                 <div class="quick-actions">
                     <a href="sd_pages/assign_roles.php" class="action-btn primary">
-                        <i class="fas fa-user-plus"></i> Assign HR
+                        <i class="fas fa-user-plus" aria-hidden="true"></i> Assign HR
                     </a>
                     <a href="sd_pages/assign_roles.php" class="action-btn primary">
-                        <i class="fas fa-user-plus"></i> Assign Payroll
+                        <i class="fas fa-user-plus" aria-hidden="true"></i> Assign Payroll
                     </a>
                     <a href="sd_pages/executive_dashboard.php" class="action-btn">
-                        <i class="fas fa-chart-line"></i> Executive Dashboard
+                        <i class="fas fa-chart-line" aria-hidden="true"></i> Executive Dashboard
                     </a>
                     <a href="sd_pages/workforce_analytics.php" class="action-btn">
-                        <i class="fas fa-users-cog"></i> Workforce Analytics
+                        <i class="fas fa-users-cog" aria-hidden="true"></i> Workforce Analytics
                     </a>
                     <a href="sd_pages/institutional_attendance.php" class="action-btn">
-                        <i class="fas fa-calendar-check"></i> Attendance
+                        <i class="fas fa-calendar-check" aria-hidden="true"></i> Attendance
                     </a>
                     <a href="sd_pages/budget_actual.php" class="action-btn">
-                        <i class="fas fa-wallet"></i> Budget
+                        <i class="fas fa-wallet" aria-hidden="true"></i> Budget
                     </a>
                 </div>
             </div>
@@ -367,7 +367,7 @@ try {
         
         <!-- Recent Activity -->
         <div class="analytics-card">
-            <h3><i class="fas fa-history"></i> Recent Activity</h3>
+            <h3><i class="fas fa-history" aria-hidden="true"></i> Recent Activity</h3>
             <ul class="activity-list">
                 <?php if (empty($recent_activity)): ?>
                     <li class="activity-item">
@@ -377,7 +377,7 @@ try {
                     <?php foreach ($recent_activity as $activity): ?>
                         <li class="activity-item">
                             <div class="activity-desc">
-                                <i class="fas fa-fingerprint"></i> 
+                                <i class="fas fa-fingerprint" aria-hidden="true"></i>
                                 <?php echo htmlspecialchars($activity['full_name'] ?? 'Unknown'); ?>
                                 - Checked in at <?php echo $activity['check_in'] ? date('h:i A', strtotime($activity['check_in'])) : 'N/A'; ?>
                             </div>

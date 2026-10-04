@@ -77,7 +77,7 @@ try {
 <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
     <div class="stat-card">
         <div class="stat-icon" style="background: linear-gradient(135deg, #1e0178, #2d0a8f); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-            <i class="fas fa-users fa-2x"></i>
+            <i class="fas fa-users fa-2x" aria-hidden="true"></i>
         </div>
         <div class="stat-info">
             <h3>Total Employees</h3>
@@ -87,7 +87,7 @@ try {
     
     <div class="stat-card">
         <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-            <i class="fas fa-user-check fa-2x"></i>
+            <i class="fas fa-user-check fa-2x" aria-hidden="true"></i>
         </div>
         <div class="stat-info">
             <h3>Present Today</h3>
@@ -97,7 +97,7 @@ try {
     
     <div class="stat-card">
         <div class="stat-icon" style="background: linear-gradient(135deg, #dc3545, #e74c3c); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-            <i class="fas fa-user-times fa-2x"></i>
+            <i class="fas fa-user-times fa-2x" aria-hidden="true"></i>
         </div>
         <div class="stat-info">
             <h3>Absent Today</h3>
@@ -107,7 +107,7 @@ try {
     
     <div class="stat-card">
         <div class="stat-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 20px; border-radius: 12px; text-align: center;">
-            <i class="fas fa-chart-line fa-2x"></i>
+            <i class="fas fa-chart-line fa-2x" aria-hidden="true"></i>
         </div>
         <div class="stat-info">
             <h3>Punctuality Score</h3>
@@ -120,7 +120,7 @@ try {
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-building me-2"></i>Department Overview</h5>
+                <h5><i class="fas fa-building me-2" aria-hidden="true"></i>Department Overview</h5>
             </div>
             <div class="card-body">
                 <canvas id="departmentChart" height="100"></canvas>
@@ -131,27 +131,27 @@ try {
     <div class="col-md-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                <h5><i class="fas fa-bolt me-2" aria-hidden="true"></i>Quick Actions</h5>
             </div>
             <div class="card-body">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
                     <a href="assign_roles.php" class="btn btn-primary w-100">
-                        <i class="fas fa-user-plus me-2"></i>Assign HR/Payroll
+                        <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Assign HR/Payroll
                     </a>
                     <a href="executive_dashboard.php" class="btn btn-secondary w-100">
-                        <i class="fas fa-chart-line me-2"></i>Executive Dashboard
+                        <i class="fas fa-chart-line me-2" aria-hidden="true"></i>Executive Dashboard
                     </a>
                     <a href="workforce_analytics.php" class="btn btn-info w-100" style="background: #17a2b8; border-color: #17a2b8;">
-                        <i class="fas fa-users-cog me-2"></i>Workforce Analytics
+                        <i class="fas fa-users-cog me-2" aria-hidden="true"></i>Workforce Analytics
                     </a>
                     <a href="institutional_attendance.php" class="btn btn-warning w-100">
-                        <i class="fas fa-calendar-check me-2"></i>Attendance
+                        <i class="fas fa-calendar-check me-2" aria-hidden="true"></i>Attendance
                     </a>
                     <a href="budget_actual.php" class="btn btn-success w-100">
-                        <i class="fas fa-wallet me-2"></i>Budget vs Actual
+                        <i class="fas fa-wallet me-2" aria-hidden="true"></i>Budget vs Actual
                     </a>
                     <a href="annual_report.php" class="btn btn-dark w-100">
-                        <i class="fas fa-file-alt me-2"></i>Annual Report
+                        <i class="fas fa-file-alt me-2" aria-hidden="true"></i>Annual Report
                     </a>
                 </div>
             </div>
@@ -161,18 +161,18 @@ try {
 
 <div class="card mt-4">
     <div class="card-header">
-        <h5><i class="fas fa-history me-2"></i>Recent Activity</h5>
+        <h5><i class="fas fa-history me-2" aria-hidden="true"></i>Recent Activity</h5>
     </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Employee</th>
-                        <th>Date</th>
-                        <th>Check In</th>
-                        <th>Check Out</th>
-                        <th>Status</th>
+                        <th scope="col">Employee</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Check In</th>
+                        <th scope="col">Check Out</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
