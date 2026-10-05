@@ -90,13 +90,22 @@
             padding: 12px 24px;
             border-radius: 8px;
             font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
             margin-top: 20px;
-            transition: background 0.3s;
+            margin-right: 10px;
+            transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
         }
         
         button:hover {
             background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        button:focus-visible {
+            outline: 3px solid #1e0178;
+            outline-offset: 3px;
         }
         
         .code {
@@ -132,15 +141,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Face API Models Setup Checker</h1>
+        <h1><span aria-hidden="true">🔍</span> Face API Models Setup Checker</h1>
         <p class="subtitle">This tool verifies that your face recognition system is properly configured.</p>
         
         <div id="checks"></div>
         
         <div id="summary"></div>
         
-        <button onclick="location.reload()">🔄 Re-check</button>
-        <button onclick="location.href='kiosk.php'">🚀 Go to Kiosk</button>
+        <button type="button" aria-label="Re-check model setup" onclick="location.reload()"><span aria-hidden="true">🔄</span> Re-check</button>
+        <button type="button" aria-label="Go to Attendance Kiosk" onclick="location.href='kiosk.php'"><span aria-hidden="true">🚀</span> Go to Kiosk</button>
     </div>
     
     <script>
