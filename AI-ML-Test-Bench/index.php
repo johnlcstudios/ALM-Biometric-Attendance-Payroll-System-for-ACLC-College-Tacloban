@@ -345,8 +345,8 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
                         <span class="user-name"><?php echo htmlspecialchars($full_name); ?></span>
                         <span class="user-role"><?php echo htmlspecialchars($role); ?></span>
                     </div>
-                    <button class="profile-link-btn" onclick="window.location.href='index.php?page=profile'" title="My Profile">
-                        <i class="fas fa-user-circle"></i>
+                    <button type="button" class="profile-link-btn" onclick="window.location.href='index.php?page=profile'" title="My Profile" aria-label="My Profile">
+                        <i class="fas fa-user-circle" aria-hidden="true"></i>
                     </button>
                 </div>
                 <button class="nav-btn logout" onclick="logout()">
