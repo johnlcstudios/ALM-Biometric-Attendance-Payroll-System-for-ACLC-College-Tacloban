@@ -125,25 +125,25 @@ $position = $emp['position'] ?? 'Staff';
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <button class="nav-btn active" onclick="showPage('dashboard', this)">
-                    <i class="fas fa-th-large"></i> Dashboard
+                <button class="nav-btn active" aria-current="page" onclick="showPage('dashboard', this)">
+                    <i class="fas fa-th-large" aria-hidden="true"></i> Dashboard
                 </button>
                 <button class="nav-btn" onclick="showPage('attendance', this)">
-                    <i class="fas fa-calendar-check"></i> Attendance
+                    <i class="fas fa-calendar-check" aria-hidden="true"></i> Attendance
                 </button>
                 <button class="nav-btn" onclick="showPage('payroll', this)">
-                    <i class="fas fa-file-invoice-dollar"></i> Payroll & Payslips
+                    <i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> Payroll & Payslips
                 </button>
                 <button class="nav-btn" onclick="showPage('requests', this)">
-                    <i class="fas fa-paper-plane"></i> Requests
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i> Requests
                 </button>
                 <button class="nav-btn" onclick="showPage('profile', this)">
-                    <i class="fas fa-user-circle"></i> My Profile
+                    <i class="fas fa-user-circle" aria-hidden="true"></i> My Profile
                 </button>
             </nav>
             <div class="sidebar-footer">
                 <button class="nav-btn logout" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <i class="fas fa-sign-out-alt" aria-hidden="true"></i> Logout
                 </button>
             </div>
         </aside>
@@ -791,7 +791,10 @@ $position = $emp['position'] ?? 'Staff';
 
         function showPage(pageId, btn) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active');
+                b.removeAttribute('aria-current');
+            });
             
             const pageElement = document.getElementById(pageId);
             if (pageElement) {
@@ -800,6 +803,7 @@ $position = $emp['position'] ?? 'Staff';
             
             if (btn) {
                 btn.classList.add('active');
+                btn.setAttribute('aria-current', 'page');
                 const title = btn.innerText.trim();
                 document.getElementById('current-page-title').innerText = title;
             }
