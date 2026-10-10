@@ -148,6 +148,13 @@ if (isset($_SESSION['user_id'])) {
             background: #1633c6;
         }
 
+        /* FOCUS VISIBLE INDICATORS FOR KEYBOARD ACCESSIBILITY */
+        .login-btn:focus-visible,
+        .signup-text a:focus-visible {
+            outline: 2px solid #ffffff;
+            outline-offset: 3px;
+        }
+
         /* TEXT */
         .signup-text {
             margin-top: 15px;
@@ -193,15 +200,15 @@ if (isset($_SESSION['user_id'])) {
             <form id="signupForm">
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="text" name="company_name" id="company_name" placeholder="Company Name" required>
-                        <i class="fas fa-building"></i>
+                        <input type="text" name="company_name" id="company_name" placeholder="Company Name" aria-label="Company Name" required>
+                        <i class="fas fa-building" aria-hidden="true"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="text" name="company_code" id="company_code" placeholder="Company Code (auto-generated)" maxlength="20">
-                        <i class="fas fa-hashtag"></i>
+                        <input type="text" name="company_code" id="company_code" placeholder="Company Code (auto-generated)" aria-label="Company Code (auto-generated)" maxlength="20">
+                        <i class="fas fa-hashtag" aria-hidden="true"></i>
                     </div>
                     <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
                         Leave empty for auto-generation (e.g., ABCD-XY12) or enter custom code
@@ -210,36 +217,36 @@ if (isset($_SESSION['user_id'])) {
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="text" name="username" placeholder="Admin Username" required>
-                        <i class="fas fa-user-shield"></i>
+                        <input type="text" name="username" id="username" placeholder="Admin Username" aria-label="Admin Username" required>
+                        <i class="fas fa-user-shield" aria-hidden="true"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="email" name="email" placeholder="Admin Email" required>
-                        <i class="fas fa-envelope"></i>
+                        <input type="email" name="email" id="email" placeholder="Admin Email" aria-label="Admin Email" required>
+                        <i class="fas fa-envelope" aria-hidden="true"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
-                        <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                        <input type="password" name="password" id="password" class="password-field" placeholder="Password" aria-label="Password" required>
                         <i class="fas fa-eye toggle-password" data-target="password"></i>
-                        <i class="fas fa-lock"></i>
+                        <i class="fas fa-lock" aria-hidden="true"></i>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <div class="input-wrapper">
                         <input type="password" name="confirm_password" id="confirm_password" class="password-field"
-                            placeholder="Confirm Password" required>
+                            placeholder="Confirm Password" aria-label="Confirm Password" required>
                         <i class="fas fa-eye toggle-password" data-target="confirm_password"></i>
-                        <i class="fas fa-check-circle"></i>
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
                     </div>
                 </div>
 
-                <button type="submit" class="login-btn">Register</button>
+                <button type="submit" class="login-btn" id="signupSubmitBtn">Register</button>
 
                 <p class="signup-text">
                     Already have an account? <a href="login.php">Login</a>
@@ -264,6 +271,9 @@ if (isset($_SESSION['user_id'])) {
         document.getElementById('signupForm').onsubmit = async (e) => {
             e.preventDefault();
 
+            const submitBtn = document.getElementById('signupSubmitBtn') || e.target.querySelector('button[type="submit"]');
+            const originalContent = submitBtn ? submitBtn.innerHTML : 'Register';
+
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
 
@@ -281,39 +291,64 @@ if (isset($_SESSION['user_id'])) {
                 return;
             }
 
-            const response = await fetch('backend/api.php?action=signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Registering...';
+            }
 
-            const result = await response.json();
-
-            if (result.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br><br><strong>Your Role:</strong> School Director<br>You will be redirected to login in <strong>3 seconds</strong>...`,
-                    customClass: {
-                        popup: 'glass-modal',
-                        container: 'glass-backdrop'
-                    },
-                    background: 'transparent',
-                    showConfirmButton: true,
-                    confirmButtonText: 'Login Now',
-                    confirmButtonColor: '#4facfe',
-                    timer: 3000,
-                    timerProgressBar: true,
-                    allowOutsideClick: false
-                }).then((willRedirect) => {
-                    // Redirect to login page
-                    window.location.href = 'login.php';
+            try {
+                const response = await fetch('backend/api.php?action=signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
                 });
-            } else {
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        html: `Registration successful!<br><strong>Company Code:</strong> ${result.company_code || 'Auto-generated'}<br><br><strong>Your Role:</strong> School Director<br>You will be redirected to login in <strong>3 seconds</strong>...`,
+                        customClass: {
+                            popup: 'glass-modal',
+                            container: 'glass-backdrop'
+                        },
+                        background: 'transparent',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Login Now',
+                        confirmButtonColor: '#4facfe',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        allowOutsideClick: false
+                    }).then((willRedirect) => {
+                        window.location.href = 'login.php';
+                    });
+                } else {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalContent;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Registration Failed',
+                        text: result.message || "Registration failed.",
+                        customClass: {
+                            popup: 'glass-modal',
+                            container: 'glass-backdrop'
+                        },
+                        background: 'transparent'
+                    });
+                }
+            } catch (err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalContent;
+                }
                 Swal.fire({
                     icon: 'error',
                     title: 'Registration Failed',
-                    text: result.message || "Registration failed.",
+                    text: "An unexpected error occurred. Please try again.",
                     customClass: {
                         popup: 'glass-modal',
                         container: 'glass-backdrop'
