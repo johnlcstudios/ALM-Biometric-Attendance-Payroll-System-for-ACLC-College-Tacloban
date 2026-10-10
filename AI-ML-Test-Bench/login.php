@@ -156,6 +156,15 @@ body {
     box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
+/* FOCUS VISIBLE INDICATORS FOR KEYBOARD ACCESSIBILITY */
+.login-btn:focus-visible,
+.kiosk-btn:focus-visible,
+#forgotPasswordLink:focus-visible,
+.signup-text a:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 3px;
+}
+
 /* KIOSK BUTTON (secondary glass button) */
 .kiosk-btn {
     display: block;
@@ -370,20 +379,20 @@ body {
         <form id="loginForm">
             <div class="form-group">
                 <div class="input-wrapper">
-                    <input type="text" name="username" placeholder="Username" required>
-                    <i class="fas fa-user"></i>
+                    <input type="text" name="username" id="username" placeholder="Username" aria-label="Username" required>
+                    <i class="fas fa-user" aria-hidden="true"></i>
                 </div>
             </div>
 
             <div class="form-group">
                 <div class="input-wrapper">
-                    <input type="password" name="password" id="password" class="password-field" placeholder="Password" required>
+                    <input type="password" name="password" id="password" class="password-field" placeholder="Password" aria-label="Password" required>
                     <i class="fas fa-eye toggle-password" data-target="password"></i>
-                    <i class="fas fa-lock"></i>
+                    <i class="fas fa-lock" aria-hidden="true"></i>
                 </div>
             </div>
 
-            <button type="submit" class="login-btn">Login</button>
+            <button type="submit" class="login-btn" id="loginSubmitBtn">Login</button>
 
             <div style="text-align: center; margin-top: 15px;">
                 <a href="#" id="forgotPasswordLink" style="color: rgba(255,255,255,0.8); font-size: 14px; text-decoration: none;">
@@ -582,34 +591,63 @@ window.addEventListener('load', function() {
 document.getElementById('loginForm').onsubmit = async (e) => {
     e.preventDefault();
 
-    const formData = new FormData(e.target);
+    const submitBtn = document.getElementById('loginSubmitBtn') || e.target.querySelector('button[type="submit"]');
+    const originalContent = submitBtn ? submitBtn.innerHTML : 'Login';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Logging in...';
+    }
 
-    const response = await fetch('backend/api.php?action=login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(formData))
-    });
+    try {
+        const formData = new FormData(e.target);
 
-    const result = await response.json();
+        const response = await fetch('backend/api.php?action=login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
 
-    if (result.success) {
-        const role = result.role ? result.role.trim() : 'Employee';
-        if (role === 'Payroll' || role === 'Payroll Officer') {
-            window.location.href = 'Payroll-Officer.php';
-        } else if (role === 'Admin' || role === 'SD' || role === 'School Director') {
-            // SD/Admin users go to SD Dashboard
-            window.location.href = 'sd_dashboard.php';
-        } else if (role === 'HR') {
-            // HR users go to regular index
-            window.location.href = 'index.php';
+        const result = await response.json();
+
+        if (result.success) {
+            const role = result.role ? result.role.trim() : 'Employee';
+            if (role === 'Payroll' || role === 'Payroll Officer') {
+                window.location.href = 'Payroll-Officer.php';
+            } else if (role === 'Admin' || role === 'SD' || role === 'School Director') {
+                // SD/Admin users go to SD Dashboard
+                window.location.href = 'sd_dashboard.php';
+            } else if (role === 'HR') {
+                // HR users go to regular index
+                window.location.href = 'index.php';
+            } else {
+                window.location.href = 'ess.php';
+            }
         } else {
-            window.location.href = 'ess.php';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalContent;
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Login Failed',
+                text: result.message || 'Invalid credentials',
+                customClass: {
+                    popup: 'glass-modal',
+                    container: 'glass-backdrop'
+                },
+                background: 'transparent',
+                confirmButtonColor: '#4facfe'
+            });
         }
-    } else {
+    } catch (err) {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalContent;
+        }
         Swal.fire({
             icon: 'error',
             title: 'Login Failed',
-            text: result.message || 'Invalid credentials',
+            text: 'An unexpected error occurred. Please try again.',
             customClass: {
                 popup: 'glass-modal',
                 container: 'glass-backdrop'
