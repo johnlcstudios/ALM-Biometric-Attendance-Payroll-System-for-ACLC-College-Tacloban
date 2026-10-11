@@ -209,6 +209,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             outline: none;
             border-color: #667eea;
         }
+
+        input:focus-visible,
+        .btn:focus-visible {
+            outline: 3px solid #764ba2;
+            outline-offset: 2px;
+        }
         
         .btn {
             width: 100%;
@@ -287,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 3px solid rgba(255, 255, 255, 0.3);
             animation: pulse 2s infinite;
         ">
-            <i class="fas fa-user-shield" style="font-size: 50px;"></i>
+            <i class="fas fa-user-shield" aria-hidden="true" style="font-size: 50px;"></i>
         </div>
         
         <!-- System Name -->
@@ -322,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 margin-bottom: 10px;
                 font-weight: 600;
             ">
-                <i class="fas fa-heart" style="color: #ff6b6b; animation: heartbeat 1.5s infinite;"></i>
+                <i class="fas fa-heart" aria-hidden="true" style="color: #ff6b6b; animation: heartbeat 1.5s infinite;"></i>
             </p>
             <p style="
                 font-size: 18px;
@@ -427,38 +433,38 @@ window.addEventListener('load', function() {
 </script>
 
     <div class="setup-card">
-        <h1><i class="fas fa-cog"></i> Initial Setup</h1>
+        <h1><i class="fas fa-cog" aria-hidden="true"></i> Initial Setup</h1>
         <p class="subtitle">Create your company and admin account</p>
         
         <?php if ($error): ?>
             <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
+                <i class="fas fa-exclamation-circle" aria-hidden="true"></i> <?php echo htmlspecialchars($error); ?>
             </div>
         <?php endif; ?>
         
         <?php if ($success): ?>
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo $success; ?>
+                <i class="fas fa-check-circle" aria-hidden="true"></i> <?php echo $success; ?>
             </div>
         <?php else: ?>
             <form method="POST">
                 <div class="form-group">
-                    <label>Company Name</label>
-                    <input type="text" name="company_name" required placeholder="Enter your company name">
+                    <label for="company_name">Company Name</label>
+                    <input type="text" name="company_name" id="company_name" required placeholder="Enter your company name">
                 </div>
                 
                 <div class="form-group">
-                    <label>Admin Email</label>
-                    <input type="email" name="admin_email" required placeholder="admin@company.com">
+                    <label for="admin_email">Admin Email</label>
+                    <input type="email" name="admin_email" id="admin_email" required placeholder="admin@company.com">
                 </div>
                 
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" required placeholder="Choose a username">
+                    <label for="username">Username</label>
+                    <input type="text" name="username" id="username" required placeholder="Choose a username">
                 </div>
                 
                 <div class="form-group">
-                    <label>Password</label>
+                    <label for="password">Password</label>
                     <div class="input-wrapper">
                         <input type="password" name="password" id="password" required placeholder="Create a strong password">
                         <i class="fas fa-eye toggle-password" data-target="password"></i>
@@ -467,7 +473,7 @@ window.addEventListener('load', function() {
                 </div>
                 
                 <div class="form-group">
-                    <label>Confirm Password</label>
+                    <label for="confirm_password">Confirm Password</label>
                     <div class="input-wrapper">
                         <input type="password" name="confirm_password" id="confirm_password" required placeholder="Confirm your password">
                         <i class="fas fa-eye toggle-password" data-target="confirm_password"></i>
@@ -475,7 +481,7 @@ window.addEventListener('load', function() {
                 </div>
                 
                 <button type="submit" class="btn">
-                    <i class="fas fa-rocket"></i> Complete Setup
+                    <i class="fas fa-rocket" aria-hidden="true"></i> Complete Setup
                 </button>
             </form>
         <?php endif; ?>
