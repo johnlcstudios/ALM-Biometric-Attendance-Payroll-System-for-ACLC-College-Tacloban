@@ -170,49 +170,42 @@ $position = $emp['position'] ?? 'Staff';
             <section id="dashboard" class="page active">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon blue"><i class="fas fa-building"></i></div>
+                        <div class="stat-icon blue"><i class="fas fa-building" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Company Code</h3>
                             <div class="stat-value" style="font-size: 1.2rem;"><?php echo htmlspecialchars($company_code, ENT_QUOTES, 'UTF-8'); ?></div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon blue"><i class="fas fa-user-clock"></i></div>
+                        <div class="stat-icon blue"><i class="fas fa-user-clock" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Days Present</h3>
                             <div class="stat-value" id="stat-present">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon red"><i class="fas fa-calendar-times"></i></div>
+                        <div class="stat-icon red"><i class="fas fa-calendar-times" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Days Absent</h3>
                             <div class="stat-value" id="stat-absent" style="color: #dc3545;">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon green"><i class="fas fa-umbrella-beach"></i></div>
+                        <div class="stat-icon green"><i class="fas fa-umbrella-beach" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Leave Balance</h3>
                             <div class="stat-value" id="stat-leave-balance">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon red"><i class="fas fa-clock"></i></div>
+                        <div class="stat-icon red"><i class="fas fa-clock" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Late Minutes</h3>
                             <div class="stat-value" id="stat-late">0</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon red"><i class="fas fa-clock"></i></div>
-                        <div class="stat-info">
-                            <h3>Late Minutes</h3>
-                            <div class="stat-value" id="stat-late">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon orange"><i class="fas fa-wallet"></i></div>
+                        <div class="stat-icon orange"><i class="fas fa-wallet" aria-hidden="true"></i></div>
                         <div class="stat-info">
                             <h3>Last Net Pay</h3>
                             <div class="stat-value" id="stat-net-pay">₱0.00</div>
@@ -236,10 +229,10 @@ $position = $emp['position'] ?? 'Staff';
                             <table class="modern-table">
                                 <thead>
                                     <tr>
-                                        <th>Date</th>
-                                        <th>Check In</th>
-                                        <th>Check Out</th>
-                                        <th>Status</th>
+                                        <th scope="col">Date</th>
+                                        <th scope="col">Check In</th>
+                                        <th scope="col">Check Out</th>
+                                        <th scope="col">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody id="dashboard-attendance-body">
@@ -262,21 +255,21 @@ $position = $emp['position'] ?? 'Staff';
                 <div class="attendance-controls">
                     <div class="control-group">
                         <div class="search-box">
-                            <i class="fas fa-search"></i>
+                            <i class="fas fa-search" aria-hidden="true"></i>
                             <input type="text" id="att-search" placeholder="Search date or status..." onkeyup="filterAttendance()">
                         </div>
                     </div>
                     <div class="control-group right">
                         <div class="filter-item">
-                            <label><i class="fas fa-calendar"></i> From</label>
+                            <label><i class="fas fa-calendar" aria-hidden="true"></i> From</label>
                             <input type="date" id="att-from" onchange="filterAttendance()">
                         </div>
                         <div class="filter-item">
-                            <label><i class="fas fa-calendar"></i> To</label>
+                            <label><i class="fas fa-calendar" aria-hidden="true"></i> To</label>
                             <input type="date" id="att-to" onchange="filterAttendance()">
                         </div>
                         <button class="btn btn-primary" onclick="generateDTR()" style="margin-left: 10px;">
-                            <i class="fas fa-file-pdf"></i> Generate DTR
+                            <i class="fas fa-file-pdf" aria-hidden="true"></i> Generate DTR
                         </button>
                     </div>
                 </div>
@@ -284,13 +277,13 @@ $position = $emp['position'] ?? 'Staff';
                     <table class="modern-table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Check In</th>
-                                <th>Lunch Out</th>
-                                <th>Lunch In</th>
-                                <th>Check Out</th>
-                                <th>Status</th>
-                                <th>Late (Min)</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Check In</th>
+                                <th scope="col">Lunch Out</th>
+                                <th scope="col">Lunch In</th>
+                                <th scope="col">Check Out</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Late (Min)</th>
                             </tr>
                         </thead>
                         <tbody id="attendance-history-body">
@@ -305,13 +298,13 @@ $position = $emp['position'] ?? 'Staff';
                     <table class="modern-table">
                         <thead>
                             <tr>
-                                <th>Period</th>
-                                <th>Basic Pay</th>
-                                <th>Deductions</th>
-                                <th>Net Pay</th>
-                                <th>Status</th>
-                                <th>Date Processed</th>
-                                <th>Action</th>
+                                <th scope="col">Period</th>
+                                <th scope="col">Basic Pay</th>
+                                <th scope="col">Deductions</th>
+                                <th scope="col">Net Pay</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Date Processed</th>
+                                <th scope="col">Action</th>
                             </tr>
                         </thead>
                         <tbody id="payroll-history-body">
@@ -366,9 +359,9 @@ $position = $emp['position'] ?? 'Staff';
                                 <table class="modern-table">
                                     <thead>
                                         <tr>
-                                            <th>Period</th>
-                                            <th>Type</th>
-                                            <th>Status</th>
+                                            <th scope="col">Period</th>
+                                            <th scope="col">Type</th>
+                                            <th scope="col">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="leave-history-body"></tbody>
@@ -465,10 +458,10 @@ $position = $emp['position'] ?? 'Staff';
 
                                     <div style="margin-top: 40px; border-top: 1px dashed #ccc; padding-top: 20px; display: flex; justify-content: flex-end; gap: 15px;">
                                         <button type="button" onclick="printFilledCashAdvance()" class="btn" style="padding: 12px 30px; font-size: 16px; border-radius: 30px; font-weight: 600; text-decoration: none; color: #333; background: #e9ecef; border: 1px solid #ced4da; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); display: flex; align-items: center;">
-                                            <i class="fas fa-print" style="margin-right: 8px;"></i> Print Filled Form
+                                            <i class="fas fa-print" style="margin-right: 8px;" aria-hidden="true"></i> Print Filled Form
                                         </button>
                                         <button type="submit" class="btn btn-dark-purple" style="padding: 12px 30px; font-size: 16px; border-radius: 30px; font-weight: 600; box-shadow: 0 4px 10px rgba(103, 58, 183, 0.3);">
-                                            <i class="fas fa-paper-plane" style="margin-right: 8px;"></i> Submit Request
+                                            <i class="fas fa-paper-plane" style="margin-right: 8px;" aria-hidden="true"></i> Submit Request
                                         </button>
                                     </div>
                                 </form>
@@ -480,10 +473,10 @@ $position = $emp['position'] ?? 'Staff';
                                 <table class="modern-table">
                                     <thead>
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Amount</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
+                                            <th scope="col">Date</th>
+                                            <th scope="col">Amount</th>
+                                            <th scope="col">Status</th>
+                                            <th scope="col">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="loan-history-body"></tbody>
@@ -533,7 +526,7 @@ $position = $emp['position'] ?? 'Staff';
                                    style="position: absolute; bottom: 5px; right: 5px; background: var(--primary-color); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease;" 
                                    onmouseover="this.style.background='#2a02a8'; this.style.transform='scale(1.1)'" 
                                    onmouseout="this.style.background='var(--primary-color)'; this.style.transform='scale(1)'">
-                                <i class="fas fa-camera" style="font-size: 14px;"></i>
+                                <i class="fas fa-camera" style="font-size: 14px;" aria-hidden="true"></i>
                             </label>
                             <input type="file" id="profile-picture-upload" accept="image/*" style="display: none;" onchange="uploadProfilePicture(event)">
                         </div>
@@ -629,17 +622,17 @@ $position = $emp['position'] ?? 'Staff';
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h3>Subject Loads</h3>
                                 <button class="btn btn-dark-purple" onclick="openSubjectLoadModal()">
-                                    <i class="fas fa-plus"></i> Add Subject
+                                    <i class="fas fa-plus" aria-hidden="true"></i> Add Subject
                                 </button>
                             </div>
                             <div class="modern-table-wrapper" style="margin-bottom: 2rem;">
                                 <table class="modern-table">
                                     <thead>
                                         <tr>
-                                            <th>Code</th>
-                                            <th>Description</th>
-                                            <th>Units</th>
-                                            <th>Action</th>
+                                            <th scope="col">Code</th>
+                                            <th scope="col">Description</th>
+                                            <th scope="col">Units</th>
+                                            <th scope="col">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="faculty-subjects-body">
@@ -651,19 +644,19 @@ $position = $emp['position'] ?? 'Staff';
                             <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
                                 <h3>Schedules</h3>
                                 <button class="btn btn-dark-purple" onclick="openScheduleModal()">
-                                    <i class="fas fa-plus"></i> Add Schedule
+                                    <i class="fas fa-plus" aria-hidden="true"></i> Add Schedule
                                 </button>
                             </div>
                             <div class="modern-table-wrapper">
                                 <table class="modern-table">
                                     <thead>
                                         <tr>
-                                            <th>Subject</th>
-                                            <th>Day</th>
-                                            <th>Time Start</th>
-                                            <th>Time End</th>
-                                            <th>Room</th>
-                                            <th>Action</th>
+                                            <th scope="col">Subject</th>
+                                            <th scope="col">Day</th>
+                                            <th scope="col">Time Start</th>
+                                            <th scope="col">Time End</th>
+                                            <th scope="col">Room</th>
+                                            <th scope="col">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="faculty-schedules-body">
