@@ -296,10 +296,11 @@ function generateTableControlsHTML(tableName, options) {
     
     // Search box
     if (showSearch) {
+        const readableTableName = tableName.replace(/_/g, ' ');
         html += `
             <div class="table-search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="${tableName}-search" placeholder="Search by name or employee ID..." oninput="handleTableSearch('${tableName}', this.value)">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input type="text" id="${tableName}-search" aria-label="Search ${readableTableName}" placeholder="Search by name or employee ID..." oninput="handleTableSearch('${tableName}', this.value)">
             </div>
         `;
     }
@@ -317,11 +318,12 @@ function generateTableControlsHTML(tableName, options) {
     
     // Right side - Rows per page
     if (showRowsPerPage) {
+        const rowsSelectId = `${tableName}-rows`;
         html += `
             <div class="table-controls-right">
                 <div class="rows-per-page">
-                    <label>Rows per page:</label>
-                    <select id="${tableName}-rows" onchange="handleRowsPerPageChange('${tableName}', this.value)">
+                    <label for="${rowsSelectId}">Rows per page:</label>
+                    <select id="${rowsSelectId}" aria-label="Rows per page" onchange="handleRowsPerPageChange('${tableName}', this.value)">
                         <option value="10">10</option>
                         <option value="25">25</option>
                         <option value="50">50</option>
@@ -337,12 +339,13 @@ function generateTableControlsHTML(tableName, options) {
 
 // Generate individual filter HTML
 function generateFilterHTML(tableName, filter) {
+    const filterId = `${tableName}-filter-${filter.id}`;
     switch(filter.type) {
         case 'select':
             return `
                 <div class="table-filter-item">
-                    <label>${filter.label}</label>
-                    <select id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                    <label for="${filterId}">${filter.label}</label>
+                    <select id="${filterId}" aria-label="${filter.label}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
                         <option value="">All</option>
                         ${filter.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
@@ -351,8 +354,8 @@ function generateFilterHTML(tableName, filter) {
         case 'date':
             return `
                 <div class="table-filter-item">
-                    <label>${filter.label}</label>
-                    <input type="date" id="${tableName}-filter-${filter.id}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
+                    <label for="${filterId}">${filter.label}</label>
+                    <input type="date" id="${filterId}" aria-label="${filter.label}" onchange="handleTableFilter('${tableName}', '${filter.id}', this.value)">
                 </div>
             `;
         default:
