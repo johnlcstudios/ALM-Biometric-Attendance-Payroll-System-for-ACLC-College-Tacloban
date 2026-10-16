@@ -343,6 +343,12 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
             transform: translateX(-5px);
         }
 
+        .back-btn:focus-visible {
+            outline: 2px solid var(--pure-white);
+            outline-offset: 4px;
+            border-radius: 4px;
+        }
+
         .back-btn i {
             font-size: 1.1rem;
             transition: transform 0.3s ease;
@@ -719,7 +725,7 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
 
     <div class="profile-container">
         <a href="about.php" class="back-btn" id="back-link">
-            <i class="fas fa-arrow-left"></i>
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
             <span>Back to Team</span>
         </a>
 
@@ -727,18 +733,18 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
             <!-- Banner -->
             <div class="card-banner">
                 <div class="team-badge-banner">
-                    <i class="fas <?php echo $icon; ?>"></i>&nbsp;
+                    <i class="fas <?php echo $icon; ?>" aria-hidden="true"></i>&nbsp;
                     <?php echo htmlspecialchars($dev['team']); ?> Team
                 </div>
 
                 <?php if ($dev['role'] === 'CA in Charge'): ?>
                     <div class="leadership-badge">
-                        <i class="fas fa-medal"></i>
+                        <i class="fas fa-medal" aria-hidden="true"></i>
                         <span>Sub-Leadership</span>
                     </div>
                 <?php elseif ($dev['role'] === 'Chief Architect'): ?>
                     <div class="leadership-badge" style="border-left-color: #fbbf24; color: #fbbf24;">
-                        <i class="fas fa-crown"></i>
+                        <i class="fas fa-crown" aria-hidden="true"></i>
                         <span>Primary Leadership</span>
                     </div>
                 <?php endif; ?>
@@ -752,7 +758,7 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
                             alt="<?php echo htmlspecialchars($dev['name']); ?>" class="profile-image">
                     <?php else: ?>
                         <div class="profile-placeholder">
-                            <i class="fas fa-user"></i>
+                            <i class="fas fa-user" aria-hidden="true"></i>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -764,11 +770,11 @@ $icon = isset($teamIcons[$dev['team']]) ? $teamIcons[$dev['team']] : 'fa-code';
 
                 <div class="info-chips">
                     <span class="chip chip-team">
-                        <i class="fas <?php echo $icon; ?>"></i>
+                        <i class="fas <?php echo $icon; ?>" aria-hidden="true"></i>
                         <?php echo htmlspecialchars($dev['team']); ?>
                     </span>
                     <span class="chip chip-role">
-                        <i class="fas fa-id-badge"></i>
+                        <i class="fas fa-id-badge" aria-hidden="true"></i>
                         <?php echo htmlspecialchars($dev['role']); ?>
                     </span>
                 </div>
