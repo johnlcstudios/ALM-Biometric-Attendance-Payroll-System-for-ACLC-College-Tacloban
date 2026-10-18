@@ -2066,6 +2066,24 @@ body.swal2-no-backdrop {
     font-size: 1.5rem;
     cursor: pointer;
     color: var(--text-muted);
+    background: transparent;
+    border: none;
+    padding: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.close:hover {
+    color: var(--text-dark, #333);
+}
+
+.close:focus-visible {
+    outline: 2px solid var(--primary-color, #4a154b);
+    outline-offset: 2px;
 }
 
 /* Multi-step Form */
