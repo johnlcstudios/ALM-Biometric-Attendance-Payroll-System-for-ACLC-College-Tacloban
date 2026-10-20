@@ -260,6 +260,15 @@ try {
         .action-btn:hover {
             background: #c91a2d;
         }
+
+        .back-btn:focus-visible,
+        .btn-assign:focus-visible,
+        .copy-btn:focus-visible,
+        .action-btn:focus-visible,
+        .form-group select:focus-visible {
+            outline: 3px solid #1e0178;
+            outline-offset: 2px;
+        }
         
         @media (max-width: 1024px) {
             .content-grid {
@@ -270,22 +279,22 @@ try {
 </head>
 <body>
     <div class="assign-roles-page">
-        <a href="sd_dashboard.php" class="back-btn">
-            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        <a href="sd_dashboard.php" class="back-btn" aria-label="Back to School Director Dashboard">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Dashboard
         </a>
         
         <div class="page-header">
-            <h1><i class="fas fa-user-plus"></i> Assign HR & Payroll Officer Roles</h1>
+            <h1><i class="fas fa-user-plus" aria-hidden="true"></i> Assign HR & Payroll Officer Roles</h1>
             <p>Auto-generate usernames and passwords for new staff accounts</p>
         </div>
         
         <div class="content-grid">
             <!-- Assignment Form -->
             <div class="card">
-                <h3><i class="fas fa-plus-circle"></i> Assign New Role</h3>
+                <h3><i class="fas fa-plus-circle" aria-hidden="true"></i> Assign New Role</h3>
                 <form id="assignForm">
                     <div class="form-group">
-                        <label>Select Employee</label>
+                        <label for="employeeSelect">Select Employee</label>
                         <select id="employeeSelect" required>
                             <option value="">-- Choose Employee --</option>
                             <?php foreach ($available_employees as $emp): ?>
@@ -299,7 +308,7 @@ try {
                     </div>
                     
                     <div class="form-group">
-                        <label>Assign Role</label>
+                        <label for="roleSelect">Assign Role</label>
                         <select id="roleSelect" required>
                             <option value="">-- Select Role --</option>
                             <option value="HR">HR Staff</option>
@@ -309,20 +318,20 @@ try {
                     </div>
                     
                     <button type="submit" class="btn-assign">
-                        <i class="fas fa-magic"></i> Generate Credentials & Assign
+                        <i class="fas fa-magic" aria-hidden="true"></i> Generate Credentials & Assign
                     </button>
                 </form>
                 
                 <div id="credentialsBox" class="credentials-box">
                     <h4 style="margin: 0 0 1rem; color: #1e0178;">
-                        <i class="fas fa-key"></i> Generated Credentials
+                        <i class="fas fa-key" aria-hidden="true"></i> Generated Credentials
                     </h4>
                     <div class="credential-item">
                         <span class="credential-label">Username:</span>
                         <div>
                             <span class="credential-value" id="genUsername"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genUsername')">
-                                <i class="fas fa-copy"></i>
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genUsername', this)" aria-label="Copy username to clipboard" title="Copy username">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -330,13 +339,13 @@ try {
                         <span class="credential-label">Password:</span>
                         <div>
                             <span class="credential-value" id="genPassword"></span>
-                            <button class="copy-btn" onclick="copyToClipboard('genPassword')">
-                                <i class="fas fa-copy"></i>
+                            <button type="button" class="copy-btn" onclick="copyToClipboard('genPassword', this)" aria-label="Copy password to clipboard" title="Copy password">
+                                <i class="fas fa-copy" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
                     <p style="color: #e71d36; font-size: 0.85rem; margin: 1rem 0 0;">
-                        <i class="fas fa-exclamation-triangle"></i> 
+                        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
                         Save these credentials securely! They will not be shown again.
                     </p>
                 </div>
@@ -344,17 +353,17 @@ try {
             
             <!-- Assigned Users Table -->
             <div class="card">
-                <h3><i class="fas fa-users-cog"></i> Assigned Users</h3>
+                <h3><i class="fas fa-users-cog" aria-hidden="true"></i> Assigned Users</h3>
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
-                                <th>Employee</th>
-                                <th>Username</th>
-                                <th>Role</th>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Username</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -384,8 +393,8 @@ try {
                                             </span>
                                         </td>
                                         <td>
-                                            <button class="action-btn" onclick="deactivateUser(<?php echo $user['id']; ?>)">
-                                                <i class="fas fa-trash"></i> Remove
+                                            <button type="button" class="action-btn" onclick="deactivateUser(<?php echo $user['id']; ?>)" aria-label="Remove user account for <?php echo htmlspecialchars($user['full_name'] ?? 'Employee'); ?>" title="Remove account">
+                                                <i class="fas fa-trash" aria-hidden="true"></i> Remove
                                             </button>
                                         </td>
                                     </tr>
@@ -420,18 +429,71 @@ try {
             return password;
         }
         
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Copied!',
-                    text: 'Copied to clipboard',
-                    timer: 1500,
-                    showConfirmButton: false
+        // Copy to clipboard with visual micro-UX feedback and fallback
+        function copyToClipboard(elementId, btnElement) {
+            const textEl = document.getElementById(elementId);
+            if (!textEl) return;
+            const text = textEl.textContent;
+
+            const updateButtonUI = () => {
+                if (btnElement && !btnElement.hasAttribute('data-copied')) {
+                    btnElement.setAttribute('data-copied', 'true');
+                    const icon = btnElement.querySelector('i');
+                    const originalClass = icon ? icon.className : '';
+                    if (icon) {
+                        icon.className = 'fas fa-check';
+                    }
+                    btnElement.setAttribute('aria-label', 'Copied!');
+                    btnElement.setAttribute('title', 'Copied!');
+
+                    setTimeout(() => {
+                        if (icon) {
+                            icon.className = originalClass;
+                        }
+                        btnElement.setAttribute('aria-label', elementId === 'genUsername' ? 'Copy username to clipboard' : 'Copy password to clipboard');
+                        btnElement.setAttribute('title', elementId === 'genUsername' ? 'Copy username' : 'Copy password');
+                        btnElement.removeAttribute('data-copied');
+                    }, 1500);
+                }
+            };
+
+            const showFeedback = () => {
+                updateButtonUI();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Copied to clipboard',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(showFeedback).catch(() => {
+                    fallbackCopy(text);
+                    showFeedback();
                 });
-            });
+            } else {
+                fallbackCopy(text);
+                showFeedback();
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+            }
+            document.body.removeChild(textarea);
         }
         
         // Handle form submission
