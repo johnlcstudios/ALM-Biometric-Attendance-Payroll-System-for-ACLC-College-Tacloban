@@ -5,11 +5,11 @@
             <p>Schedule, upcoming cut-offs, and validation status.</p>
         </div>
         <div class="header-right">
-            <button class="btn btn-primary" onclick="addPayrollSchedule()">
-                <i class="fas fa-plus"></i> Add Cut-off
+            <button type="button" class="btn btn-primary" onclick="addPayrollSchedule()" aria-label="Add Cut-off">
+                <i class="fas fa-plus" aria-hidden="true"></i> Add Cut-off
             </button>
-            <button class="btn btn-success" onclick="previewNextPayroll()">
-                <i class="fas fa-play"></i> Preview Next Payroll
+            <button type="button" class="btn btn-success" onclick="previewNextPayroll()" aria-label="Preview Next Payroll">
+                <i class="fas fa-play" aria-hidden="true"></i> Preview Next Payroll
             </button>
         </div>
     </div>
@@ -44,13 +44,13 @@
         <table id="payrollCalendarTable" class="payroll-table">
             <thead>
                 <tr>
-                    <th>Period</th>
-                    <th>Attendance Cut-off</th>
-                    <th>Payroll Run Date</th>
-                    <th>Status</th>
-                    <th>Employees</th>
-                    <th>Est. Amount</th>
-                    <th>Actions</th>
+                    <th scope="col">Period</th>
+                    <th scope="col">Attendance Cut-off</th>
+                    <th scope="col">Payroll Run Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Employees</th>
+                    <th scope="col">Est. Amount</th>
+                    <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody id="payrollCalendarBody">
@@ -62,25 +62,25 @@
     <!-- New Schedule Modal -->
     <div id="newScheduleModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('newScheduleModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('newScheduleModal')" aria-label="Close modal">&times;</button>
             <h3>Add New Payroll Cut-off</h3>
             <form id="newScheduleForm">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Start Date</label>
+                        <label for="scheduleStart">Start Date</label>
                         <input type="date" id="scheduleStart" required>
                     </div>
                     <div class="form-group">
-                        <label>End Date</label>
+                        <label for="scheduleEnd">End Date</label>
                         <input type="date" id="scheduleEnd" required>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Payroll Run Date</label>
+                    <label for="runDate">Payroll Run Date</label>
                     <input type="date" id="runDate" required>
                 </div>
                 <div class="form-group">
-                    <label>Type</label>
+                    <label for="scheduleType">Type</label>
                     <select id="scheduleType">
                         <option value="general">General Staff</option>
                         <option value="faculty">Faculty</option>
@@ -133,10 +133,10 @@ function renderCalendar() {
             <td>₱${formatCurrency(schedule.est_amount || 0)}</td>
             <td>
                 ${schedule.status !== 'completed' ? 
-                    `<button class="btn-sm btn-primary" onclick="runPayroll('${schedule.id}')">Run Now</button>` : 
+                    `<button type="button" class="btn-sm btn-primary" onclick="runPayroll('${schedule.id}')" aria-label="Run payroll for ${schedule.period}">Run Now</button>` :
                     '✓ Completed'
                 }
-                <button class="btn-sm btn-secondary" onclick="previewPayroll('${schedule.id}')">Preview</button>
+                <button type="button" class="btn-sm btn-secondary" onclick="previewPayroll('${schedule.id}')" aria-label="Preview payroll for ${schedule.period}">Preview</button>
             </td>
         </tr>
     `).join('') || '<tr><td colspan="7" class="text-center text-muted">No scheduled payrolls</td></tr>';
