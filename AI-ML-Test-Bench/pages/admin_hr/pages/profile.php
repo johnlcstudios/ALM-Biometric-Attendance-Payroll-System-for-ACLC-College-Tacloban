@@ -58,12 +58,12 @@ if (!empty($profile_picture) && file_exists($profile_picture)) {
         </div>
 
         <div class="profile-details-card">
-            <div class="tab-nav">
-                <button class="tab-link active" onclick="switchProfileTab('info', this)">Account Information</button>
+            <div class="tab-nav" role="tablist" aria-label="Profile navigation">
+                <button type="button" role="tab" id="tab-info" aria-selected="true" aria-controls="profile-info" class="tab-link active" onclick="switchProfileTab('info', this)">Account Information</button>
                 <?php if ($emp && $emp['position'] === 'Faculty'): ?>
-                <button class="tab-link" onclick="switchProfileTab('loads', this)">Teaching Loads</button>
+                <button type="button" role="tab" id="tab-loads" aria-selected="false" aria-controls="profile-loads" class="tab-link" onclick="switchProfileTab('loads', this)">Teaching Loads</button>
                 <?php endif; ?>
-                <button class="tab-link" onclick="switchProfileTab('security', this)">Security Settings</button>
+                <button type="button" role="tab" id="tab-security" aria-selected="false" aria-controls="profile-security" class="tab-link" onclick="switchProfileTab('security', this)">Security Settings</button>
             </div>
 
             <div id="profile-info" class="profile-tab-section active">
@@ -696,9 +696,13 @@ let mySelectedLoadId = null;
 
 function switchProfileTab(tab, btn) {
     document.querySelectorAll('.profile-tab-section').forEach(s => s.style.display = 'none');
-    document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.tab-link').forEach(l => {
+        l.classList.remove('active');
+        l.setAttribute('aria-selected', 'false');
+    });
     document.getElementById('profile-' + tab).style.display = 'block';
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
     if (tab === 'loads') loadMySubjectLoads();
 }
 
