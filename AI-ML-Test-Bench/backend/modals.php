@@ -5,7 +5,7 @@
     <div class="modal-content large-modal">
         <div class="modal-header bg-dark-purple text-white">
             <h3 id="employeeModalTitle">Add New Employee</h3>
-            <span class="close" onclick="closeModal('employeeModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('employeeModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <!-- Step Indicator -->
@@ -198,13 +198,13 @@
             </form>
         </div>
         <div class="modal-footer border-top-0">
-            <button class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
+            <button type="button" class="btn btn-secondary" id="prevBtn" onclick="goEmpStep(-1)" style="display:none;">
                 <i class="fas fa-arrow-left"></i> Previous
             </button>
-            <button class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
+            <button type="button" class="btn btn-dark-purple" id="nextBtn" onclick="goEmpStep(1)">
                 Next <i class="fas fa-arrow-right"></i>
             </button>
-            <button class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
+            <button type="button" class="btn btn-success" id="saveBtn" onclick="saveEmployee()" style="display:none;">
                 <i class="fas fa-check-circle"></i> Save Employee
             </button>
         </div>
@@ -216,13 +216,13 @@
     <div class="modal-content large">
         <div class="modal-header">
             <h3>Employee Payslip</h3>
-            <span class="close" onclick="closeModal('payslipModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('payslipModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body" id="payslipContent">
             <!-- Dynamic Content -->
         </div>
         <div class="modal-footer">
-            <button class="btn btn-primary" onclick="exportPayslipPDF()">
+            <button type="button" class="btn btn-primary" onclick="exportPayslipPDF()">
                 <i class="fas fa-file-pdf"></i> Export to PDF
             </button>
         </div>
@@ -234,7 +234,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Add Subject Load</h3>
-            <span class="close" onclick="closeModal('addLoadModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('addLoadModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <form id="subjectLoadForm">
@@ -268,8 +268,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('addLoadModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveSubjectLoad()">Save Load</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('addLoadModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveSubjectLoad()">Save Load</button>
         </div>
     </div>
 </div>
@@ -279,7 +279,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3 id="subjectModalTitle">Create New Subject</h3>
-            <span class="close" onclick="closeModal('subjectModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('subjectModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <form id="masterSubjectForm">
@@ -305,8 +305,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('subjectModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveMasterSubject()">Save Subject</button>
         </div>
     </div>
 </div>
@@ -316,7 +316,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Process New Payroll</h3>
-            <span class="close" onclick="closeModal('runPayrollModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('runPayrollModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <form id="runPayrollForm">
@@ -346,8 +346,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('runPayrollModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="runPayroll()">Run Payroll Now</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('runPayrollModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="runPayroll()">Run Payroll Now</button>
         </div>
     </div>
 </div>
@@ -357,7 +357,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Change Admin Password</h3>
-            <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('passwordModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <form id="passwordForm">
@@ -392,8 +392,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('passwordModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="changePassword()">Update Password</button>
         </div>
     </div>
 </div>
@@ -412,7 +412,7 @@
     <div class="modal-content large">
         <div class="modal-header">
             <h3 id="viewLoadsTitle">Faculty Subject Loads</h3>
-            <span class="close" onclick="closeModal('viewLoadsModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('viewLoadsModal')" aria-label="Close modal">&times;</button>
         </div>
         <div class="modal-body">
             <div class="table-container">
@@ -462,7 +462,7 @@
                     </div>
                     <div class="form-group-custom">
                         <label>&nbsp;</label>
-                        <button class="btn btn-primary" onclick="saveSchedule()" style="padding:8px 16px;font-size:0.85rem;">Add</button>
+                        <button type="button" class="btn btn-primary" onclick="saveSchedule()" style="padding:8px 16px;font-size:0.85rem;">Add</button>
                     </div>
                 </div>
                 <div style="margin-top:12px;">
@@ -484,7 +484,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal('viewLoadsModal')">Close</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('viewLoadsModal')">Close</button>
         </div>
     </div>
 </div>

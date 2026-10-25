@@ -2063,9 +2063,27 @@ body.swal2-no-backdrop {
 }
 
 .close {
+    background: none;
+    border: none;
+    padding: 0;
     font-size: 1.5rem;
+    line-height: 1;
     cursor: pointer;
     color: var(--text-muted);
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.close:hover,
+.close:focus {
+    color: var(--text-color, #333);
+    text-decoration: none;
+    opacity: 0.8;
+}
+
+.close:focus-visible {
+    outline: 2px solid var(--primary-color, #4f46e5);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 /* Multi-step Form */

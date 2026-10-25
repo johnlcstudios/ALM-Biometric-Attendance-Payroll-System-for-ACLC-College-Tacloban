@@ -712,7 +712,7 @@ $position = $emp['position'] ?? 'Staff';
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>Add Subject Load</h2>
-                <span class="close" onclick="closeModal('subjectLoadModal')">&times;</span>
+                <button type="button" class="close" onclick="closeModal('subjectLoadModal')" aria-label="Close modal">&times;</button>
             </div>
             <form id="subjectLoadForm" onsubmit="saveSubjectLoad(event)">
                 <div class="form-group-custom">
@@ -740,7 +740,7 @@ $position = $emp['position'] ?? 'Staff';
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>Add Schedule</h2>
-                <span class="close" onclick="closeModal('scheduleModal')">&times;</span>
+                <button type="button" class="close" onclick="closeModal('scheduleModal')" aria-label="Close modal">&times;</button>
             </div>
             <form id="scheduleForm" onsubmit="saveSchedule(event)">
                 <div class="form-group-custom">
