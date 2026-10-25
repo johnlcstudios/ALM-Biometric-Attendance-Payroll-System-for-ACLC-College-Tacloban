@@ -62,7 +62,7 @@
     <!-- New Schedule Modal -->
     <div id="newScheduleModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('newScheduleModal')">&times;</span>
+            <button type="button" class="close" onclick="closeModal('newScheduleModal')" aria-label="Close modal">&times;</button>
             <h3>Add New Payroll Cut-off</h3>
             <form id="newScheduleForm">
                 <div class="form-row">
