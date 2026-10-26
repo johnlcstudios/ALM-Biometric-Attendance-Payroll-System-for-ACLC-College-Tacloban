@@ -30,6 +30,8 @@ function initContextMenu() {
     contextMenuElement = document.createElement('div');
     contextMenuElement.id = 'custom-context-menu';
     contextMenuElement.className = 'custom-context-menu';
+    contextMenuElement.setAttribute('role', 'menu');
+    contextMenuElement.setAttribute('aria-label', 'Context Menu');
     document.body.appendChild(contextMenuElement);
     
     // Add event listener for context menu
@@ -38,10 +40,24 @@ function initContextMenu() {
     // Close context menu on click outside
     document.addEventListener('click', closeContextMenu);
     
-    // Close context menu on escape key
+    // Keydown handler for keyboard navigation inside context menu
     document.addEventListener('keydown', (e) => {
+        if (!contextMenuElement || contextMenuElement.style.display !== 'block') return;
+
         if (e.key === 'Escape') {
             closeContextMenu();
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            const items = Array.from(contextMenuElement.querySelectorAll('.context-menu-item'));
+            if (items.length === 0) return;
+            e.preventDefault();
+            const activeIdx = items.indexOf(document.activeElement);
+            if (e.key === 'ArrowDown') {
+                const nextIdx = activeIdx < items.length - 1 ? activeIdx + 1 : 0;
+                items[nextIdx].focus();
+            } else {
+                const prevIdx = activeIdx > 0 ? activeIdx - 1 : items.length - 1;
+                items[prevIdx].focus();
+            }
         }
     });
     
@@ -118,19 +134,19 @@ function buildContextMenu(config) {
     
     let html = `
         <div class="context-menu-header">
-            <i class="fas fa-bars"></i>
+            <i class="fas fa-bars" aria-hidden="true"></i>
             <span>${config.title}</span>
         </div>
-        <div class="context-menu-items">
+        <div class="context-menu-items" role="menu">
     `;
     
     config.items.forEach((item, index) => {
         if (item.divider) {
-            html += '<div class="context-menu-divider"></div>';
+            html += '<div class="context-menu-divider" role="separator"></div>';
         } else {
             html += `
-                <div class="context-menu-item" data-index="${index}">
-                    <i class="${item.icon}"></i>
+                <div class="context-menu-item" role="menuitem" tabindex="0" aria-label="${item.label}" data-index="${index}">
+                    <i class="${item.icon}" aria-hidden="true"></i>
                     <span>${item.label}</span>
                 </div>
             `;
@@ -140,15 +156,22 @@ function buildContextMenu(config) {
     html += '</div>';
     contextMenuElement.innerHTML = html;
     
-    // Add click handlers to menu items
+    // Add click and keydown handlers to menu items
     const items = contextMenuElement.querySelectorAll('.context-menu-item');
     items.forEach((itemElement, index) => {
         const configItem = config.items.find(i => !i.divider && config.items.indexOf(i) === index);
         if (configItem && configItem.action) {
-            itemElement.addEventListener('click', (e) => {
+            const execute = (e) => {
                 e.stopPropagation();
                 closeContextMenu();
                 configItem.action();
+            };
+            itemElement.addEventListener('click', execute);
+            itemElement.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    execute(e);
+                }
             });
         }
     });
@@ -190,6 +213,14 @@ function showContextMenu(x, y) {
     contextMenuElement.style.left = adjustedX + 'px';
     contextMenuElement.style.top = adjustedY + 'px';
     contextMenuElement.style.opacity = '1';
+
+    // Auto-focus first context menu item for keyboard users
+    setTimeout(() => {
+        const firstItem = contextMenuElement.querySelector('.context-menu-item');
+        if (firstItem) {
+            firstItem.focus();
+        }
+    }, 50);
 }
 
 /**

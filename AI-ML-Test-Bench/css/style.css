@@ -2572,12 +2572,16 @@ select {
     transition: background 0.15s ease;
 }
 
-.context-menu-item:hover {
-    background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
+.context-menu-item:hover,
+.context-menu-item:focus-visible {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.15) 0%, transparent 100%);
     color: #667eea;
+    outline: 2px solid #667eea;
+    outline-offset: -2px;
 }
 
-.context-menu-item:hover::before {
+.context-menu-item:hover::before,
+.context-menu-item:focus-visible::before {
     background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
 }
 
@@ -2622,9 +2626,12 @@ body.dark-mode .context-menu-item {
     color: #ecf0f1;
 }
 
-body.dark-mode .context-menu-item:hover {
+body.dark-mode .context-menu-item:hover,
+body.dark-mode .context-menu-item:focus-visible {
     background: linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, transparent 100%);
     color: #a8b5ff;
+    outline: 2px solid #a8b5ff;
+    outline-offset: -2px;
 }
 
 body.dark-mode .context-menu-divider {
