@@ -416,6 +416,12 @@
             box-shadow: 0 15px 35px rgba(30, 1, 120, 0.3);
         }
 
+        .change-company-btn:focus-visible,
+        .company-item:focus-visible {
+            outline: 3px solid #00f2fe;
+            outline-offset: 3px;
+        }
+
         .change-company-btn i {
             font-size: 0.9em;
             opacity: 0.8;
@@ -503,8 +509,8 @@
         </div>
     </div>
 
-    <button class="change-company-btn" onclick="showCompanySelection()">
-        <i class="fas fa-exchange-alt"></i> Change Company
+    <button type="button" class="change-company-btn" onclick="showCompanySelection()" aria-label="Change Selected Company" title="Change Selected Company">
+        <i class="fas fa-exchange-alt" aria-hidden="true"></i> Change Company
     </button>
 
     <div class="kiosk-wrapper">
@@ -666,7 +672,7 @@
             try {
                 const response = await fetch('backend/api.php?action=get_companies');
                 const companies = await response.json();
-                list.innerHTML = companies.map(c => `<div class="company-item" onclick="setCompany(${c.id})">${c.name}</div>`).join('');
+                list.innerHTML = companies.map(c => `<button type="button" class="company-item" onclick="setCompany(${c.id})">${c.name}</button>`).join('');
             } catch (err) { list.innerHTML = '<p class="text-danger">Failed to load companies.</p>'; }
         }
 
