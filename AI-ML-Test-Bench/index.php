@@ -88,6 +88,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="role-<?php echo strtolower($role); ?>">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <?php if ($showSplash): ?>
     <!-- Splash Screen -->
     <div id="splashScreen" style="
@@ -356,7 +357,7 @@ if (!in_array($page, $allowed_pages, true)) $page = 'dashboard';
         </aside>
 
         <!-- Main Content Area -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" tabindex="-1">
             <!-- Top bar and page content sections remain similar but filtered by role -->
             <header class="top-bar">
                 <div class="page-title">

@@ -35,6 +35,8 @@ $company_id = $_SESSION['company_id'] ?? 1;
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- System Stylesheet -->
+    <link rel="stylesheet" href="../css/style.css">
     <style>
         :root {
             --primary-color: #1e0178;
@@ -401,6 +403,7 @@ $company_id = $_SESSION['company_id'] ?? 1;
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="app-wrapper">
         <!-- Sidebar -->
         <nav class="sidebar">
@@ -495,7 +498,7 @@ $company_id = $_SESSION['company_id'] ?? 1;
         </nav>
 
         <!-- Main Content -->
-        <div class="main-content">
+        <div class="main-content" id="main-content" tabindex="-1">
             <!-- Top Header -->
             <div class="top-header">
                 <h1 class="header-title">School Director Management Portal</h1>
