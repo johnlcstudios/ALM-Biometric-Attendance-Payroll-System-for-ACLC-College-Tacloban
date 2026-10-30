@@ -115,6 +115,7 @@ $position = $emp['position'] ?? 'Staff';
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -149,7 +150,7 @@ $position = $emp['position'] ?? 'Staff';
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" tabindex="-1">
             <!-- Top Bar -->
             <header class="top-bar">
                 <div class="page-title">
