@@ -84,7 +84,19 @@ body {
     transition: all 0.3s ease;
 }
 
-.info-item:hover {
+a.info-item {
+    text-decoration: none;
+    color: inherit;
+}
+
+a.info-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(10px);
+}
+
+a.info-item:focus-visible {
+    outline: 2px solid #4facfe;
+    outline-offset: 3px;
     background: rgba(255, 255, 255, 0.15);
     transform: translateX(10px);
 }
@@ -125,6 +137,11 @@ body {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
+.back-btn:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 3px;
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -147,32 +164,32 @@ body {
     </div>
 
     <div class="contact-info">
-        <div class="info-item">
-            <i class="fas fa-envelope"></i>
+        <a class="info-item" href="mailto:support@alm.edu" aria-label="Email Support: support@alm.edu">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Email Support</h3>
                 <p>support@alm.edu</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
-            <i class="fas fa-phone-alt"></i>
+        <a class="info-item" href="tel:0531234567" aria-label="Phone: (053) 123-4567">
+            <i class="fas fa-phone-alt" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Phone</h3>
                 <p>(053) 123-4567</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
-            <i class="fas fa-map-marker-alt"></i>
+        <a class="info-item" href="https://maps.google.com/?q=ACLC+College+Tacloban" target="_blank" rel="noopener noreferrer" aria-label="Address: ACLC College Tacloban Campus (opens in Google Maps)">
+            <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Address</h3>
-                <p>ACLC College Tacloban Campus</p>
+                <p>ACLC College Tacloban Campus <i class="fas fa-external-link-alt" aria-hidden="true" style="font-size: 0.75rem; margin-left: 4px; opacity: 0.7; vertical-align: middle;"></i></p>
             </div>
-        </div>
+        </a>
 
         <div class="info-item">
-            <i class="fas fa-clock"></i>
+            <i class="fas fa-clock" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Working Hours</h3>
                 <p>Mon - Fri, 8:00 AM - 5:00 PM</p>
