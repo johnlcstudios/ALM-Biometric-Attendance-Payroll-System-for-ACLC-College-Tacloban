@@ -73,6 +73,11 @@ body {
     gap: 20px;
 }
 
+a.info-item {
+    text-decoration: none;
+    color: inherit;
+}
+
 .info-item {
     display: flex;
     align-items: center;
@@ -87,6 +92,12 @@ body {
 .info-item:hover {
     background: rgba(255, 255, 255, 0.15);
     transform: translateX(10px);
+}
+
+.info-item:focus-visible,
+.back-btn:focus-visible {
+    outline: 3px solid #00f2fe;
+    outline-offset: 3px;
 }
 
 .info-item i {
@@ -141,38 +152,38 @@ body {
 
 <div class="contact-card">
     <div class="contact-header">
-        <img src="assets/logo.jpg" alt="Logo" class="logo">
+        <img src="assets/logo.jpg" alt="ACLC College Logo" class="logo">
         <h1>Help & Support</h1>
         <p>We are here to help you</p>
     </div>
 
     <div class="contact-info">
-        <div class="info-item">
-            <i class="fas fa-envelope"></i>
+        <a href="mailto:support@alm.edu" class="info-item" aria-label="Email support at support@alm.edu">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Email Support</h3>
                 <p>support@alm.edu</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
-            <i class="fas fa-phone-alt"></i>
+        <a href="tel:0531234567" class="info-item" aria-label="Call phone support at (053) 123-4567">
+            <i class="fas fa-phone-alt" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Phone</h3>
                 <p>(053) 123-4567</p>
             </div>
-        </div>
+        </a>
 
-        <div class="info-item">
-            <i class="fas fa-map-marker-alt"></i>
+        <a href="https://maps.google.com/?q=ACLC+College+Tacloban" target="_blank" rel="noopener noreferrer" class="info-item" aria-label="View ACLC College Tacloban Campus on Google Maps">
+            <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Address</h3>
                 <p>ACLC College Tacloban Campus</p>
             </div>
-        </div>
+        </a>
 
         <div class="info-item">
-            <i class="fas fa-clock"></i>
+            <i class="fas fa-clock" aria-hidden="true"></i>
             <div class="info-content">
                 <h3>Working Hours</h3>
                 <p>Mon - Fri, 8:00 AM - 5:00 PM</p>
@@ -181,7 +192,7 @@ body {
     </div>
 
     <div style="text-align: center;">
-        <a href="index.php" class="back-btn">Back to Home</a>
+        <a href="index.php" class="back-btn" aria-label="Back to Home">Back to Home</a>
     </div>
 </div>
 
